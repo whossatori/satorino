@@ -167,7 +167,7 @@ int main(int argc, char **argv)
     // Must match the installed .desktop / Flatpak app-id so the shell
     // associates this window with Satorino's icon (not Chatterino's).
     // satorino: app id (was com.leafyzito.leafyrino)
-    QGuiApplication::setDesktopFileName("dev.satorino.Satorino");
+    QGuiApplication::setDesktopFileName("cc.satos.Satorino");
 #ifdef Q_OS_WIN
     SetCurrentProcessExplicitAppUserModelID(
         Version::instance().appUserModelID().c_str());

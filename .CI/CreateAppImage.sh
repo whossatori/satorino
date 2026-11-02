@@ -71,7 +71,7 @@ desktop_file_base=$(basename "$desktop_file_name")
 cp "$chatterino_dir"/resources/icon.png ./appdir/"$app_executable".png
 # satorino: the desktop file's Icon= is the app id - provide a matching file
 # for linuxdeployqt (fixes an icon mismatch inherited from leafyrino)
-cp "$chatterino_dir"/resources/icon.png ./appdir/dev.satorino.Satorino.png
+cp "$chatterino_dir"/resources/icon.png ./appdir/cc.satos.Satorino.png
 
 linuxdeployqt_path="${LINUXDEPLOYQT_PATH:-linuxdeployqt-x86_64.AppImage}"
 linuxdeployqt_url="https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage"

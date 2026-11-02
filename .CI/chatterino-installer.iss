@@ -102,8 +102,8 @@ Source: "{#WORKING_DIR}vc_redist.{#VCRT_ARCH}.exe"; DestDir: "{tmp}"; Tasks: vcr
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; AppUserModelID: "dev.satorino.Satorino"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; AppUserModelID: "dev.satorino.Satorino"; Tasks: desktopicon
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; AppUserModelID: "cc.satos.Satorino"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; AppUserModelID: "cc.satos.Satorino"; Tasks: desktopicon
 
 [Run]
 ; VC++ redistributable

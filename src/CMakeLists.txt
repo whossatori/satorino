@@ -1422,12 +1422,12 @@ if (BUILD_APP)
         # satorino: installed desktop/icon file names (must match
         # setDesktopFileName in src/main.cpp and Icon= in the .desktop file)
         install(FILES ${CMAKE_SOURCE_DIR}/resources/com.chatterino.chatterino.desktop
-                RENAME dev.satorino.Satorino.desktop
+                RENAME cc.satos.Satorino.desktop
                 DESTINATION share/applications
                 )
 
         install(FILES ${CMAKE_SOURCE_DIR}/resources/icon.png
-                RENAME dev.satorino.Satorino.png
+                RENAME cc.satos.Satorino.png
                 DESTINATION share/icons/hicolor/256x256/apps
                 )
     endif ()
@@ -1529,7 +1529,7 @@ if (APPLE AND BUILD_APP)
     set_target_properties(${EXECUTABLE_PROJECT}
         PROPERTIES
         MACOSX_BUNDLE_BUNDLE_NAME "Satorino"
-        MACOSX_BUNDLE_GUI_IDENTIFIER "dev.satorino.Satorino"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "cc.satos.Satorino"
         MACOSX_BUNDLE_LONG_VERSION_STRING "${PROJECT_VERSION}"
         MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
         MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"

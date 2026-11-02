@@ -46,7 +46,7 @@ Version::Version()
 
 #ifdef Q_OS_WIN
     // keep in sync with .CI/chatterino-installer.iss
-    this->appUserModelID_ = L"dev.satorino.Satorino";
+    this->appUserModelID_ = L"cc.satos.Satorino";
 #endif
 }
 

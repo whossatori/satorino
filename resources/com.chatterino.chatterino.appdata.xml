@@ -4,8 +4,8 @@
      source file name is kept for merge reasons; the <id> matches the flatpak
      app-id and the installed desktop file name. -->
 <component type="desktop-application">
-    <id>dev.satorino.Satorino</id>
-    <launchable type="desktop-id">dev.satorino.Satorino.desktop</launchable>
+    <id>cc.satos.Satorino</id>
+    <launchable type="desktop-id">cc.satos.Satorino.desktop</launchable>
     <metadata_license>CC0-1.0</metadata_license>
     <project_license>MIT</project_license>
     <content_rating type="oars-1.0">

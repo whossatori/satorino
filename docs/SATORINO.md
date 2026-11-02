@@ -16,8 +16,7 @@ Chatterino/chatterino2 ──> SevenTV/chatterino7 ──> leafyzito/leafyrino �
   merges stay cheap. `project()` is renamed in `CMakeLists.txt`; the target
   names are pinned in `src/CMakeLists.txt` (tests/mocks/benchmarks and
   `.CI/setup-clang-tidy.sh` reference `chatterino-lib` by name).
-- **App id: `dev.satorino.Satorino` is a PLACEHOLDER** — replace it with a
-  reverse-DNS prefix you actually own (e.g. `io.github.<you>.Satorino`). It
+- **App id: `cc.satos.Satorino` (final, decided 2026-11-01).** It
   appears in: `.desktop` `Icon=` + installed file names (`src/CMakeLists.txt`
   install rules), `setDesktopFileName` (`src/main.cpp`), GLib toast app id
   (`src/singletons/Toasts.cpp`), macOS bundle id (`src/CMakeLists.txt`),
@@ -58,10 +57,10 @@ re-grep `satorino` and `leafyrino`):
 | File | Why |
 |---|---|
 | `CMakeLists.txt` | `project(satorino ...)` (target names pinned separately) |
-| `src/CMakeLists.txt` | pin `chatterino-lib`/`chatterino` targets, `OUTPUT_NAME "Satorino"`, install renames (`dev.satorino.Satorino.desktop/.png`), macOS bundle name/id |
+| `src/CMakeLists.txt` | pin `chatterino-lib`/`chatterino` targets, `OUTPUT_NAME "Satorino"`, install renames (`cc.satos.Satorino.desktop/.png`), macOS bundle name/id |
 | `src/common/Version.cpp` | `"Satorino "` full-version prefix, AppUserModelID, commit URL |
 | `src/RunGui.cpp` | single-instance key `satorino-gui-activate-*` |
-| `src/main.cpp` | `setDesktopFileName("dev.satorino.Satorino")` |
+| `src/main.cpp` | `setDesktopFileName("cc.satos.Satorino")` |
 | `src/common/network/NetworkRequest.cpp` | default UA `satorino/<version> (<hash>)` |
 | `src/providers/twitch/eventsub/Controller.cpp` | EventSub WS UA (same string) |
 | `src/singletons/Updates.cpp` | feed URL → `.invalid` placeholder, nightly URLs/prompts → placeholder repo |
