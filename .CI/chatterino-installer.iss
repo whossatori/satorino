@@ -36,7 +36,9 @@
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
 ; (To generate a new GUID, click Tools | Generate GUID inside the IDE.)
-AppId={{F5FE6614-04D4-4D32-8600-0ABA0AC113A4}
+; satorino: fresh GUID (2026-11-01) so Satorino gets its own Add/Remove Programs
+; entry instead of hijacking Chatterino's/Leafyrino's (they share the old one).
+AppId={{CC804039-1CF2-4868-BACF-CE61C9EAD4BB}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 VersionInfoVersion={#MyAppVersion}
