@@ -10,8 +10,14 @@ Chatterino/chatterino2 ──> SevenTV/chatterino7 ──> leafyzito/leafyrino �
 
 ## Identity decisions
 
-- Display name **Satorino**, binary/installer/DMG/AppImage `Satorino`, internal
-  identifiers lowercase `satorino`. C++ namespaces, class names, file names and
+- Names (2026-11-02): packaging display name **Satorino** (installer
+  wizard, `.desktop` `Name=`, DMG volume name, deb `Maintainer`);
+  everything the app shows at runtime is lowercase **satorino** (window
+  titles, tray, About, `--version`, user agent); and every
+  binary/artifact **file name** is lowercase: `satorino.exe`,
+  `satorino.Installer.exe`, `satorino.Portable.zip`, `satorino.app`,
+  `satorino-x86_64-Qt6.AppImage`, `satorino.dmg`. Internal identifiers
+  lowercase `satorino`. C++ namespaces, class names, source file names and
   CMake target names (`chatterino-lib`, `chatterino`) are **unchanged** so
   merges stay cheap. `project()` is renamed in `CMakeLists.txt`; the target
   names are pinned in `src/CMakeLists.txt` (tests/mocks/benchmarks and
@@ -70,14 +76,14 @@ re-grep `satorino` and `leafyrino`):
 | File | Why |
 |---|---|
 | `CMakeLists.txt` | `project(satorino ...)` (target names pinned separately) |
-| `src/CMakeLists.txt` | pin `chatterino-lib`/`chatterino` targets, `OUTPUT_NAME "Satorino"`, install renames (`cc.satos.Satorino.desktop/.png`), macOS bundle name/id |
-| `src/common/Version.cpp` | `"Satorino "` full-version prefix, AppUserModelID, commit URL |
+| `src/CMakeLists.txt` | pin `chatterino-lib`/`chatterino` targets, `OUTPUT_NAME "satorino"`, install renames (`cc.satos.Satorino.desktop/.png`), macOS bundle name/id |
+| `src/common/Version.cpp` | `"satorino "` full-version prefix, AppUserModelID, commit URL |
 | `src/RunGui.cpp` | single-instance key `satorino-gui-activate-*` |
 | `src/main.cpp` | `setDesktopFileName("cc.satos.Satorino")` |
 | `src/common/network/NetworkRequest.cpp` | default UA `satorino/<version> (<hash>)` |
 | `src/providers/twitch/eventsub/Controller.cpp` | EventSub WS UA (same string) |
 | `src/singletons/Updates.cpp` | feed URL → `.invalid` placeholder, nightly URLs/prompts → placeholder repo |
-| `src/singletons/Toasts.cpp` | toast app id, `Satorino.exe` check, `setAppName(L"Satorino")`, `notify_init("Satorino")` |
+| `src/singletons/Toasts.cpp` | toast app id, `satorino.exe` check, `setAppName(L"satorino")`, `notify_init("satorino")` |
 | `src/widgets/dialogs/SettingsDialog.cpp` | window title |
 | `src/widgets/settingspages/AboutPage.cpp` | fork identity/credits label |
 | `cmake/resources/windows.rc.in` | Windows version-info strings |
@@ -106,6 +112,47 @@ New files: `src/widgets/settingspages/ThemesPage.{hpp,cpp}`.
 | `src/CMakeLists.txt` | sources registered in the marked `# satorino:` block |
 
 New files: `src/controllers/commands/builtin/SetTheme.{hpp,cpp}`.
+
+### lowercase satorino - binary, packaging and in-app strings (2026-11-02)
+
+One commit on top of the rebrand; see the commit for the full file list.
+
+| File | Why |
+|---|---|
+| `src/CMakeLists.txt` | `OUTPUT_NAME "satorino"` (binary + packaging follow) |
+| `cmake/resources/windows.rc.in` | `ProductName`/`FileDescription`/`InternalName`/`OriginalFilename` lowercase |
+| `.CI/chatterino-installer.iss` | `MyAppExeName "satorino.exe"`, staging dir `satorino`, `OutputBaseFilename satorino.Installer` |
+| `.CI/build-installer.ps1`, `bundle-portable.ps1`, `deploy-crt.ps1` | staging folder `satorino`, artifact base names `satorino.Installer` / `satorino.Portable` |
+| `.CI/CreateAppImage.sh`, `CreateUbuntuDeb.sh`, `MacDeploy.sh`, `CreateDMG.sh` | `bin/satorino`, `satorino.app` |
+| `.CI/format-recent-changes.py` | installer artifact names |
+| `.CI/satorino.yml` | `command: satorino` |
+| `.github/workflows/build.yml`, `create-installer.yml` | `C2_APP_EXECUTABLE`, `C2_APP_BUNDLE`, staging folder, release artifact names |
+| `.github/workflows/satorino-windows-test.yml` | exe/folder rename + **case-exact** package verification + `--version` smoke test |
+| `resources/com.chatterino.chatterino.desktop` | `Exec=satorino`, `StartupWMClass=satorino` |
+| `resources/com.chatterino.chatterino.appdata.xml` | `<binary>satorino</binary>` |
+| `default.nix` | `mainProgram = "satorino"` |
+| ~30 `src/**` files | display strings: window titles, tray tooltip/menu, About, `--version`, UA (`TwitchNameHistory`), system messages, tooltips |
+| `src/widgets/settingspages/ThemesPage.cpp` | seeded example theme file renamed `satorino-example.json` |
+
+Deliberately **kept** (do not "fix" these on a sync):
+
+- app id `cc.satos.Satorino` everywhere (AppUserModelID, GLib toast id,
+  `setDesktopFileName`, install renames, flatpak app-id);
+- `SATORINO_*` environment variable names (`scripts/sync-upstream.sh`);
+- SPDX `The Satorino authors` headers, README and this file's prose;
+- packaging **display** names: installer `MyAppName`/`MyAppPublisher`/
+  `MyAppProductName`/`MyAppDescription` + `DefaultDirName`, DMG volume name
+  (`CreateDMG.sh`), deb `Maintainer`/`Description`, `.desktop` `Name=`,
+  appdata `<name>`, `MACOSX_BUNDLE_BUNDLE_NAME`, nix `description`,
+  rc.in `CompanyName`;
+- `ChatterinoUpdater.exe` inside the portable bundle (third-party updater
+  binary, `bundle-portable.ps1`);
+- `setApplicationName("chatterino")` + org domain (shared settings dir);
+- legacy `Leafyrino`/`Chatterino2` staging-folder fallbacks in scripts.
+
+Smoke-test note: the workflow asserts the `--version` **exit code** only (a
+missing DLL fails process init with 0xC0000135); stdout capture from the
+GUI-subsystem binary is best-effort.
 
 ## What "leafyrino" is allowed to remain
 
@@ -149,12 +196,12 @@ free badge bit was `1LL << 49` as of writing).
 
 `.github/workflows/satorino-windows-test.yml` (added 2026-11-01) builds a
 **portable** Windows x64 zip on every push to `satorino` and on demand via
-workflow_dispatch. The zip contains `Satorino.exe`, the windeployqt output,
+workflow_dispatch. The zip contains `satorino.exe`, the windeployqt output,
 the VCRT runtime DLLs (`.CI/deploy-crt.ps1`) and a `modes` file containing
 `portable` next to the exe — per `src/common/Modes.cpp` the app then keeps
 ALL settings, caches and logs next to the binary, so a test build never
 reads or writes `%APPDATA%\Chatterino2`. Extract anywhere and run
-`Satorino\Satorino.exe`; delete the folder to clean up completely.
+`satorino\satorino.exe`; delete the folder to clean up completely.
 
 Heads-up: the main `build.yml` also triggers on pushes to `satorino` (the
 rebrand made it the default branch) and then runs the full platform matrix
@@ -170,7 +217,7 @@ sudo apt install cmake ninja-build g++ git pkg-config \
 git submodule update --init --recursive
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCHATTERINO_NO_AVIF_PLUGIN=On
 cmake --build build -j"$(nproc)"
-./build/bin/Satorino
+./build/bin/satorino
 ```
 
 (The AVIF flag works around the `MAJOR_QT_VERSON` typo in `cmake/AVIF.cmake`

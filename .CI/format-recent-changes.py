@@ -9,8 +9,8 @@ import argparse
 ROOT_DOWNLOAD_URL = (
     "https://github.com/satorino/satorino/releases/download/nightly-build"
 )
-WIN_X64_INSTALLERS = ["Satorino.Nightly.Installer.exe"]
-WIN_ARM64_INSTALLERS = ["Experimental-ARM64-Satorino.Nightly.Installer.exe"]
+WIN_X64_INSTALLERS = ["satorino.Nightly.Installer.exe"]
+WIN_ARM64_INSTALLERS = ["Experimental-ARM64-satorino.Nightly.Installer.exe"]
 
 
 def create_artifacts_table(artifact_dir: str, include_installer: bool):

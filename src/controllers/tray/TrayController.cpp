@@ -110,7 +110,7 @@ void TrayController::hideToTray()
         if (this->trayIcon_ != nullptr && QSystemTrayIcon::supportsMessages())
         {
             this->trayIcon_->showMessage(
-                QStringLiteral("Satorino is still running"),
+                QStringLiteral("satorino is still running"),
                 QStringLiteral(
                     "You can disable this feature from the settings."),
                 QSystemTrayIcon::Information, 7000);
@@ -188,11 +188,11 @@ void TrayController::ensureTrayIcon()
 
     this->trayIcon_ =
         new QSystemTrayIcon(QIcon(QStringLiteral(":/icon.ico")), this);
-    this->trayIcon_->setToolTip(QStringLiteral("Satorino"));
+    this->trayIcon_->setToolTip(QStringLiteral("satorino"));
 
     this->menu_ = new QMenu;
     this->openAction_ =
-        this->menu_->addAction(QStringLiteral("Open Satorino"));
+        this->menu_->addAction(QStringLiteral("Open satorino"));
     QObject::connect(this->openAction_, &QAction::triggered, this, [this] {
         this->restoreFromTray();
     });
@@ -233,7 +233,7 @@ void TrayController::ensureTrayIcon()
 
     this->menu_->addSeparator();
     this->quitAction_ =
-        this->menu_->addAction(QStringLiteral("Quit Satorino"));
+        this->menu_->addAction(QStringLiteral("Quit satorino"));
     QObject::connect(this->quitAction_, &QAction::triggered, qApp, [] {
         QApplication::exit(0);
     });

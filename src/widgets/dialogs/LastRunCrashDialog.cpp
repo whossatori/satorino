@@ -47,7 +47,7 @@ namespace chatterino {
 LastRunCrashDialog::LastRunCrashDialog(const Args &args, const Paths &paths)
 {
     this->setWindowFlag(Qt::WindowContextHelpButtonHint, false);
-    this->setWindowTitle(u"Satorino - " % randomMessage());
+    this->setWindowTitle(u"satorino - " % randomMessage());
 
     auto layout =
         LayoutCreator<LastRunCrashDialog>(this).setLayoutType<QVBoxLayout>();

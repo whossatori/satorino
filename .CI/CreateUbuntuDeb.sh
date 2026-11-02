@@ -41,14 +41,14 @@ esac
 echo "Building Ubuntu .deb file on '$ubuntu_release'"
 echo "Dependencies: $dependencies"
 
-if [ -f ./bin/Satorino ] && [ -x ./bin/Satorino ]; then
-    app_executable="Satorino"
+if [ -f ./bin/satorino ] && [ -x ./bin/satorino ]; then
+    app_executable="satorino"
 elif [ -f ./bin/Leafyrino ] && [ -x ./bin/Leafyrino ]; then
     app_executable="Leafyrino"
 elif [ -f ./bin/chatterino ] && [ -x ./bin/chatterino ]; then
     app_executable="chatterino"
 else
-    echo "ERROR: No Satorino, Leafyrino or chatterino binary file found. This script must be run in the build folder, and the app must be built first."
+    echo "ERROR: No satorino, Leafyrino or chatterino binary file found. This script must be run in the build folder, and the app must be built first."
     exit 1
 fi
 

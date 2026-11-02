@@ -165,7 +165,7 @@ int main(int argc, char **argv)
     QCoreApplication::setApplicationVersion(CHATTERINO_VERSION);
     QCoreApplication::setOrganizationDomain("chatterino.com");
     // Must match the installed .desktop / Flatpak app-id so the shell
-    // associates this window with Satorino's icon (not Chatterino's).
+    // associates this window with satorino's icon (not Chatterino's).
     // satorino: app id (was com.leafyzito.leafyrino)
     QGuiApplication::setDesktopFileName("cc.satos.Satorino");
 #ifdef Q_OS_WIN
@@ -241,20 +241,20 @@ int main(int argc, char **argv)
         }
 
         qCInfo(chatterinoApp).noquote()
-            << "Satorino Qt SSL library build version:"
+            << "satorino Qt SSL library build version:"
             << QSslSocket::sslLibraryBuildVersionString();
         qCInfo(chatterinoApp).noquote()
-            << "Satorino Qt SSL library version:"
+            << "satorino Qt SSL library version:"
             << QSslSocket::sslLibraryVersionString();
 #if QT_VERSION >= QT_VERSION_CHECK(6, 1, 0)
         qCInfo(chatterinoApp).noquote()
-            << "Satorino Qt SSL active backend:" << QSslSocket::activeBackend()
+            << "satorino Qt SSL active backend:" << QSslSocket::activeBackend()
             << "of" << QSslSocket::availableBackends().join(", ");
 #    if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
-        qCInfo(chatterinoApp) << "Satorino Qt SSL active backend features:"
+        qCInfo(chatterinoApp) << "satorino Qt SSL active backend features:"
                               << QSslSocket::supportedFeatures();
 #    endif
-        qCInfo(chatterinoApp) << "Satorino Qt SSL active backend protocols:"
+        qCInfo(chatterinoApp) << "satorino Qt SSL active backend protocols:"
                               << QSslSocket::supportedProtocols();
 #endif
 

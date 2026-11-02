@@ -4,7 +4,7 @@ app-id: cc.satos.Satorino
 runtime: org.kde.Platform
 runtime-version: "6.10"
 sdk: org.kde.Sdk
-command: Satorino
+command: satorino
 finish-args:
   - --socket=wayland
   - --socket=fallback-x11

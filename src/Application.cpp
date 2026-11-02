@@ -265,7 +265,7 @@ void Application::initialize(Settings &settings, const Paths &paths)
         getSettings()->currentVersion.getValue() != "" &&
         getSettings()->currentVersion.getValue() != CHATTERINO_VERSION)
     {
-        auto *box = new QMessageBox(QMessageBox::Information, "Satorino",
+        auto *box = new QMessageBox(QMessageBox::Information, "satorino",
                                     "Show changelog?",
                                     QMessageBox::Yes | QMessageBox::No);
         box->setAttribute(Qt::WA_DeleteOnClose);

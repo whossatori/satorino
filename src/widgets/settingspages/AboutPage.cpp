@@ -56,7 +56,7 @@ AboutPage::AboutPage()
 
         // satorino: fork identity / credits
         auto forkLabel = layout.emplace<QLabel>(
-            "Satorino is a personal fork of "
+            "satorino is a personal fork of "
             "<a href=\"https://github.com/leafyzito/leafyrino\">Leafyrino</a>, "
             "which builds on <a "
             "href=\"https://github.com/SevenTV/chatterino7\">"
@@ -313,7 +313,7 @@ void AboutPage::addLicense(QFormLayout *form, const QString &name,
                     BaseWindow::BoundsCheckOnShow,
                 },
                 parent);
-            window->setWindowTitle("Satorino - License for " + name);
+            window->setWindowTitle("satorino - License for " + name);
             window->setAttribute(Qt::WA_DeleteOnClose);
             auto *layout = new QVBoxLayout();
             auto *edit = new QTextEdit;

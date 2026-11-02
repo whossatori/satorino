@@ -238,18 +238,18 @@ jobs:
               mv "$1" "$2"
             fi
           }
-          rename_if_exists satorino-ubuntu-22.04-Qt-6.7.2.deb Satorino-Ubuntu-22.04-Qt6.deb
-          rename_if_exists satorino-ubuntu-24.04-Qt-6.7.2.deb Satorino-Ubuntu-24.04-Qt6.deb
-          rename_if_exists satorino-ubuntu-24.04-Qt-6.9.3.deb Satorino-Ubuntu-24.04-Qt6.deb
-          rename_if_exists satorino-ubuntu-26.04-Qt-6.9.3.deb Satorino-Ubuntu-26.04-Qt6.deb
+          rename_if_exists satorino-ubuntu-22.04-Qt-6.7.2.deb satorino-Ubuntu-22.04-Qt6.deb
+          rename_if_exists satorino-ubuntu-24.04-Qt-6.7.2.deb satorino-Ubuntu-24.04-Qt6.deb
+          rename_if_exists satorino-ubuntu-24.04-Qt-6.9.3.deb satorino-Ubuntu-24.04-Qt6.deb
+          rename_if_exists satorino-ubuntu-26.04-Qt-6.9.3.deb satorino-Ubuntu-26.04-Qt6.deb
           for appimage in satorino-x86_64-Qt-*.AppImage; do
             [ -f "$appimage" ] || continue
-            mv "$appimage" Satorino-x86_64-Qt6.AppImage
+            mv "$appimage" satorino-x86_64-Qt6.AppImage
             break
           done
           for dmg in satorino-macos-Qt-*-universal.dmg; do
             [ -f "$dmg" ] || continue
-            mv "$dmg" Satorino.dmg
+            mv "$dmg" satorino.dmg
             break
           done
         shell: bash

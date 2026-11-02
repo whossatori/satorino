@@ -22,7 +22,7 @@ Version::Version()
     , dateOfBuild_(QStringLiteral(CHATTERINO_CMAKE_GEN_DATE))
     , isNightly_(CHATTERINO_NIGHTLY_BUILD == 1)
 {
-    this->fullVersion_ = "Satorino ";
+    this->fullVersion_ = "satorino ";
     if (this->isNightly())
     {
         this->fullVersion_ += "Nightly ";

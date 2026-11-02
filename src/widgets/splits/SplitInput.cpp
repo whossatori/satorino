@@ -638,11 +638,11 @@ void SplitInput::handleImagePaste(const QMimeData *source)
     if (getSettings()->askOnImageUpload.getValue())
     {
         QMessageBox msgBox(this->window());
-        msgBox.setWindowTitle("Satorino");
+        msgBox.setWindowTitle("satorino");
         msgBox.setText("Image upload");
         msgBox.setInformativeText(
             "You are uploading an image to a 3rd party service not in "
-            "control of the Satorino team. You may not be able to "
+            "control of the satorino team. You may not be able to "
             "remove the image from the site. Are you okay with this?");
         auto *cancel = msgBox.addButton(QMessageBox::Cancel);
         auto *yes = msgBox.addButton(QMessageBox::Yes);

@@ -46,7 +46,7 @@ in
       '';
 
       meta = (prev.meta or {}) // {
-        mainProgram = "Satorino";
+        mainProgram = "satorino";
       };
     }
   )

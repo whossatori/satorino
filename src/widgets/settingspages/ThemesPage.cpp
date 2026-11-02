@@ -24,7 +24,7 @@ namespace {
 
 // The example theme seeded into <AppData>/Themes - a verbatim copy of the
 // built-in Dark theme, so users always have a valid starting point.
-constexpr auto *EXAMPLE_THEME_FILE = "Satorino-Example.json";
+constexpr auto *EXAMPLE_THEME_FILE = "satorino-example.json";
 constexpr auto *THEMES_README_FILE = "README.txt";
 
 void seedThemesDirectory(const QString &directory)
@@ -49,7 +49,7 @@ void seedThemesDirectory(const QString &directory)
         if (readme.open(QIODevice::WriteOnly | QIODevice::Text))
         {
             readme.write(
-                "This folder holds custom themes for Satorino.\n"
+                "This folder holds custom themes for satorino.\n"
                 "\n"
                 "- Every *.json file in this folder shows up as \"Custom: "
                 "<file name>\" in Settings -> Themes and in the theme picker "
@@ -58,7 +58,7 @@ void seedThemesDirectory(const QString &directory)
                 "- The theme format is described by "
                 "docs/ChatterinoTheme.schema.json in the source repository:\n"
                 "  https://github.com/satorino/satorino\n"
-                "- Satorino-Example.json is a copy of the built-in Dark theme "
+                "- satorino-example.json is a copy of the built-in Dark theme "
                 "- edit it as a starting point.\n"
                 "- Colors missing from a custom theme fall back to the "
                 "built-in theme named by metadata.fallbackTheme; broken JSON "

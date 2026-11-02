@@ -40,7 +40,7 @@ QString getStreamlinkPath()
 void showStreamlinkNotFoundError()
 {
     static auto *msg = new QErrorMessage;
-    msg->setWindowTitle("Satorino - streamlink not found");
+    msg->setWindowTitle("satorino - streamlink not found");
 
     if (getSettings()->streamlinkUseCustomPath)
     {

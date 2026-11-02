@@ -1,6 +1,6 @@
-# satorino: staging folder is "Satorino" (legacy names kept as fallbacks)
-if (Test-Path -PathType Container Satorino) {
-    $stagingDirName = "Satorino"
+# satorino: staging folder is "satorino" (legacy names kept as fallbacks)
+if (Test-Path -PathType Container satorino) {
+    $stagingDirName = "satorino"
 }
 elseif (Test-Path -PathType Container Leafyrino) {
     $stagingDirName = "Leafyrino"
@@ -9,7 +9,7 @@ elseif (Test-Path -PathType Container Chatterino2) {
     $stagingDirName = "Chatterino2"
 }
 else {
-    Write-Error "Couldn't find a staging folder called 'Satorino', 'Leafyrino' or 'Chatterino2' in the current directory.";
+    Write-Error "Couldn't find a staging folder called 'satorino', 'Leafyrino' or 'Chatterino2' in the current directory.";
     exit 1
 }
 
@@ -26,12 +26,12 @@ if ($isTagged) {
     # Make sure, any existing `modes` file is overwritten for the user,
     # for example when updating from nightly to stable.
     Write-Output "" | Out-File "$stagingDirName/modes" -Encoding ASCII;
-    $installerBaseName = "Satorino.Installer";
+    $installerBaseName = "satorino.Installer";
 }
 else {
     Write-Output nightly | Out-File "$stagingDirName/modes" -Encoding ASCII;
     $defines = "/DIS_NIGHTLY=1";
-    $installerBaseName = "Satorino.Nightly.Installer";
+    $installerBaseName = "satorino.Nightly.Installer";
 }
 
 $architecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLower()

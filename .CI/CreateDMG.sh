@@ -2,7 +2,7 @@
 
 set -eo pipefail
 
-_app_bundle="${APP_BUNDLE_PATH:-Satorino.app}"
+_app_bundle="${APP_BUNDLE_PATH:-satorino.app}"
 
 if [ ! -d "${_app_bundle}" ]; then
     echo "ERROR: No '${_app_bundle}' dir found in the build directory. Make sure you've run ./CI/MacDeploy.sh"

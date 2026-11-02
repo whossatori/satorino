@@ -14,16 +14,16 @@
 #   - CHATTERINO_UPDATER=OFF       : no satorino release feed exists
 #   - crashpad OFF, LTO OFF        : faster test builds
 #   - the zip carries a `modes` file containing "portable" next to
-#     Satorino.exe (src/common/Modes.cpp), so the build stores ALL
+#     satorino.exe (src/common/Modes.cpp), so the build stores ALL
 #     settings/caches/logs next to the exe and never reads or writes
 #     %APPDATA%\Chatterino2 - that folder is shared with real Chatterino
 #     installs on this machine by design.
 #   - the conan runtime DLLs (libssl-3-x64.dll, libcrypto-3-x64.dll) are
-#     copied from build/bin into the package: Satorino.exe imports them
+#     copied from build/bin into the package: satorino.exe imports them
 #     directly and windeployqt does not deploy them. Upstream gets them via
 #     conanfile.py, which also copies them into build/Chatterino2.
 
-name: Satorino Windows Test Build
+name: satorino Windows Test Build
 
 on:
   workflow_dispatch:
@@ -38,7 +38,7 @@ concurrency:
 env:
   CHATTERINO_REQUIRE_CLEAN_GIT: On
   CONAN_VERSION: 2.28.1
-  C2_APP_EXECUTABLE: Satorino
+  C2_APP_EXECUTABLE: satorino
 
 jobs:
   build-windows-x64:
@@ -155,17 +155,17 @@ jobs:
         shell: pwsh
         working-directory: build
         run: |
-          windeployqt bin/${{ env.C2_APP_EXECUTABLE }}.exe --release --no-compiler-runtime --no-translations --no-opengl-sw --dir Satorino/ --force-openssl
-          cp bin/${{ env.C2_APP_EXECUTABLE }}.exe Satorino/
-          # conan runtime DLLs (OpenSSL etc.) - Satorino.exe imports these directly
-          Copy-Item bin\*.dll Satorino\ -Force
-          ..\.CI\deploy-crt.ps1 Satorino
+          windeployqt bin/${{ env.C2_APP_EXECUTABLE }}.exe --release --no-compiler-runtime --no-translations --no-opengl-sw --dir satorino/ --force-openssl
+          cp bin/${{ env.C2_APP_EXECUTABLE }}.exe satorino/
+          # conan runtime DLLs (OpenSSL etc.) - satorino.exe imports these directly
+          Copy-Item bin\*.dll satorino\ -Force
+          ..\.CI\deploy-crt.ps1 satorino
           # Portable mode (src/common/Modes.cpp): a `modes` file containing the
-          # line "portable" next to Satorino.exe keeps ALL settings, caches and
+          # line "portable" next to satorino.exe keeps ALL settings, caches and
           # logs next to the exe - %APPDATA%\Chatterino2 is never touched.
-          Write-Output portable | Out-File Satorino/modes -Encoding ASCII
-          7z a satorino-windows-x64-portable.zip Satorino/
-          Get-Content Satorino/modes
+          Write-Output portable | Out-File satorino/modes -Encoding ASCII
+          7z a satorino-windows-x64-portable.zip satorino/
+          Get-Content satorino/modes
           7z l satorino-windows-x64-portable.zip | Select-Object -First 40
 
       - name: Verify package contents
@@ -173,18 +173,41 @@ jobs:
         working-directory: build
         run: |
           $required = @(
-            'Satorino.exe', 'modes',
+            'satorino.exe', 'modes',
             'libssl-3-x64.dll', 'libcrypto-3-x64.dll',
             'Qt6Core.dll', 'Qt6Charts.dll',
             'platforms/qwindows.dll', 'tls/qopensslbackend.dll',
             'VCRUNTIME140.dll', 'MSVCP140.dll'
           )
-          $missing = $required | Where-Object { -not (Test-Path "Satorino/$_") }
+          # Test-Path is case-insensitive on Windows - compare against the
+          # real file names case-exactly: the binary must be satorino.exe
+          # and the OpenSSL DLLs must be present under their exact names.
+          $root = (Resolve-Path satorino).Path
+          $files = Get-ChildItem -Recurse -File satorino |
+              ForEach-Object { $_.FullName.Substring($root.Length + 1) -replace '\\', '/' }
+          $missing = @($required | Where-Object { $files -cnotcontains $_ })
           if ($missing) {
-            Write-Error ("Missing from package: " + ($missing -join ', '))
+            Write-Error ("Missing from package (case-exact): " + ($missing -join ', '))
             exit 1
           }
-          Get-ChildItem Satorino | Select-Object Name, Length
+          Get-ChildItem satorino | Select-Object Name, Length
+
+      - name: Smoke test (--version)
+        # --version prints and exits before any window is created
+        # (src/main.cpp). A missing DLL (the bug class that hit this
+        # build before) fails process initialisation with a non-zero
+        # exit code (0xC0000135) - this step asserts the exit code;
+        # stdout from the GUI-subsystem binary is captured best-effort.
+        shell: pwsh
+        working-directory: build
+        timeout-minutes: 5
+        run: |
+          $output = (& .\satorino\satorino.exe --version 2>&1 | Out-String)
+          Write-Output $output
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "satorino.exe --version exited with code $LASTEXITCODE"
+            exit 1
+          }
 
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

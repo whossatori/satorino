@@ -94,7 +94,7 @@ std::unique_ptr<QLocalServer> createGuiActivationServer(const Paths &paths)
             if (!server->listen(serverName))
             {
                 qCWarning(chatterinoApp)
-                    << "Failed to listen for Satorino activation requests:"
+                    << "Failed to listen for satorino activation requests:"
                     << server->errorString();
                 return nullptr;
             }
@@ -102,7 +102,7 @@ std::unique_ptr<QLocalServer> createGuiActivationServer(const Paths &paths)
         else
         {
             qCDebug(chatterinoApp)
-                << "Satorino activation server already exists.";
+                << "satorino activation server already exists.";
             return nullptr;
         }
     }

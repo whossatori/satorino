@@ -1,6 +1,6 @@
-# satorino: staging folder is "Satorino" (was Chatterino2)
+# satorino: staging folder is "satorino" (was Chatterino2)
 param (
-    [string] $InstallDir = "Satorino"
+    [string] $InstallDir = "satorino"
 )
 
 if ($null -eq $Env:VCToolsRedistDir) {

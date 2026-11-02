@@ -59,7 +59,7 @@ bool hasAvatarForChannel(const QString &channelName)
 bool isRunningFromBuildTree()
 {
     const QFileInfo appFile(QCoreApplication::applicationFilePath());
-    if (appFile.fileName().compare(u"Satorino.exe"_s, Qt::CaseInsensitive) !=
+    if (appFile.fileName().compare(u"satorino.exe"_s, Qt::CaseInsensitive) !=
         0)
     {
         return false;
@@ -420,7 +420,7 @@ void Toasts::ensureInitialized()
     this->initialized_ = true;
 
     auto *instance = WinToast::instance();
-    instance->setAppName(L"Satorino");
+    instance->setAppName(L"satorino");
     instance->setAppUserModelId(Version::instance().appUserModelID());
     if (isRunningFromBuildTree() || !getSettings()->createShortcutForToasts)
     {
@@ -552,7 +552,7 @@ void Toasts::ensureInitialized()
     {
         return;
     }
-    auto result = notify_init("Satorino");
+    auto result = notify_init("satorino");
 
     if (result == 0)
     {

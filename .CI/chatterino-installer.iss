@@ -6,7 +6,7 @@
 #define MyAppVersion "2.5.6"
 #define MyAppPublisher "Satorino"
 #define MyAppURL "https://github.com/satorino/satorino"
-#define MyAppExeName "Satorino.exe"
+#define MyAppExeName "satorino.exe"
 #define MyAppProductName "Satorino"
 #define MyAppDescription "Satorino Installer"
 #define MyAppCopyright "Copyright (C) The Satorino authors"
@@ -18,7 +18,7 @@
 #endif
 
 #ifndef STAGING_DIR_NAME
-#define STAGING_DIR_NAME "Satorino"
+#define STAGING_DIR_NAME "satorino"
 #endif
 #ifndef VCRT_ARCH
 #define VCRT_ARCH "x64"
@@ -47,7 +47,7 @@ VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription={#MyAppDescription}
 VersionInfoProductName={#MyAppProductName}
 VersionInfoCopyright={#MyAppCopyright}
-VersionInfoOriginalFileName=Satorino Updater.exe
+VersionInfoOriginalFileName=satorino Updater.exe
 AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
@@ -70,7 +70,7 @@ OutputDir=out
 #ifdef INSTALLER_BASE_NAME
 OutputBaseFilename={#INSTALLER_BASE_NAME}
 #else
-OutputBaseFilename=Satorino.Installer
+OutputBaseFilename=satorino.Installer
 #endif
 #ifdef SETUP_ICON_FILE
 SetupIconFile={#SETUP_ICON_FILE}

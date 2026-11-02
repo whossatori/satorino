@@ -30,7 +30,7 @@
     <url type="homepage">https://github.com/satorino/satorino</url>
     <url type="bugtracker">https://github.com/satorino/satorino/issues</url>
     <provides>
-        <binary>Satorino</binary>
+        <binary>satorino</binary>
     </provides>
     <releases>
         <release version="2.5.6" date="2026-11-01">

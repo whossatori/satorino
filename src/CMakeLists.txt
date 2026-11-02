@@ -1332,8 +1332,8 @@ if (BUILD_APP)
     target_link_libraries(${EXECUTABLE_PROJECT} PUBLIC ${LIBRARY_PROJECT})
 
     set_target_directory_hierarchy(${EXECUTABLE_PROJECT})
-    # satorino: user-visible binary name (was "Leafyrino")
-    set_target_properties(${EXECUTABLE_PROJECT} PROPERTIES OUTPUT_NAME "Satorino")
+    # satorino: user-visible binary name (was "Leafyrino"); lowercase
+    set_target_properties(${EXECUTABLE_PROJECT} PROPERTIES OUTPUT_NAME "satorino")
 
     if (WIN32)
         if (WINDEPLOYQT_PATH)

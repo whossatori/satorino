@@ -105,7 +105,7 @@ OverlayWindow::OverlayWindow(IndirectChannel channel,
     , interaction_(this)
 {
     this->setAttribute(Qt::WA_DeleteOnClose);
-    this->setWindowTitle(u"Satorino - Overlay"_s);
+    this->setWindowTitle(u"satorino - Overlay"_s);
     this->setWindowRole(u"chatterino.overlay"_s);
 
     auto *grid = new QGridLayout(this);
@@ -481,13 +481,13 @@ void OverlayWindow::triggerFirstActivation()
         welcomeText +=
             u"To toggle the click-through mode, "
             "add a hotkey for \"Toggle overlay click-through\" in the split "
-            "category to press while any Satorino window is focused."_s;
+            "category to press while any satorino window is focused."_s;
     }
     else
     {
         welcomeText +=
             u"To toggle the click-through mode, press %1 (customizable "_s
-            "in the settings) while any Satorino window is focused.".arg(
+            "in the settings) while any satorino window is focused.".arg(
                 actualShortcut.toString());
     }
 
@@ -498,7 +498,7 @@ void OverlayWindow::triggerFirstActivation()
                    "discussions\">on GitHub</a>.";
 
     auto *box =
-        new QMessageBox(QMessageBox::Information, u"Satorino - Overlay"_s,
+        new QMessageBox(QMessageBox::Information, u"satorino - Overlay"_s,
                         welcomeText, QMessageBox::Ok, this);
     box->open();
 }
