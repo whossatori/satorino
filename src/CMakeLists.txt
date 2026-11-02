@@ -1130,6 +1130,12 @@ set(SOURCE_FILES
         widgets/settingspages/SettingWidget.cpp
         widgets/settingspages/SettingWidget.hpp
 
+        # satorino: begin additional sources (keep this block together -
+        # see docs/SATORINO.md). Every new satorino .cpp/.hpp goes here.
+        widgets/settingspages/ThemesPage.cpp
+        widgets/settingspages/ThemesPage.hpp
+        # satorino: end additional sources
+
         widgets/splits/ClosedSplits.cpp
         widgets/splits/ClosedSplits.hpp
         widgets/splits/DraggedSplit.cpp

@@ -29,6 +29,8 @@
 #include "widgets/settingspages/NotificationPage.hpp"
 #include "widgets/settingspages/PluginsPage.hpp"
 #include "widgets/settingspages/TechnorinoPage.hpp"
+// satorino: Themes settings page (see docs/SATORINO.md)
+#include "widgets/settingspages/ThemesPage.hpp"
 
 #include <QDateTime>
 #include <QDebug>
@@ -264,6 +266,8 @@ void SettingsDialog::addTabs()
     this->addTab([]{return new HighlightingPage;},     "Highlights",     ":/settings/notifications.svg");
     this->addTab([]{return new IgnoresPage;},          "Ignores",        ":/settings/ignore.svg");
     this->addTab([]{return new FiltersPage;},          "Filters",        ":/settings/filters.svg");
+    // satorino: Themes page (see docs/SATORINO.md)
+    this->addTab([]{return new ThemesPage;},           "Themes",         ":/buttons/switchDark.svg");
     this->ui_.tabContainer->addSpacing(16);
     this->addTab([]{return new KeyboardSettingsPage;}, "Hotkeys",        ":/settings/keybinds.svg");
     this->addTab([]{return new ModerationPage;},       "Moderation",     ":/settings/moderation.svg", SettingsTabId::Moderation);

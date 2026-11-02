@@ -664,6 +664,12 @@ void Theme::setAutoReload(bool autoReload)
     qCDebug(chatterinoTheme) << "Enabled theme watcher";
 }
 
+// satorino: re-scan <AppData>/Themes for added/removed custom themes
+void Theme::rescanThemes()
+{
+    this->loadAvailableThemes(getApp()->getPaths());
+}
+
 void Theme::normalizeColor(QColor &color) const
 {
     if (this->isLightTheme())

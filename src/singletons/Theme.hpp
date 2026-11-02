@@ -162,6 +162,10 @@ public:
     bool isAutoReloading() const;
     void setAutoReload(bool autoReload);
 
+    // satorino: re-scan <AppData>/Themes for added/removed custom themes
+    // without a restart (used by the Themes settings page - docs/SATORINO.md)
+    void rescanThemes();
+
     std::vector<std::pair<QString, QVariant>> availableThemes() const;
 
     pajlada::Signals::NoArgSignal updated;
