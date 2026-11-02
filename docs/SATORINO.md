@@ -24,6 +24,19 @@ Chatterino/chatterino2 ──> SevenTV/chatterino7 ──> leafyzito/leafyrino �
   `<launchable>` (`resources/com.chatterino.chatterino.appdata.xml`), and the
   Windows AppUserModelID (`src/common/Version.cpp` +
   `.CI/chatterino-installer.iss` — those two must stay in sync).
+- **Version stays `2.5.6` in lockstep with leafyrino** (decided 2026-11-01):
+  `project(... VERSION 2.5.6)` in `CMakeLists.txt`, `CHATTERINO_VERSION` in
+  `src/common/Version.hpp`, `MyAppVersion` in
+  `.CI/chatterino-installer.iss`. Only move it when an upstream sync moves it.
+- **Inno Setup `AppId` is a fresh GUID**
+  (`{CC804039-1CF2-4868-BACF-CE61C9EAD4BB}`, generated 2026-11-01) so
+  Satorino gets its own Add/Remove Programs entry — Chatterino and
+  Leafyrino still share the inherited one. Data deletion is unchanged:
+  uninstall removes only `{userappdata}\Chatterino2\Cache`; install
+  removes that cache always and the ENTIRE `{userappdata}\Chatterino2`
+  folder only when the opt-in "Fresh install (delete old settings/logs)"
+  checkbox is ticked. That folder is shared with real Chatterino installs
+  (see below), so leave that box unticked on shared-settings machines.
 - **Settings directory intentionally SHARED** with chatterino/leafyrino:
   `setApplicationName("chatterino")` in `src/main.cpp` is unchanged
   (`~/.local/share/chatterino`, `%APPDATA%`, flatpak `xdg-data/chatterino`).
@@ -131,6 +144,22 @@ free badge bit was `1LL << 49` as of writing).
 6. Smoke test: Settings → Themes (list, apply, open folder, seeding),
    `/settheme Dark`, `/settheme` (no args — lists themes), About page,
    launch twice (single instance still activates the running window).
+
+## Windows test builds (GitHub Actions)
+
+`.github/workflows/satorino-windows-test.yml` (added 2026-11-01) builds a
+**portable** Windows x64 zip on every push to `satorino` and on demand via
+workflow_dispatch. The zip contains `Satorino.exe`, the windeployqt output,
+the VCRT runtime DLLs (`.CI/deploy-crt.ps1`) and a `modes` file containing
+`portable` next to the exe — per `src/common/Modes.cpp` the app then keeps
+ALL settings, caches and logs next to the binary, so a test build never
+reads or writes `%APPDATA%\Chatterino2`. Extract anywhere and run
+`Satorino\Satorino.exe`; delete the folder to clean up completely.
+
+Heads-up: the main `build.yml` also triggers on pushes to `satorino` (the
+rebrand made it the default branch) and then runs the full platform matrix
+including the nightly-release job on your fork. Disable "Build" in the
+repo's Actions tab if that is unwanted.
 
 ## Build (Linux quick reference)
 
