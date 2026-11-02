@@ -146,8 +146,8 @@ Deliberately **kept** (do not "fix" these on a sync):
   `MyAppProductName`/`MyAppDescription` + `DefaultDirName`, DMG volume name
   (`CreateDMG.sh`), deb `Maintainer`/`Description`, `.desktop` `Name=`,
   appdata `<name>`, `MACOSX_BUNDLE_BUNDLE_NAME`, nix `description`
-  (rc.in `CompanyName` is lowercase `satorino` since the settings-tab
-  commit; its URL stays the placeholder, see below);
+  (rc.in `CompanyName` is lowercase `satorino`; its URL stays the
+  placeholder, see below);
 - `ChatterinoUpdater.exe` inside the portable bundle (third-party updater
   binary, `bundle-portable.ps1`);
 - `setApplicationName("chatterino")` + org domain (shared settings dir);
@@ -190,15 +190,12 @@ icns detail: the legacy RLE `ic04`/`ic05` chunks (16/32 px ARGB) were
 replaced by PNG `icp4`/`icp5` chunks - same sizes, the encoding macOS
 itself emits via iconutil; every other chunk kept its type and order,
 and the binary `info` chunk is copied verbatim.
-The settings-sidebar tab logo `resources/settings/leafyrino.png` (256 px,
-the "Leafyrino" tab in `SettingsDialog.cpp`) is the same artwork and was
-still leafyrino green; it is recoloured with the same method via
-`scripts/recolour-png.py` (anchor #5F9060 -> #cba6f7, alpha identical,
-within 0.2/255 of `icon.png`). Re-run
-`python3 scripts/recolour-png.py resources/settings/leafyrino.png` after an
-upstream sync replaces it. The other green images in `resources/`
-(avatars, `technorino*.png`, `buttons/unban.png`) are not the app logo and
-are left alone.
+The settings-sidebar tab logo `resources/settings/leafyrino.png` (the
+"Leafyrino" tab in `SettingsDialog.cpp`) deliberately **stays leafyrino
+green**: that tab is about Leafyrino's own features. It was recoloured
+once and reverted on the owner's request - do not recolour it again.
+The other green images in `resources/` (avatars, `technorino*.png`,
+`buttons/unban.png`) are not the app logo and are left alone.
 `resources/moltorino.icns` is a stale, unreferenced leftover from the
 Moltorino7 chain and was left alone. Emotes, badges and avatars are NOT
 recoloured.
