@@ -103,6 +103,8 @@ QString commandUsage(const QString &command)
         {"/requests", "[channel]"},
         {"/restrict", "<username>"},
         {"/setgame", "<game>"},
+        // satorino: /settheme (docs/SATORINO.md)
+        {"/settheme", "<theme name>"},
         {"/settitle", "<stream title>"},
         {"/shield", ""},
         {"/shieldoff", ""},

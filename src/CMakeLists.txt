@@ -1132,6 +1132,8 @@ set(SOURCE_FILES
 
         # satorino: begin additional sources (keep this block together -
         # see docs/SATORINO.md). Every new satorino .cpp/.hpp goes here.
+        controllers/commands/builtin/SetTheme.cpp
+        controllers/commands/builtin/SetTheme.hpp
         widgets/settingspages/ThemesPage.cpp
         widgets/settingspages/ThemesPage.hpp
         # satorino: end additional sources

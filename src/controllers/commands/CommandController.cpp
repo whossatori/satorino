@@ -43,6 +43,8 @@
 #include "controllers/commands/builtin/twitch/UpdateChannel.hpp"
 #include "controllers/commands/builtin/twitch/UpdateColor.hpp"
 #include "controllers/commands/builtin/twitch/Warn.hpp"
+// satorino: /settheme (see docs/SATORINO.md)
+#include "controllers/commands/builtin/SetTheme.hpp"
 #include "controllers/commands/Command.hpp"
 #include "controllers/commands/CommandContext.hpp"
 #include "controllers/commands/CommandModel.hpp"
@@ -414,6 +416,9 @@ CommandController::CommandController(const Paths &paths)
     this->registerCommand("/popup", &commands::popup);
 
     this->registerCommand("/clearmessages", &commands::clearmessages);
+
+    // satorino: /settheme (see docs/SATORINO.md)
+    this->registerCommand("/settheme", &commands::setTheme);
 
     this->registerCommand("/settitle", &commands::setTitle);
 
