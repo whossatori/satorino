@@ -192,26 +192,51 @@ jobs:
           }
           Get-ChildItem satorino | Select-Object Name, Length
 
-      - name: Smoke test (--version)
-        # --version prints and exits before any window is created
-        # (src/main.cpp). A missing DLL (the bug class that hit this
-        # build before) fails process initialisation with a non-zero
-        # exit code (0xC0000135) - this step asserts the exit code;
-        # stdout from the GUI-subsystem binary is captured best-effort.
-        shell: pwsh
-        working-directory: build
-        timeout-minutes: 5
-        run: |
-          $output = (& .\satorino\satorino.exe --version 2>&1 | Out-String)
-          Write-Output $output
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "satorino.exe --version exited with code $LASTEXITCODE"
-            exit 1
-          }
-
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: satorino-windows-x64-portable
           path: build/satorino-windows-x64-portable.zip
           if-no-files-found: error
+
+      - name: Smoke test (launch, must stay alive 10 s)
+        # Runs AFTER the upload, so a failing test can never cost the zip.
+        #
+        # Deliberately NOT "--version": on Windows that path calls
+        # attachToConsole() (src/util/AttachToConsole.cpp), which passes a
+        # null FILE** to freopen_s. The CRT's invalid-parameter handler then
+        # kills the process with 0xC0000409 whenever a parent console exists
+        # (as on this runner). That is upstream behaviour, not a packaging
+        # fault, so it can never pass here.
+        #
+        # Instead start the real GUI path and require the process to still
+        # be alive after 10 s. A missing DLL (exit 0xC0000135), a Qt platform
+        # plugin failure or any startup crash ends the process well before.
+        # QT_FORCE_STDERR_LOGGING makes the GUI-subsystem exe write Qt
+        # messages to the redirected stderr so a failure explains itself.
+        #
+        # continue-on-error: this step is new and has never run on a runner.
+        # Set it to false once it has passed once.
+        continue-on-error: true
+        shell: pwsh
+        working-directory: build
+        timeout-minutes: 3
+        run: |
+          $env:QT_FORCE_STDERR_LOGGING = '1'
+          $exe = (Resolve-Path 'satorino/satorino.exe').Path
+          $p = Start-Process -FilePath $exe -PassThru `
+              -RedirectStandardOutput smoke-stdout.txt `
+              -RedirectStandardError smoke-stderr.txt
+          Start-Sleep -Seconds 10
+          if ($p.HasExited) {
+            Write-Host '--- stderr ---'
+            Get-Content smoke-stderr.txt -ErrorAction SilentlyContinue
+            Write-Host '--- stdout ---'
+            Get-Content smoke-stdout.txt -ErrorAction SilentlyContinue
+            Write-Error ('satorino.exe exited early, code 0x{0:X8}' -f $p.ExitCode)
+            exit 1
+          }
+          Write-Host 'satorino.exe still running after 10 s - OK'
+          Stop-Process -Id $p.Id -Force
+          Write-Host '--- stderr (first 40 lines) ---'
+          Get-Content smoke-stderr.txt -TotalCount 40 -ErrorAction SilentlyContinue

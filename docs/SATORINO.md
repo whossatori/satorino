@@ -129,7 +129,7 @@ One commit on top of the rebrand; see the commit for the full file list.
 | `.CI/format-recent-changes.py` | installer artifact names |
 | `.CI/satorino.yml` | `command: satorino` |
 | `.github/workflows/build.yml`, `create-installer.yml` | `C2_APP_EXECUTABLE`, `C2_APP_BUNDLE`, staging folder, release artifact names |
-| `.github/workflows/satorino-windows-test.yml` | exe/folder rename + **case-exact** package verification + `--version` smoke test |
+| `.github/workflows/satorino-windows-test.yml` | exe/folder rename + **case-exact** package verification + launch smoke test (must stay alive 10 s; runs after the upload) |
 | `resources/com.chatterino.chatterino.desktop` | `Exec=satorino`, `StartupWMClass=satorino` |
 | `resources/com.chatterino.chatterino.appdata.xml` | `<binary>satorino</binary>` |
 | `default.nix` | `mainProgram = "satorino"` |
@@ -153,9 +153,16 @@ Deliberately **kept** (do not "fix" these on a sync):
 - `setApplicationName("chatterino")` + org domain (shared settings dir);
 - legacy `Leafyrino`/`Chatterino2` staging-folder fallbacks in scripts.
 
-Smoke-test note: the workflow asserts the `--version` **exit code** only (a
-missing DLL fails process init with 0xC0000135); stdout capture from the
-GUI-subsystem binary is best-effort.
+Smoke-test note: the workflow does NOT use `--version`. On Windows that path
+calls `attachToConsole()` (`src/util/AttachToConsole.cpp`), which passes a
+null `FILE**` to `freopen_s`; the CRT invalid-parameter handler then aborts
+with 0xC0000409 whenever a parent console exists (e.g. the CI runner, or a
+terminal). Upstream code, left unfixed on purpose (merge conflicts); the
+one-line fix would be `FILE *dummy; freopen_s(&dummy, ...)`. The smoke test
+instead launches the real GUI and requires the process to survive 10 s
+(a missing DLL exits 0xC0000135, a startup crash exits early). It runs
+after the artifact upload and is `continue-on-error` until it has passed
+once on a runner.
 
 ### app icon recolour - light purple #cba6f7 (2026-11-02)
 
