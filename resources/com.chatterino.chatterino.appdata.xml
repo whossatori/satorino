@@ -1,86 +1,40 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- 2019 Artem Polishchuk <ego.cordatus@gmail.com> -->
+<!-- satorino: rewritten for the satorino fork (this file still carried the
+     stale Moltorino7 identity from the Moltorino7 -> leafyrino chain). The
+     source file name is kept for merge reasons; the <id> matches the flatpak
+     app-id and the installed desktop file name. -->
 <component type="desktop-application">
-    <id>com.moltobenne.moltorino.desktop</id>
-    <launchable type="desktop-id">com.moltobenne.moltorino.desktop</launchable>
+    <id>dev.satorino.Satorino</id>
+    <launchable type="desktop-id">dev.satorino.Satorino.desktop</launchable>
     <metadata_license>CC0-1.0</metadata_license>
     <project_license>MIT</project_license>
     <content_rating type="oars-1.0">
         <content_attribute id="social-chat">intense</content_attribute>
     </content_rating>
-    <name>Moltorino</name>
-    <developer_name>MoltoBenne</developer_name>
+    <name>Satorino</name>
+    <developer_name>satorino</developer_name>
     <summary>
-        Chat client for twitch.tv
+        Chat client for Twitch
     </summary>
     <description>
         <p>
-            Moltorino is a chat client for Twitch.tv.
+            Satorino is a personal fork of Leafyrino, itself a Chatterino 2
+            fork combining features from Chatterino7, Moltorino7 and
+            technorino, with additional Twitch, Kick and YouTube support.
         </p>
     </description>
-    <screenshots>
-        <screenshot type="default">
-            <image>https://raw.githubusercontent.com/MoltoBenne/Moltorino/master/resources/icon.png</image>
-        </screenshot>
-    </screenshots>
     <keywords>
         <keyword>chat</keyword>
         <keyword>twitch</keyword>
     </keywords>
-    <url type="homepage">https://github.com/MoltoBenne/Moltorino</url>
-    <url type="bugtracker">https://github.com/MoltoBenne/Moltorino/issues</url>
-    <url type="donation">https://github.com/MoltoBenne/Moltorino</url>
+    <url type="homepage">https://github.com/satorino/satorino</url>
+    <url type="bugtracker">https://github.com/satorino/satorino/issues</url>
     <provides>
-        <binary>Moltorino7</binary>
+        <binary>Satorino</binary>
     </provides>
     <releases>
-        <release version="7.5.5" date="2026-04-13">
-            <url>https://github.com/MoltoBenne/Moltorino/releases</url>
-        </release>
-        <release version="7.5.5~beta1" date="2026-03-01">
-            <url>https://github.com/SevenTV/chatterino7/releases/tag/v7.5.5-beta.1</url>
-        </release>
-        <release version="7.5.4" date="2025-09-21">
-            <url>https://github.com/SevenTV/chatterino7/releases/tag/v7.5.4</url>
-        </release>
-        <release version="7.5.4~beta1" date="2025-08-30">
-            <url>https://github.com/SevenTV/chatterino7/releases/tag/v7.5.4-beta.1</url>
-        </release>
-        <release version="7.5.3" date="2025-03-23">
-            <url>https://github.com/SevenTV/chatterino7/releases/tag/v7.5.3</url>
-        </release>
-        <release version="7.5.3~beta1" date="2025-03-18">
-            <url>https://github.com/SevenTV/chatterino7/releases/tag/v7.5.3-beta.1</url>
-        </release>
-        <release version="7.5.2" date="2025-01-05">
-            <url>https://github.com/SevenTV/chatterino7/releases/tag/v7.5.2</url>
-        </release>
-        <release version="7.5.2~beta1" date="2024-12-14">
-            <url>https://github.com/SevenTV/chatterino7/releases/tag/v7.5.2-beta.1</url>
-        </release>
-        <release version="7.5.1" date="2024-04-28">
-            <url>https://github.com/SevenTV/chatterino7/releases/tag/v7.5.1</url>
-        </release>
-        <release version="7.5.0" date="2024-04-21">
-            <url>https://github.com/SevenTV/chatterino7/releases/tag/v7.5.0</url>
-        </release>
-        <release version="7.5.0~beta1" date="2024-04-07">
-            <url>https://github.com/SevenTV/chatterino7/releases/tag/v7.5.0-beta.1</url>
-        </release>
-        <release version="7.4.6" date="2023-09-28">
-            <url>https://github.com/SevenTV/chatterino7/releases/tag/v7.4.6</url>
-        </release>
-        <release version="7.4.5" date="2023-08-26">
-            <url>https://github.com/SevenTV/chatterino7/releases/tag/v7.4.5</url>
-        </release>
-        <release version="7.4.4" date="2023-05-14">
-            <url>https://github.com/SevenTV/chatterino7/releases/tag/v7.4.4</url>
-        </release>
-        <release version="7.4.3" date="2023-04-30">
-            <url>https://github.com/SevenTV/chatterino7/releases/tag/v7.4.3</url>
-        </release>
-        <release version="7.4.2" date="2023-03-05">
-            <url>https://github.com/SevenTV/chatterino7/releases/tag/v7.4.2</url>
+        <release version="2.5.6" date="2026-11-01">
+            <url>https://github.com/satorino/satorino/releases</url>
         </release>
     </releases>
 </component>

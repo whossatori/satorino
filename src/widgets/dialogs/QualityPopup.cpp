@@ -43,7 +43,7 @@ void QualityPopup::showDialog(const QString &url, QStringList options)
 {
     QualityPopup *instance = new QualityPopup(url, options);
 
-    instance->window()->setWindowTitle("Leafyrino - select stream quality");
+    instance->window()->setWindowTitle("Satorino - select stream quality");
     instance->setAttribute(Qt::WA_DeleteOnClose, true);
 
     instance->show();

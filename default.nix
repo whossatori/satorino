@@ -12,7 +12,7 @@ in
 }).overrideAttrs
   (
     finalAttrs: prev: {
-      pname = "leafyrino";
+      pname = "satorino";
       version = "unstable";
 
       buildInputs = prev.buildInputs ++ [
@@ -46,7 +46,7 @@ in
       '';
 
       meta = (prev.meta or {}) // {
-        mainProgram = "chatterino";
+        mainProgram = "Satorino";
       };
     }
   )

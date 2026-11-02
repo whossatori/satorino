@@ -9,7 +9,7 @@ body:
       label: Checklist
       description:
       options:
-        - label: I've searched the [issues and pull requests](https://github.com/leafyzito/leafyrino/issues?q=) for similar suggestions
+        - label: I've searched the [issues and pull requests](https://github.com/satorino/satorino/issues?q=) for similar suggestions
           required: true
 
   - type: textarea

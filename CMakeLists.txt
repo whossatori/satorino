@@ -77,10 +77,12 @@ if(WIN32)
     set(CMAKE_RC_COMPILER_LAUNCHER "" CACHE STRING "RC compiler launcher" FORCE)
 endif()
 
-project(chatterino
+# satorino: renamed from upstream "chatterino". CMake target names are kept
+# stable (chatterino-lib / chatterino) in src/CMakeLists.txt for merge safety.
+project(satorino
     VERSION 2.5.6
-    DESCRIPTION "Chat client for twitch.tv"
-    HOMEPAGE_URL "https://chatterino.com/"
+    DESCRIPTION "Chat client for Twitch"
+    HOMEPAGE_URL "https://github.com/satorino/satorino"
 )
 
 if(APPLE AND CHATTERINO_SPELLCHECK)

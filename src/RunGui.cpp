@@ -56,7 +56,10 @@ QString guiActivationServerName(const Paths &paths)
 {
     const auto hash = QCryptographicHash::hash(
         paths.rootAppDataDirectory.toUtf8(), QCryptographicHash::Sha256);
-    return QStringLiteral("leafyrino-gui-activate-%1")
+    // satorino: single-instance key (renamed from "leafyrino-*") so satorino
+    // and leafyrino can run side by side; the settings dir stays shared via
+    // setApplicationName("chatterino") in src/main.cpp.
+    return QStringLiteral("satorino-gui-activate-%1")
         .arg(QString::fromLatin1(hash.toHex().left(24)));
 }
 
@@ -91,7 +94,7 @@ std::unique_ptr<QLocalServer> createGuiActivationServer(const Paths &paths)
             if (!server->listen(serverName))
             {
                 qCWarning(chatterinoApp)
-                    << "Failed to listen for Leafyrino activation requests:"
+                    << "Failed to listen for Satorino activation requests:"
                     << server->errorString();
                 return nullptr;
             }
@@ -99,7 +102,7 @@ std::unique_ptr<QLocalServer> createGuiActivationServer(const Paths &paths)
         else
         {
             qCDebug(chatterinoApp)
-                << "Leafyrino activation server already exists.";
+                << "Satorino activation server already exists.";
             return nullptr;
         }
     }

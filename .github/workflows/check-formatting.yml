@@ -4,6 +4,8 @@ name: Check formatting
 on:
   push:
     branches:
+      # satorino: default branch
+      - satorino
       - leafyrino
   pull_request:
   merge_group:

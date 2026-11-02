@@ -204,7 +204,8 @@ void NetworkRequest::execute()
 
 void NetworkRequest::initializeDefaultValues()
 {
-    const auto userAgent = QStringLiteral("chatterino/%1 (%2)")
+    // satorino: app user agent (was "chatterino/...")
+    const auto userAgent = QStringLiteral("satorino/%1 (%2)")
                                .arg(Version::instance().version(),
                                     Version::instance().commitHash())
                                .toUtf8();

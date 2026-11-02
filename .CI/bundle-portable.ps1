@@ -1,5 +1,6 @@
-if (-not (Test-Path -PathType Container Chatterino2)) {
-    Write-Error "Couldn't find a folder called 'Chatterino2' in the current directory.";
+# satorino: staging folder is "Satorino" (was Chatterino2)
+if (-not (Test-Path -PathType Container Satorino)) {
+    Write-Error "Couldn't find a folder called 'Satorino' in the current directory.";
     exit 1
 }
 if (-not $Env:C2_PORTABLE_INSTALLER_VERSION -or -not $Env:C2_PORTABLE_INSTALLER_SHA256_X64 -or -not $Env:C2_PORTABLE_INSTALLER_SHA256_ARM64) {
@@ -26,16 +27,16 @@ git describe --exact-match --match 'v*' *> $null;
 $isTagged = $?;
 $ErrorActionPreference = $OldErrorActionPref;
 
-Write-Output portable | Out-File Chatterino2/modes -Encoding ASCII;
+Write-Output portable | Out-File Satorino/modes -Encoding ASCII;
 if ($isTagged) {
     # This is a release.
     # Make sure, any existing `modes` file is overwritten for the user,
     # for example when updating from nightly to stable.
-    $bundleBaseName = "Leafyrino.Portable";
+    $bundleBaseName = "Satorino.Portable";
 }
 else {
-    Write-Output nightly | Out-File Chatterino2/modes -Append -Encoding ASCII;
-    $bundleBaseName = "Leafyrino.Nightly.Portable";
+    Write-Output nightly | Out-File Satorino/modes -Append -Encoding ASCII;
+    $bundleBaseName = "Satorino.Nightly.Portable";
 }
 
 $architecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLower()
@@ -54,8 +55,8 @@ if ($Env:GITHUB_OUTPUT) {
     "C2_PORTABLE_BASE_NAME=$bundleBaseName" >> "$Env:GITHUB_OUTPUT"
 }
 
-Remove-IfExists "Chatterino2/updater.1";
-New-Item "Chatterino2/updater.1" -ItemType Directory;
+Remove-IfExists "Satorino/updater.1";
+New-Item "Satorino/updater.1" -ItemType Directory;
 
 Invoke-RestMethod "https://github.com/Nerixyz/c2-portable-updater/releases/download/$($Env:C2_PORTABLE_INSTALLER_VERSION)/c2-portable-updater-$updaterArch-pc-windows-msvc.zip" -OutFile _portable-installer.zip;
 $updaterHash = (Get-FileHash _portable-installer.zip).Hash.ToLower();
@@ -65,9 +66,9 @@ if (-not $updaterHash -eq $expectedUpdaterHash) {
 }
 
 7z e -y _portable-installer.zip c2-portable-updater.exe;
-Move-Item c2-portable-updater.exe "Chatterino2/updater.1/ChatterinoUpdater.exe" -Force;
-7z e -so _portable-installer.zip LICENSE-MIT > "Chatterino2/updater.1/LICENSE";
+Move-Item c2-portable-updater.exe "Satorino/updater.1/ChatterinoUpdater.exe" -Force;
+7z e -so _portable-installer.zip LICENSE-MIT > "Satorino/updater.1/LICENSE";
 Remove-IfExists _portable-installer.zip;
 
 Remove-IfExists "$bundleBaseName.zip";
-7z a "$bundleBaseName.zip" Chatterino2/;
+7z a "$bundleBaseName.zip" Satorino/;

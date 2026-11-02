@@ -4,6 +4,8 @@ name: Build
 on:
   push:
     branches:
+      # satorino: default branch
+      - satorino
       - leafyrino
       - "bugfix-release/**"
       - "release/*"
@@ -26,12 +28,12 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  C2_ENABLE_LTO: ${{ github.ref == 'refs/heads/leafyrino' || startsWith(github.ref, 'refs/heads/bugfix-release') || startsWith(github.ref, 'refs/heads/release/')}}
+  C2_ENABLE_LTO: ${{ github.ref == 'refs/heads/satorino' || github.ref == 'refs/heads/leafyrino' || startsWith(github.ref, 'refs/heads/bugfix-release') || startsWith(github.ref, 'refs/heads/release/')}}
   CHATTERINO_REQUIRE_CLEAN_GIT: On
   CHATTERINO_BUILD_TYPE: ${{ case(inputs.buildType != '', inputs.buildType, 'auto') }}
   CONAN_VERSION: 2.28.1
-  C2_APP_EXECUTABLE: Leafyrino
-  C2_APP_BUNDLE: Leafyrino.app
+  C2_APP_EXECUTABLE: Satorino
+  C2_APP_BUNDLE: Satorino.app
 
 jobs:
   build-ubuntu:
@@ -167,8 +169,8 @@ jobs:
         if: matrix.build-appimage
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: Leafyrino-x86_64-Qt-${{ matrix.qt-version }}.AppImage
-          path: build/Leafyrino-x86_64.AppImage
+          name: satorino-x86_64-Qt-${{ matrix.qt-version }}.AppImage
+          path: build/satorino-x86_64.AppImage
 
       - name: Package - .deb (Ubuntu)
         if: matrix.build-deb
@@ -180,8 +182,8 @@ jobs:
         if: matrix.build-deb
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: Chatterino-${{ matrix.os }}.deb
-          path: build/Chatterino-${{ matrix.os }}-x86_64.deb
+          name: satorino-${{ matrix.os }}.deb
+          path: build/satorino-${{ matrix.os }}-x86_64.deb
 
   # MARK: Flatpak
   build-flatpak:
@@ -197,8 +199,8 @@ jobs:
           persist-credentials: false
       - uses: flatpak/flatpak-github-actions/flatpak-builder@79327416609af08178ad73b352877e51450790b3 # v6.8
         with:
-          bundle: chatterino.flatpak
-          manifest-path: .CI/com.chatterino.chatterino.yml
+          bundle: satorino.flatpak
+          manifest-path: .CI/satorino.yml
           cache-key: flatpak-builder-${{ github.sha }}
 
   # MARK: Main build
@@ -379,37 +381,37 @@ jobs:
         run: |
           cd build
           ninja chatterino-crash-handler
-          mkdir Chatterino2/crashpad
-          cp bin/crashpad/crashpad-handler.exe Chatterino2/crashpad/crashpad-handler.exe
-          7z a bin/leafyrino-${{ env.C2_ARCH }}-Qt-${{ matrix.qt-version }}.pdb.7z bin/${{ env.C2_APP_EXECUTABLE }}.pdb
+          mkdir Satorino/crashpad
+          cp bin/crashpad/crashpad-handler.exe Satorino/crashpad/crashpad-handler.exe
+          7z a bin/satorino-${{ env.C2_ARCH }}-Qt-${{ matrix.qt-version }}.pdb.7z bin/${{ env.C2_APP_EXECUTABLE }}.pdb
 
       - name: Prepare build dir (windows)
         if: startsWith(matrix.os, 'windows')
         working-directory: build
         run: |
-          windeployqt bin/${{ env.C2_APP_EXECUTABLE }}.exe --release --no-compiler-runtime --no-translations --no-opengl-sw --dir Chatterino2/ --force-openssl
-          cp bin/${{ env.C2_APP_EXECUTABLE }}.exe Chatterino2/
-          ..\.CI\deploy-crt.ps1 Chatterino2
+          windeployqt bin/${{ env.C2_APP_EXECUTABLE }}.exe --release --no-compiler-runtime --no-translations --no-opengl-sw --dir Satorino/ --force-openssl
+          cp bin/${{ env.C2_APP_EXECUTABLE }}.exe Satorino/
+          ..\.CI\deploy-crt.ps1 Satorino
 
       - name: Package (windows)
         if: startsWith(matrix.os, 'windows')
         working-directory: build
         run: |
-          7z a chatterino-windows-${{ env.C2_ARCH }}-Qt-${{ matrix.qt-version }}.zip Chatterino2/
+          7z a satorino-windows-${{ env.C2_ARCH }}-Qt-${{ matrix.qt-version }}.zip Satorino/
 
       - name: Upload artifact (Windows - binary)
         if: startsWith(matrix.os, 'windows') && !matrix.skip-artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: chatterino-windows-${{ env.C2_ARCH }}-Qt-${{ matrix.qt-version }}.zip
-          path: build/chatterino-windows-${{ env.C2_ARCH }}-Qt-${{ matrix.qt-version }}.zip
+          name: satorino-windows-${{ env.C2_ARCH }}-Qt-${{ matrix.qt-version }}.zip
+          path: build/satorino-windows-${{ env.C2_ARCH }}-Qt-${{ matrix.qt-version }}.zip
 
       - name: Upload artifact (Windows - symbols)
         if: startsWith(matrix.os, 'windows') && !matrix.skip-artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: leafyrino-windows-${{ env.C2_ARCH }}-Qt-${{ matrix.qt-version }}-symbols.pdb.7z
-          path: build/bin/leafyrino-${{ env.C2_ARCH }}-Qt-${{ matrix.qt-version }}.pdb.7z
+          name: satorino-windows-${{ env.C2_ARCH }}-Qt-${{ matrix.qt-version }}-symbols.pdb.7z
+          path: build/bin/satorino-${{ env.C2_ARCH }}-Qt-${{ matrix.qt-version }}.pdb.7z
 
       # MARK: macOS
       - name: Install dependencies (MacOS)
@@ -463,7 +465,7 @@ jobs:
       - name: Package (MacOS)
         if: runner.os == 'macOS'
         env:
-          OUTPUT_DMG_PATH: chatterino-macos-Qt-${{ matrix.qt-version}}-universal.dmg
+          OUTPUT_DMG_PATH: satorino-macos-Qt-${{ matrix.qt-version}}-universal.dmg
         run: |
           set -ex
           ls -la
@@ -494,14 +496,14 @@ jobs:
         if: startsWith(matrix.os, 'macos')
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: chatterino-macos-Qt-${{ matrix.qt-version }}-universal.dmg
-          path: build/chatterino-macos-Qt-${{ matrix.qt-version }}-universal.dmg
+          name: satorino-macos-Qt-${{ matrix.qt-version }}-universal.dmg
+          path: build/satorino-macos-Qt-${{ matrix.qt-version }}-universal.dmg
 
   # MARK: Create release
   create-release:
     needs: [build-ubuntu, build-flatpak, build]
     runs-on: ubuntu-latest
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/leafyrino')
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/satorino')
     permissions:
       contents: write # create release
 
@@ -522,9 +524,9 @@ jobs:
         run: |
           ls -l
           # Rename the macos build to indicate that it's for macOS 13.0 users
-          mv chatterino-macos-Qt-6.12.0-universal.dmg Chatterino-macOS-13.0-universal.dmg
+          mv satorino-macos-Qt-6.12.0-universal.dmg Satorino-macOS-13.0-universal.dmg
           # Rename Windows ARM64 to indicate that it's not well tested
-          mv chatterino-windows-arm-Qt-6.12.0.zip Experimental-ARM64-chatterino-windows-Qt-6.12.0.zip
+          mv satorino-windows-arm-Qt-6.12.0.zip Experimental-ARM64-satorino-windows-Qt-6.12.0.zip
         working-directory: release-artifacts
         shell: bash
 

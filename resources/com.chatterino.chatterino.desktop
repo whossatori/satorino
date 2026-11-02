@@ -1,11 +1,11 @@
 [Desktop Entry]
 Type=Application
 Version=1.0
-Name=Leafyrino
-GenericName=Leafyrino
+Name=Satorino
+GenericName=Chat client
 Comment=Chat client for Twitch
-Exec=Leafyrino
-Icon=com.leafyzito.leafyrino
+Exec=Satorino
+Icon=dev.satorino.Satorino
 Terminal=false
 Categories=Network;InstantMessaging;
-StartupWMClass=chatterino
+StartupWMClass=Satorino

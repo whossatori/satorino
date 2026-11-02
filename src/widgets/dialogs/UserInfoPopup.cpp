@@ -2962,7 +2962,7 @@ void UserInfoPopup::fetchMoreUsercardMessages(int emptyPageSkipsLeft,
     {
         this->usercardMessagesError_ =
             authError.isEmpty()
-                ? QStringLiteral("No saved Leafyrino moderator login found.")
+                ? QStringLiteral("No saved Satorino moderator login found.")
                 : authError;
         this->usercardMessagesLazyLoadEnabled_ = false;
         this->usercardMessagesLoading_ = false;

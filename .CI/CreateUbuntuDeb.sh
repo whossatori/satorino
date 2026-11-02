@@ -16,7 +16,7 @@ packaging_dir="package"
 ubuntu_release="$(lsb_release -rs)"
 
 # The final path where we'll save the .deb package
-deb_path="Chatterino-ubuntu-${ubuntu_release}-x86_64.deb"
+deb_path="satorino-ubuntu-${ubuntu_release}-x86_64.deb"
 
 # Refactor opportunity:
 case "$ubuntu_release" in
@@ -41,12 +41,14 @@ esac
 echo "Building Ubuntu .deb file on '$ubuntu_release'"
 echo "Dependencies: $dependencies"
 
-if [ -f ./bin/Leafyrino ] && [ -x ./bin/Leafyrino ]; then
+if [ -f ./bin/Satorino ] && [ -x ./bin/Satorino ]; then
+    app_executable="Satorino"
+elif [ -f ./bin/Leafyrino ] && [ -x ./bin/Leafyrino ]; then
     app_executable="Leafyrino"
 elif [ -f ./bin/chatterino ] && [ -x ./bin/chatterino ]; then
     app_executable="chatterino"
 else
-    echo "ERROR: No Leafyrino or chatterino binary file found. This script must be run in the build folder, and the app must be built first."
+    echo "ERROR: No Satorino, Leafyrino or chatterino binary file found. This script must be run in the build folder, and the app must be built first."
     exit 1
 fi
 
@@ -64,15 +66,15 @@ mkdir -p "$packaging_dir/DEBIAN"
 
 echo "Making control file"
 cat >> "$packaging_dir/DEBIAN/control" << EOF
-Package: chatterino
+Package: satorino
 Version: $chatterino_version
 Architecture: amd64
-Maintainer: Leafyzito <https://github.com/leafyzito>
+Maintainer: Satorino <https://github.com/satorino/satorino>
 Depends: $dependencies
 Section: net
 Priority: optional
-Homepage: https://github.com/leafyzito/leafyrino
-Description: Leafyrino - chat client for Twitch (built for $ubuntu_release)
+Homepage: https://github.com/satorino/satorino
+Description: Satorino - chat client for Twitch (built for $ubuntu_release)
 EOF
 cat "$packaging_dir/DEBIAN/control"
 breakline

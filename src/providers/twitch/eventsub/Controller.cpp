@@ -76,7 +76,7 @@ private:
 
 Controller::Controller()
     : logProxy(std::shared_ptr<lib::Logger>(new QLogProxy(LOG())))
-    , userAgent(QStringLiteral("chatterino/%1 (%2)")
+    , userAgent(QStringLiteral("satorino/%1 (%2)")
                     .arg(Version::instance().version(),
                          Version::instance().commitHash())
                     .toUtf8()

@@ -1,6 +1,9 @@
-set(LIBRARY_PROJECT "${PROJECT_NAME}-lib")
+# satorino: keep the upstream target names (chatterino-lib / chatterino) even
+# though the project is renamed to "satorino" - tests/, mocks/, benchmarks/
+# and .CI/setup-clang-tidy.sh reference these targets by name.
+set(LIBRARY_PROJECT "chatterino-lib")
 set(VERSION_PROJECT "${LIBRARY_PROJECT}-version")
-set(EXECUTABLE_PROJECT "${PROJECT_NAME}")
+set(EXECUTABLE_PROJECT "chatterino")
 # used for QT_DISABLE_DEPRECATED_BEFORE/QT_WARN_DEPRECATED_UP_TO
 set(CHATTERINO_MIN_QT_VERSION 0x060403)
 
@@ -1321,7 +1324,8 @@ if (BUILD_APP)
     target_link_libraries(${EXECUTABLE_PROJECT} PUBLIC ${LIBRARY_PROJECT})
 
     set_target_directory_hierarchy(${EXECUTABLE_PROJECT})
-    set_target_properties(${EXECUTABLE_PROJECT} PROPERTIES OUTPUT_NAME "Leafyrino")
+    # satorino: user-visible binary name (was "Leafyrino")
+    set_target_properties(${EXECUTABLE_PROJECT} PROPERTIES OUTPUT_NAME "Satorino")
 
     if (WIN32)
         if (WINDEPLOYQT_PATH)
@@ -1407,13 +1411,15 @@ if (BUILD_APP)
                 ARCHIVE DESTINATION lib/static
                 )
 
+        # satorino: installed desktop/icon file names (must match
+        # setDesktopFileName in src/main.cpp and Icon= in the .desktop file)
         install(FILES ${CMAKE_SOURCE_DIR}/resources/com.chatterino.chatterino.desktop
-                RENAME com.leafyzito.leafyrino.desktop
+                RENAME dev.satorino.Satorino.desktop
                 DESTINATION share/applications
                 )
 
         install(FILES ${CMAKE_SOURCE_DIR}/resources/icon.png
-                RENAME com.leafyzito.leafyrino.png
+                RENAME dev.satorino.Satorino.png
                 DESTINATION share/icons/hicolor/256x256/apps
                 )
     endif ()
@@ -1514,8 +1520,8 @@ if (APPLE AND BUILD_APP)
     set_target_properties(${EXECUTABLE_PROJECT} PROPERTIES MACOSX_BUNDLE TRUE)
     set_target_properties(${EXECUTABLE_PROJECT}
         PROPERTIES
-        MACOSX_BUNDLE_BUNDLE_NAME "Leafyrino"
-        MACOSX_BUNDLE_GUI_IDENTIFIER "com.leafyzito.leafyrino"
+        MACOSX_BUNDLE_BUNDLE_NAME "Satorino"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "dev.satorino.Satorino"
         MACOSX_BUNDLE_LONG_VERSION_STRING "${PROJECT_VERSION}"
         MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
         MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"

@@ -54,6 +54,22 @@ AboutPage::AboutPage()
         }
         logo->setScaledContents(true);
 
+        // satorino: fork identity / credits
+        auto forkLabel = layout.emplace<QLabel>(
+            "Satorino is a personal fork of "
+            "<a href=\"https://github.com/leafyzito/leafyrino\">Leafyrino</a>, "
+            "which builds on <a "
+            "href=\"https://github.com/SevenTV/chatterino7\">"
+            "Chatterino7</a>, <a "
+            "href=\"https://github.com/EEVA-inc/Moltorino7\">"
+            "Moltorino7</a>, "
+            "<a "
+            "href=\"https://github.com/2547techno/technorino\">technorino</a> "
+            "and <a href=\"https://github.com/Chatterino/chatterino2\">"
+            "Chatterino</a>.");
+        forkLabel->setWordWrap(true);
+        forkLabel->setOpenExternalLinks(true);
+
         auto versionInfo = layout.emplace<QGroupBox>("Version");
         {
             auto vbox = versionInfo.emplace<QVBoxLayout>();
@@ -297,7 +313,7 @@ void AboutPage::addLicense(QFormLayout *form, const QString &name,
                     BaseWindow::BoundsCheckOnShow,
                 },
                 parent);
-            window->setWindowTitle("Leafyrino - License for " + name);
+            window->setWindowTitle("Satorino - License for " + name);
             window->setAttribute(Qt::WA_DeleteOnClose);
             auto *layout = new QVBoxLayout();
             auto *edit = new QTextEdit;

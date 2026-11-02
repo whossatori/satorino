@@ -5,11 +5,12 @@ import re
 import argparse
 
 
+# satorino: placeholder - point at your own releases when they exist
 ROOT_DOWNLOAD_URL = (
-    "https://github.com/leafyzito/leafyrino/releases/download/nightly-build"
+    "https://github.com/satorino/satorino/releases/download/nightly-build"
 )
-WIN_X64_INSTALLERS = ["Leafyrino.Nightly.Installer.exe"]
-WIN_ARM64_INSTALLERS = ["Experimental-ARM64-Leafyrino.Nightly.Installer.exe"]
+WIN_X64_INSTALLERS = ["Satorino.Nightly.Installer.exe"]
+WIN_ARM64_INSTALLERS = ["Experimental-ARM64-Satorino.Nightly.Installer.exe"]
 
 
 def create_artifacts_table(artifact_dir: str, include_installer: bool):
@@ -130,7 +131,7 @@ print("> [!WARNING]")
 print(
     "> This is an experimental version that may break. "
     "If you're looking for the latest stable release, see "
-    f"https://github.com/leafyzito/leafyrino/releases/tag/{get_current_stable()}.\n"
+    f"https://github.com/satorino/satorino/releases/tag/{get_current_stable()}.\n"
 )
 
 print("### Downloads\n")

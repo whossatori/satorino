@@ -52,7 +52,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
           parent)
 {
     this->setObjectName("SettingsDialog");
-    this->setWindowTitle("Leafyrino Settings");
+    this->setWindowTitle("Satorino Settings");
     this->setWindowRole(u"chatterino.settings"_s);
     // Disable the ? button in the titlebar until we decide to use it
     this->setWindowFlags(this->windowFlags() &

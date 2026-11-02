@@ -159,8 +159,9 @@ void Updates::installUpdates()
     if (Version::instance().isNightly())
     {
         // Since Nightly builds can be installed in many different ways, we ask the user to download the update manually.
+        // satorino: placeholder - point at your own repo when it exists
         QDesktopServices::openUrl(
-            QUrl("https://github.com/leafyzito/leafyrino/releases"));
+            QUrl("https://github.com/satorino/satorino/releases"));
         return;
     }
 
@@ -441,8 +442,13 @@ void Updates::checkForUpdates()
     auto apiVersion = std::make_shared<uint8_t>(3);
     constexpr auto maxApiVersion = 3;
     auto fmtUrl = [apiVersion]() -> QString {
-        return u"https://7tv.io/v" % QString::number(*apiVersion) %
-               "/chatterino/version/" % CHATTERINO_OS % "/" % currentBranch();
+        // satorino: satorino has no update server. ".invalid" never resolves,
+        // so even a build configured with CHATTERINO_UPDATER=ON can never pull
+        // SevenTV's or leafyrino's binaries. The updater is OFF by default
+        // (CHATTERINO_UPDATER option in CMakeLists.txt).
+        return u"https://updates.satorino.invalid/v" %
+               QString::number(*apiVersion) % "/chatterino/version/" %
+               CHATTERINO_OS % "/" % currentBranch();
     };
 
     auto onError = std::make_shared<std::function<void(NetworkResult)>>();
@@ -539,13 +545,13 @@ QString Updates::buildUpdateAvailableText() const
                        "The version online (%1) seems to be lower than the "
                        "current (%2).\nEither a version was reverted or "
                        "you are running a newer build.\n\nDo you want to "
-                       "head to github.com/leafyzito/leafyrino to download it?")
+                       "head to github.com/satorino/satorino to download it?")
                 .arg(this->getOnlineVersion(), this->getCurrentVersion());
         }
 
         return QString(
                    "An update (%1) is available.\n\nDo you want to head to "
-                   "github.com/leafyzito/leafyrino to download the new update?")
+                   "github.com/satorino/satorino to download the new update?")
             .arg(this->getOnlineVersion());
     }
 
