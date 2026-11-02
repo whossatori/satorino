@@ -47,7 +47,7 @@ jobs:
             libbenchmark-dev gcovr gnupg
 
       - name: Install Qt6
-        uses: jurplel/install-qt-action@v4.3.1
+        uses: jurplel/install-qt-action@v4.5.0
         with:
           cache: true
           cache-key-prefix: ${{ runner.os }}-QtCache-${{ matrix.qt-version }}-v2
