@@ -18,6 +18,10 @@
 #     settings/caches/logs next to the exe and never reads or writes
 #     %APPDATA%\Chatterino2 - that folder is shared with real Chatterino
 #     installs on this machine by design.
+#   - the conan runtime DLLs (libssl-3-x64.dll, libcrypto-3-x64.dll) are
+#     copied from build/bin into the package: Satorino.exe imports them
+#     directly and windeployqt does not deploy them. Upstream gets them via
+#     conanfile.py, which also copies them into build/Chatterino2.
 
 name: Satorino Windows Test Build
 
@@ -153,6 +157,8 @@ jobs:
         run: |
           windeployqt bin/${{ env.C2_APP_EXECUTABLE }}.exe --release --no-compiler-runtime --no-translations --no-opengl-sw --dir Satorino/ --force-openssl
           cp bin/${{ env.C2_APP_EXECUTABLE }}.exe Satorino/
+          # conan runtime DLLs (OpenSSL etc.) - Satorino.exe imports these directly
+          Copy-Item bin\*.dll Satorino\ -Force
           ..\.CI\deploy-crt.ps1 Satorino
           # Portable mode (src/common/Modes.cpp): a `modes` file containing the
           # line "portable" next to Satorino.exe keeps ALL settings, caches and
@@ -161,6 +167,24 @@ jobs:
           7z a satorino-windows-x64-portable.zip Satorino/
           Get-Content Satorino/modes
           7z l satorino-windows-x64-portable.zip | Select-Object -First 40
+
+      - name: Verify package contents
+        shell: pwsh
+        working-directory: build
+        run: |
+          $required = @(
+            'Satorino.exe', 'modes',
+            'libssl-3-x64.dll', 'libcrypto-3-x64.dll',
+            'Qt6Core.dll', 'Qt6Charts.dll',
+            'platforms/qwindows.dll', 'tls/qopensslbackend.dll',
+            'VCRUNTIME140.dll', 'MSVCP140.dll'
+          )
+          $missing = $required | Where-Object { -not (Test-Path "Satorino/$_") }
+          if ($missing) {
+            Write-Error ("Missing from package: " + ($missing -join ', '))
+            exit 1
+          }
+          Get-ChildItem Satorino | Select-Object Name, Length
 
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
