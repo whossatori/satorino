@@ -22,6 +22,8 @@ Chatterino/chatterino2 ──> SevenTV/chatterino7 ──> leafyzito/leafyrino �
   merges stay cheap. `project()` is renamed in `CMakeLists.txt`; the target
   names are pinned in `src/CMakeLists.txt` (tests/mocks/benchmarks and
   `.CI/setup-clang-tidy.sh` reference `chatterino-lib` by name).
+- **Icon colour: `#cba6f7`** (light purple, Catppuccin Mocha "mauve") -
+  see "app icon recolour" below.
 - **App id: `cc.satos.Satorino` (final, decided 2026-11-01).** It
   appears in: `.desktop` `Icon=` + installed file names (`src/CMakeLists.txt`
   install rules), `setDesktopFileName` (`src/main.cpp`), GLib toast app id
@@ -153,6 +155,41 @@ Deliberately **kept** (do not "fix" these on a sync):
 Smoke-test note: the workflow asserts the `--version` **exit code** only (a
 missing DLL fails process init with 0xC0000135); stdout capture from the
 GUI-subsystem binary is best-effort.
+
+### app icon recolour - light purple #cba6f7 (2026-11-02)
+
+The icon set is recoloured to the fork colour **#cba6f7**.
+`scripts/recolour-icon.py` is the generator - re-run it after an upstream
+sync replaces any icon file; it is also the record of the exact method:
+
+- hue shift to the mauve hue with a power-law remap of saturation and
+  luminance, anchored on the source's dominant saturated colour (that
+  colour maps exactly to #cba6f7);
+- neutrals (grey shadow layer, white, black) and alpha are untouched -
+  only coloured pixels turn mauve;
+- the rasters and the SVG had diverged (rasters = leafyrino's green,
+  `icon.svg` still chatterino blue), so each is recoloured with its own
+  anchor; both are mauve now.
+
+Formats regenerated in place (file names unchanged):
+`resources/icon.ico` (16-256 px; exe icon via `windows.rc.in`, installer
+`SetupIconFile`, tray via `:/icon.ico` in `TrayController.cpp`),
+`resources/icon.png` (256 px; Linux install/flatpak/AppImage),
+`resources/chatterino.icns` (16-1024 px; macOS bundle) and
+`resources/icon.svg` (fills).
+
+icns detail: the legacy RLE `ic04`/`ic05` chunks (16/32 px ARGB) were
+replaced by PNG `icp4`/`icp5` chunks - same sizes, the encoding macOS
+itself emits via iconutil; every other chunk kept its type and order,
+and the binary `info` chunk is copied verbatim.
+`resources/moltorino.icns` is a stale, unreferenced leftover from the
+Moltorino7 chain and was left alone. Emotes, badges and avatars are NOT
+recoloured.
+
+Verified programmatically (see the task report): every size present in
+every format, dominant colour exactly #cba6f7, shape and luminance
+structure preserved, no old green left. macOS rendering itself is
+untested - no macOS build exists.
 
 ## What "leafyrino" is allowed to remain
 
