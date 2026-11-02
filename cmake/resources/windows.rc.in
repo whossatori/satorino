@@ -17,7 +17,7 @@ BEGIN
         BEGIN
             VALUE "ProductName",      "satorino"
             VALUE "ProductVersion",   "@PROJECT_VERSION@"
-            VALUE "CompanyName",      "Satorino, https://github.com/satorino/satorino"
+            VALUE "CompanyName",      "satorino, https://github.com/satorino/satorino"
             VALUE "FileDescription",  "satorino"
             VALUE "FileVersion",      "@PROJECT_VERSION@"
             VALUE "SpecialBuild",     "@GIT_COMMIT@"
