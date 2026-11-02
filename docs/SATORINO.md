@@ -148,21 +148,30 @@ cmake --build build -j"$(nproc)"
 that breaks configure when `libavif` is present. Fixing that typo is
 deliberately left to a separate commit.)
 
-## Proposed sync procedure — awaiting approval, NOT configured yet
+## Sync procedure (approved 2026-11-01, configured)
 
-Recommended: **merge, do not rebase** from upstream:
+**Merge, do not rebase** from upstream — run `scripts/sync-upstream.sh`:
 
 ```shell
-git fetch upstream
-git merge upstream/leafyrino
-# resolve conflicts; rerere helps a lot - enable it first (needs approval):
-#   git config rerere.enabled true
+scripts/sync-upstream.sh
 ```
+
+The script enables `rerere` (`git config rerere.enabled true` — rerere is a
+local git setting and cannot be committed), adds the `leafyrino` remote if
+missing (`https://github.com/leafyzito/leafyrino.git`), refuses to run on a
+dirty tree, then `git fetch` + `git merge` (never rebase) from
+`leafyrino/leafyrino` and updates submodules. Remote/branch can be overridden
+via `SATORINO_UPSTREAM_REMOTE` / `SATORINO_UPSTREAM_URL` /
+`SATORINO_UPSTREAM_BRANCH` / `SATORINO_BRANCH`.
 
 Rationale: satorino publishes nothing to anyone yet, so there is no force-push
 cost; merging keeps upstream commit SHAs identical to leafyrino's, which makes
-`git log upstream/leafyrino..satorino` (your delta) trivial to review and
+`git log leafyrino/leafyrino..satorino` (your delta) trivial to review and
 keeps `format-patch`/bundles stable. Rebasing would give a tidier history but
 rewrites every satorino commit on each sync and invalidates any patches or
-branches you hand out. Say the word and I'll enable `rerere` and (optionally)
-script this as `scripts/sync-upstream.sh`.
+branches you hand out. rerere records each conflict resolution once and
+replays it on every later sync, which is what makes repeated merges cheap.
+
+After a conflicted merge: resolve, `git add`, `git commit`, re-run the script
+(it should then report "Already up to date."), and walk the post-sync
+checklist above.
