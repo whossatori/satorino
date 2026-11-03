@@ -699,8 +699,8 @@ ThemePreviewColors Theme::previewColors(const QString &key)
     std::optional<QJsonObject> fallbackRoot;
     if (descriptor->custom)
     {
-        const bool isLight = (*root)["metadata"_L1]["iconTheme"_L1]
-                                 .toString() == u"dark"_s;
+        const bool isLight =
+            (*root)["metadata"_L1]["iconTheme"_L1].toString() == u"dark"_s;
         const auto fallbackName =
             (*root)["metadata"_L1]["fallbackTheme"_L1].toString(
                 isLight ? u"Light"_s : u"Dark"_s);
@@ -724,8 +724,9 @@ ThemePreviewColors Theme::previewColors(const QString &key)
                                          .toObject()["backgrounds"_L1]
                                          .toObject();
     const auto fallbackSelectedBackgrounds =
-        fallbackColors["tabs"_L1]["selected"_L1].toObject()
-            ["backgrounds"_L1].toObject();
+        fallbackColors["tabs"_L1]["selected"_L1]
+            .toObject()["backgrounds"_L1]
+            .toObject();
     const auto messages = colors["messages"_L1].toObject();
     const auto fallbackMessages = fallbackColors["messages"_L1].toObject();
     const auto textColors = messages["textColors"_L1].toObject();

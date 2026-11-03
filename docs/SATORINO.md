@@ -101,7 +101,7 @@ re-grep `satorino` and `leafyrino`):
 |---|---|
 | `src/singletons/Theme.hpp` / `Theme.cpp` | added public `rescanThemes()` (marked lines) so the page can pick up new custom themes without a restart; added `ThemePreviewColors previewColors(key)` (marked) reading a theme's background + four accents from its own JSON with the same `metadata.fallbackTheme` resolution as `parseFrom` — no per-theme table, custom themes included |
 | `src/widgets/settingspages/GeneralPage.cpp` | the "Theme" dropdown and the "Dark/Light system theme" dropdowns were removed (three-line `// satorino:` marker left behind) — the card grid replaces the picker, and the system theme dropdowns moved to the Themes page (same setting keys, same `conditionallyEnabledBy` semantics, no duplicates) |
-| `src/widgets/dialogs/SettingsDialog.cpp` | one marked `addTab(ThemesPage)` line + include |
+| `src/widgets/dialogs/SettingsDialog.cpp` | one marked `addTab(ThemesPage)` line + include; the tab icon is `:/settings/themes.svg` (a white half-filled circle, new file `resources/settings/themes.svg`). It used to be `:/buttons/switchDark.svg`, which is filled `#222` = the dialog background, so it was invisible - and that file is shared with the poll/prediction/pinned banners, so do not edit it |
 | `src/CMakeLists.txt` | sources registered in the marked `# satorino:` block |
 
 New files: `src/widgets/settingspages/ThemesPage.{hpp,cpp}` (a wrapping

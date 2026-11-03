@@ -267,7 +267,7 @@ void SettingsDialog::addTabs()
     this->addTab([]{return new IgnoresPage;},          "Ignores",        ":/settings/ignore.svg");
     this->addTab([]{return new FiltersPage;},          "Filters",        ":/settings/filters.svg");
     // satorino: Themes page (see docs/SATORINO.md)
-    this->addTab([]{return new ThemesPage;},           "Themes",         ":/buttons/switchDark.svg");
+    this->addTab([]{return new ThemesPage;},           "Themes",         ":/settings/themes.svg");
     this->ui_.tabContainer->addSpacing(16);
     this->addTab([]{return new KeyboardSettingsPage;}, "Hotkeys",        ":/settings/keybinds.svg");
     this->addTab([]{return new ModerationPage;},       "Moderation",     ":/settings/moderation.svg", SettingsTabId::Moderation);
