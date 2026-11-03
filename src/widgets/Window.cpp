@@ -806,7 +806,10 @@ void Window::onAccountSelected()
         windowTitle += " (safe mode)";
     }
 
-    this->setWindowTitle(windowTitle);
+    // satorino: the main title is identical in the custom frame and OS chrome.
+    this->setWindowTitle(this->type_ == WindowType::Main
+                             ? QStringLiteral("satorino")
+                             : windowTitle);
 
     if (this->userLabel_)
     {

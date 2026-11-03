@@ -409,3 +409,20 @@ replays it on every later sync, which is what makes repeated merges cheap.
 After a conflicted merge: resolve, `git add`, `git commit`, re-run the script
 (it should then report "Already up to date."), and walk the post-sync
 checklist above.
+
+## Stage D — title and channel highlights
+
+### Main window title
+
+The Main window's OS title is exactly lowercase `satorino`, including in
+safe mode and after account changes. The custom frame follows the same
+windowTitleChanged signal. Version::fullVersion, About, --version, user
+agents, and other windows keep their existing version information.
+
+### Sync notes
+
+| Upstream file | Hook |
+|---|---|
+| `src/widgets/Window.cpp` | set the Main window title to exactly satorino |
+
+Stage D compile and runtime behavior are unverified; see REPORT-D.md.
