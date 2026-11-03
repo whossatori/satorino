@@ -1134,6 +1134,9 @@ set(SOURCE_FILES
         # see docs/SATORINO.md). Every new satorino .cpp/.hpp goes here.
         controllers/commands/builtin/SetTheme.cpp
         controllers/commands/builtin/SetTheme.hpp
+        util/NotebookTabLayout.cpp
+        util/NotebookTabLayout.hpp
+        widgets/NotebookTabStrip.cpp
         widgets/settingspages/SatorinoPage.cpp
         widgets/settingspages/SatorinoPage.hpp
         widgets/settingspages/ThemeCard.cpp

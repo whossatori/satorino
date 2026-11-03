@@ -1070,6 +1070,7 @@ void NotebookTab::moveAnimated(QPoint targetPos, bool animated)
 
     if (!animated || !this->notebook_->isVisible())
     {
+        this->positionChangedAnimation_.stop();  // satorino: cancel old moves
         this->move(targetPos);
         return;
     }
@@ -1520,9 +1521,11 @@ void NotebookTab::mouseMoveEvent(QMouseEvent *event)
         }
     }
 
-    QPoint relPoint = this->mapToParent(event->pos());
+    // satorino: tabAt accepts notebook coordinates, including a clipped strip.
+    QPoint relPoint = this->mapTo(this->notebook_, event->pos());
+    const QPoint parentPoint = this->mapToParent(event->pos());
 
-    if (this->mouseDown_ && !this->getDesiredRect().contains(relPoint) &&
+    if (this->mouseDown_ && !this->getDesiredRect().contains(parentPoint) &&
         this->notebook_->getAllowUserTabManagement())
     {
         int index;

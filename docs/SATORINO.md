@@ -233,6 +233,27 @@ New files: `src/widgets/settingspages/SatorinoPage.{hpp,cpp}` and
 of the 256x256 RGBA purple app icon; its canvas and alpha silhouette match
 the green Leafyrino sidebar logo. No existing icon is changed.
 
+### Stage C, part 2 — single-row tab scroll
+
+| File | Why |
+|---|---|
+| `src/widgets/Notebook.{hpp,cpp}` | small hooks for the clipped layout, wheel routing, selection visibility, and strip-aware hit testing; remove SplitNotebook's redundant reparent |
+| `src/widgets/helper/NotebookTab.cpp` | translate drag positions into notebook coordinates and stop old animations for immediate scroll moves |
+| `src/CMakeLists.txt` | register the strip implementation and pure layout helper in the marked block |
+| `tests/CMakeLists.txt` | register pure helper regression tests |
+
+New files: `src/widgets/NotebookTabStrip.cpp`,
+`src/util/NotebookTabLayout.{hpp,cpp}`, and
+`tests/src/NotebookTabLayout.cpp`. Only the Main window's user-managed
+SplitNotebook uses the new path, with Top/Bottom tabs and Tab scroll on.
+A child QWidget clips the tab row; the custom buttons and right-aligned +
+stay in notebook coordinates. Wheel deltas pan immediately, with fractional
+angle-delta motion retained, pixel deltas preferred, and bounds clamped.
+Selection, filtering, size changes, and reorder reveal the selected tab.
+Dialogs, popup windows, vertical tabs, hidden tabs, and the setting-off
+path retain the existing horizontal/vertical layout functions.
+Drag auto-scroll at the viewport edges is intentionally omitted.
+
 ## What "leafyrino" is allowed to remain
 
 `git grep -in leafyrino` after a sync should only return:
@@ -270,7 +291,13 @@ free badge bit was `1LL << 49` as of writing).
 6. Smoke test: Settings → Satorino immediately after General; search for
    "Tab scroll", verify its default-on checkbox and live toggle. Leafyrino
    must keep its green logo.
-7. Smoke test: Settings → Themes (card grid, apply, system theme dropdowns,
+7. Smoke test: with 25 tabs, Tab scroll on (Top and Bottom), wheel to both
+   ends; verify clipped edge tabs, fixed buttons and +, selection reveal
+   (click/Ctrl+Tab/Ctrl+1..9), resize, close/add, live-only filtering, and
+   drag reorder after scrolling. Toggle off for stock wrapping/growing.
+   Check dialogs, popup windows, Left/Right, hidden tabs, UI scaling, and
+   wheel over chat content for unchanged behavior.
+8. Smoke test: Settings → Themes (card grid, apply, system theme dropdowns,
    open folder, seeding), General has no theme controls, `/settheme Dark`,
    `/settheme` (no args — lists themes), About page,
    launch twice (single instance still activates the running window).

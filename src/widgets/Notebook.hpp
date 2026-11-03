@@ -184,6 +184,16 @@ private:
     void performHorizontalLayout(const LayoutContext &ctx, bool animated);
     void performVerticalLayout(const LayoutContext &ctx, bool animated);
 
+    // satorino: clipped horizontal tab strip; implementation in NotebookTabStrip.
+    bool usesTabScroll() const;
+    bool updateTabStripParent(bool enabled);
+    void performTabScrollLayout(const LayoutContext &ctx);
+    bool scrollTabStrip(QWheelEvent *event);
+    QWidget *tabStrip_ = nullptr;
+    double tabScrollOffset_ = 0;
+    int tabStripContentWidth_ = 0;
+    bool ensureSelectedTabVisible_ = true;
+
     void showTabVisibilityInfoPopup();
 
     void updateTabVisibility();

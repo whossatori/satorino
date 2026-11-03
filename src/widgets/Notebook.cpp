@@ -383,6 +383,8 @@ void Notebook::select(QWidget *page, bool focusPage, bool recordInHistory)
 
     this->selectedPage_ = page;
 
+    this->ensureSelectedTabVisible_ = true;  // satorino: reveal selected tab
+
     this->performLayout();
     this->updateTabVisibility();
 }
@@ -655,6 +657,16 @@ QWidget *Notebook::getSelectedPage() const
 
 QWidget *Notebook::tabAt(QPoint point, int &index, int maxWidth)
 {
+    // satorino: hit testing uses strip coordinates when tabs are reparented.
+    if (this->usesTabScroll() && this->tabStrip_)
+    {
+        if (!this->tabStrip_->geometry().contains(point))
+        {
+            index = -1;
+            return nullptr;
+        }
+        point = this->tabStrip_->mapFrom(this, point);
+    }
     auto i = 0;
 
     for (auto &item : this->items_)
@@ -691,6 +703,8 @@ void Notebook::rearrangePage(QWidget *page, int index)
     }
 
     this->items_.move(this->indexOf(page), index);
+
+    this->ensureSelectedTabVisible_ = true;  // satorino: reveal reordered tab
 
     this->performLayout(true);
     this->afterPageMoved();
@@ -786,6 +800,7 @@ void Notebook::refresh()
         return;
     }
 
+    this->ensureSelectedTabVisible_ = true;  // satorino: size/filter changes
     this->performLayout();
     this->updateTabVisibility();
 }
@@ -874,8 +889,18 @@ void Notebook::performLayout(bool animated)
         .items = filteredItems,
     };
 
-    if (this->tabLocation_ == NotebookTabLocation::Top ||
-        this->tabLocation_ == NotebookTabLocation::Bottom)
+    // satorino: reparent only in scroll mode; retain the stock layout otherwise.
+    const bool scroll = this->usesTabScroll();
+    if (this->updateTabStripParent(scroll))
+    {
+        animated = false;
+    }
+    if (scroll)
+    {
+        this->performTabScrollLayout(ctx);
+    }
+    else if (this->tabLocation_ == NotebookTabLocation::Top ||
+             this->tabLocation_ == NotebookTabLocation::Bottom)
     {
         this->performHorizontalLayout(ctx, animated);
     }
@@ -1270,6 +1295,11 @@ void Notebook::wheelEvent(QWheelEvent *event)
 
 void Notebook::scrollTabs(QWheelEvent *event)
 {
+    // satorino: wheel input over a scrolling strip pans without changing tabs.
+    if (this->scrollTabStrip(event))
+    {
+        return;
+    }
     const auto defaultMouseDelta = 120;
     const auto verticalDelta = event->angleDelta().y();
     const auto selectTab = [this](int delta) {
@@ -1404,6 +1434,7 @@ void Notebook::setTabVisibilityFilter(TabVisibilityFilter filter)
     }
 
     this->tabVisibilityFilter_ = std::move(filter);
+    this->ensureSelectedTabVisible_ = true;  // satorino: filtered strip changed
     this->performLayout();
     this->updateTabVisibility();
 }
@@ -1805,7 +1836,7 @@ SplitContainer *SplitNotebook::addPage(bool select)
     auto *container = new SplitContainer(this);
     auto *tab = Notebook::addPage(container, QString(), select);
     container->setTab(tab);
-    tab->setParent(this);
+    // satorino: addPage already assigns the correct parent (clipping strip).
     return container;
 }
 

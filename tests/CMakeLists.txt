@@ -40,6 +40,7 @@ set(test_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/src/Selection.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/TabHistory.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/NotebookTab.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/NotebookTabLayout.cpp # satorino: pure layout math
     ${CMAKE_CURRENT_LIST_DIR}/src/SplitInput.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/LinkInfo.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/MessageLayout.cpp
