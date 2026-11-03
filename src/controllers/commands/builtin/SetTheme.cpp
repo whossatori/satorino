@@ -41,8 +41,9 @@ QString setTheme(const CommandContext &ctx)
                 (name.startsWith(customPrefix) &&
                  matches(name.mid(customPrefix.size()).trimmed())))
             {
-                // Same setting and apply path as the Themes page and the
-                // theme dropdown in Settings -> General.
+                // Same setting and apply path as the Themes page card
+                // grid: writing themeName triggers Theme::update() which
+                // applies the theme live and persists it.
                 theme->themeName = keyString;
                 ctx.channel->addSystemMessage(
                     QStringLiteral("Theme set to \"%1\".").arg(name));

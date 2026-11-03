@@ -8,6 +8,7 @@
 #include "singletons/Paths.hpp"
 #include "singletons/Theme.hpp"
 #include "widgets/layout/FlowLayout.hpp"
+#include "widgets/settingspages/SettingWidget.hpp"
 #include "widgets/settingspages/ThemeCard.hpp"
 
 #include <QDesktopServices>
@@ -55,9 +56,8 @@ void seedThemesDirectory(const QString &directory)
                 "This folder holds custom themes for satorino.\n"
                 "\n"
                 "- Every *.json file in this folder shows up as \"Custom: "
-                "<file name>\" in Settings -> Themes and in the theme picker "
-                "in Settings -> General. Only .json files are loaded - this "
-                "README is ignored.\n"
+                "<file name>\" in Settings -> Themes. Only .json files are "
+                "loaded - this README is ignored.\n"
                 "- The theme format is described by "
                 "docs/ChatterinoTheme.schema.json in the source repository:\n"
                 "  https://github.com/satorino/satorino\n"
@@ -141,6 +141,18 @@ ThemesPage::ThemesPage()
     panelLayout->addLayout(this->flow_);
     contentLayout->addWidget(panel);
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+    // the adaptive system theme dropdowns moved from Settings -> General
+    // (same setting keys, same behaviour) live under the grid
+    auto *systemPanel = makePanel(content);
+    this->systemLayout_ = new QVBoxLayout(systemPanel);
+    this->systemLayout_->setContentsMargins(12, 10, 12, 12);
+    this->systemLayout_->setSpacing(8);
+    this->systemLayout_->addWidget(
+        makePanelHeader("ADAPTIVE SYSTEM THEME", systemPanel));
+    contentLayout->addWidget(systemPanel);
+#endif
+
     this->hint_ = new QLabel(content);
     this->hint_->setWordWrap(true);
     this->hint_->setStyleSheet("color: #999;");
@@ -185,6 +197,10 @@ ThemesPage::ThemesPage()
         this->managedConnections_);
 #endif
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+    this->rebuildSystemThemeSelectors();
+#endif
+
     this->rebuildThemeList();
 }
 
@@ -193,6 +209,9 @@ void ThemesPage::onShow()
     // satorino: pick up custom themes added/removed since the last visit
     getTheme()->rescanThemes();
     this->rebuildThemeList();
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+    this->rebuildSystemThemeSelectors();
+#endif
 }
 
 bool ThemesPage::filterElements(const QString &query)
@@ -305,6 +324,44 @@ void ThemesPage::updateSelectedCard()
         card->setSelected(card->key() == currentKey);
     }
 }
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+void ThemesPage::rebuildSystemThemeSelectors()
+{
+    // (re)builds the adaptive system theme dropdowns that used to live on
+    // Settings -> General - same setting keys, same behaviour, same
+    // conditionallyEnabledBy semantics. Rebuilding picks up custom themes
+    // added since the last build.
+    for (auto *widget : this->systemSelectors_)
+    {
+        widget->deleteLater();
+    }
+    this->systemSelectors_.clear();
+
+    auto *themes = getTheme();
+
+    this->systemSelectors_.push_back(
+        SettingWidget::dropdown("Dark system theme",
+                                themes->darkSystemThemeName,
+                                themes->availableThemes())
+            ->setTooltip("This theme is selected if your system is in a dark "
+                         "theme and you enabled the adaptive 'System' theme.")
+            ->conditionallyEnabledBy(themes->themeName, "System"));
+
+    this->systemSelectors_.push_back(
+        SettingWidget::dropdown("Light system theme",
+                                themes->lightSystemThemeName,
+                                themes->availableThemes())
+            ->setTooltip("This theme is selected if your system is in a light "
+                         "theme and you enabled the adaptive 'System' theme.")
+            ->conditionallyEnabledBy(themes->themeName, "System"));
+
+    for (auto *widget : this->systemSelectors_)
+    {
+        this->systemLayout_->addWidget(widget);
+    }
+}
+#endif
 
 void ThemesPage::openThemesFolder()
 {

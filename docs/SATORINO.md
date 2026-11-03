@@ -100,11 +100,13 @@ re-grep `satorino` and `leafyrino`):
 | File | Why |
 |---|---|
 | `src/singletons/Theme.hpp` / `Theme.cpp` | added public `rescanThemes()` (marked lines) so the page can pick up new custom themes without a restart; added `ThemePreviewColors previewColors(key)` (marked) reading a theme's background + four accents from its own JSON with the same `metadata.fallbackTheme` resolution as `parseFrom` — no per-theme table, custom themes included |
+| `src/widgets/settingspages/GeneralPage.cpp` | the "Theme" dropdown and the "Dark/Light system theme" dropdowns were removed (three-line `// satorino:` marker left behind) — the card grid replaces the picker, and the system theme dropdowns moved to the Themes page (same setting keys, same `conditionallyEnabledBy` semantics, no duplicates) |
 | `src/widgets/dialogs/SettingsDialog.cpp` | one marked `addTab(ThemesPage)` line + include |
 | `src/CMakeLists.txt` | sources registered in the marked `# satorino:` block |
 
 New files: `src/widgets/settingspages/ThemesPage.{hpp,cpp}` (a panel with a
-wrapping `FlowLayout` grid of cards) and
+wrapping `FlowLayout` grid of cards, plus the "ADAPTIVE SYSTEM THEME"
+dropdowns under the grid) and
 `src/widgets/settingspages/ThemeCard.{hpp,cpp}` (fixed-size preview card:
 background + accent swatches, centred two-line name, 1px `#45475a` border,
 2px `#cba6f7` when selected, hover + Enter/Space activation). Card chrome is
@@ -247,8 +249,9 @@ free badge bit was `1LL << 49` as of writing).
 3. `git grep -in 'leafyrino'` — only the allowed leftovers above.
 4. Re-check the hot files listed above by hand.
 5. Configure + build (see below), fix conflicts fallout.
-6. Smoke test: Settings → Themes (card grid, apply, open folder, seeding),
-   `/settheme Dark`, `/settheme` (no args — lists themes), About page,
+6. Smoke test: Settings → Themes (card grid, apply, system theme dropdowns,
+   open folder, seeding), General has no theme controls, `/settheme Dark`,
+   `/settheme` (no args — lists themes), About page,
    launch twice (single instance still activates the running window).
 
 ## Windows test builds (GitHub Actions)

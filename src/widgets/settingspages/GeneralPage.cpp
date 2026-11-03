@@ -17,7 +17,6 @@
 #include "singletons/NativeMessaging.hpp"
 #include "singletons/Paths.hpp"
 #include "singletons/Settings.hpp"
-#include "singletons/Theme.hpp"
 #include "util/FuzzyConvert.hpp"
 #include "util/Helpers.hpp"
 #include "util/IncognitoBrowser.hpp"
@@ -132,34 +131,9 @@ void GeneralPage::initLayout(GeneralPageView &layout)
 
     layout.addTitle("Interface");
 
-    {
-        auto *themes = getApp()->getThemes();
-        auto available = themes->availableThemes();
-#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
-        available.emplace(available.begin(), "System", "System");
-#endif
-
-        SettingWidget::dropdown("Theme", themes->themeName, available)
-            ->addTo(layout);
-
-#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
-        SettingWidget::dropdown("Dark system theme",
-                                themes->darkSystemThemeName,
-                                themes->availableThemes())
-            ->setTooltip("This theme is selected if your system is in a dark "
-                         "theme and you enabled the adaptive 'System' theme.")
-            ->conditionallyEnabledBy(themes->themeName, "System")
-            ->addTo(layout);
-
-        SettingWidget::dropdown("Light system theme",
-                                themes->lightSystemThemeName,
-                                themes->availableThemes())
-            ->setTooltip("This theme is selected if your system is in a light "
-                         "theme and you enabled the adaptive 'System' theme.")
-            ->conditionallyEnabledBy(themes->themeName, "System")
-            ->addTo(layout);
-#endif
-    }
+    // satorino: the theme picker and the adaptive system theme dropdowns
+    // used to live here - they are on the Themes page now
+    // (docs/SATORINO.md)
 
     layout.addDropdown<float>(
         "Zoom", ZOOM_LEVELS, s.uiScale,
