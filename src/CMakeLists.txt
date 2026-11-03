@@ -1137,6 +1137,8 @@ set(SOURCE_FILES
         util/NotebookTabLayout.cpp
         util/NotebookTabLayout.hpp
         widgets/NotebookTabStrip.cpp
+        widgets/NotebookPinnedTabs.cpp
+        widgets/helper/NotebookTabSatorino.cpp
         widgets/settingspages/SatorinoPage.cpp
         widgets/settingspages/SatorinoPage.hpp
         widgets/settingspages/ThemeCard.cpp

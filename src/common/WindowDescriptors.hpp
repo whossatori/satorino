@@ -125,6 +125,7 @@ struct TabDescriptor {
     QString customTabColor_;
     bool selected_{false};
     bool highlightsEnabled_{true};
+    bool pinned_{false};  // satorino: optional per-tab layout flag
 
     std::optional<NodeDescriptor> rootNode_;
 

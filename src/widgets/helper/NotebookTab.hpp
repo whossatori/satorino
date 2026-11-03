@@ -58,6 +58,10 @@ public:
     bool isSelected() const;
     void setSelected(bool value);
 
+    // satorino: pin state belongs to the tab, not to its splits/messages.
+    bool isPinned() const;
+    void setPinned(bool value);
+
     void setInLastRow(bool value);
     void setTabLocation(NotebookTabLocation location);
 
@@ -107,6 +111,7 @@ public:
     void growWidth(int width);
 
 protected:
+    bool event(QEvent *event) override;  // satorino: pin-area tooltip
     void themeChangedEvent() override;
 
     void paintEvent(QPaintEvent *) override;
@@ -135,6 +140,16 @@ protected:
     virtual void update();
 
 private:
+    // satorino: pin UI implementation lives in NotebookTabSatorino.cpp.
+    void addPinAction();
+    void updateTabManagementActions();
+    void paintPin(QPainter &painter) const;
+    bool pinned_ = false;
+    QAction *pinTabAction_{};
+    QAction *closeTabAction_{};
+    QAction *closeAllVisibleTabsAction_{};
+    QAction *closeOtherVisibleTabsAction_{};
+
     void showRenameDialog();
 
     bool hasXButton() const;

@@ -37,4 +37,24 @@ double ensureTabVisible(double offset, double contentWidth,
     return clampTabScrollOffset(offset, contentWidth, viewportWidth);
 }
 
+int tabInsertionIndex(int requested, int count, int pinnedCount)
+{
+    return std::clamp(requested < 0 ? count : requested, pinnedCount, count);
+}
+
+int tabReorderIndex(int requested, bool pinned, int count, int pinnedCount)
+{
+    if (count <= 0)
+    {
+        return -1;
+    }
+    return pinned ? std::clamp(requested, 0, pinnedCount - 1)
+                  : std::clamp(requested, pinnedCount, count - 1);
+}
+
+int tabPinIndex(bool pinned, int pinnedCount)
+{
+    return std::max(0, pinnedCount - (pinned ? 1 : 0));
+}
+
 }  // namespace chatterino::satorino

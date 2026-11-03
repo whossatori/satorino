@@ -12,4 +12,10 @@ double clampTabScrollOffset(double offset, double contentWidth,
 double ensureTabVisible(double offset, double contentWidth,
                         double viewportWidth, double tabStart, double tabWidth);
 
+// Indices are in the complete notebook order, including filtered-out tabs.
+int tabInsertionIndex(int requested, int count, int pinnedCount);
+int tabReorderIndex(int requested, bool pinned, int count, int pinnedCount);
+// pinnedCount includes the tab's NEW pin state.
+int tabPinIndex(bool pinned, int pinnedCount);
+
 }  // namespace chatterino::satorino

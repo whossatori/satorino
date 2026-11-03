@@ -230,8 +230,9 @@ untested - no macOS build exists.
 
 New files: `src/widgets/settingspages/SatorinoPage.{hpp,cpp}` and
 `resources/settings/satorino.png`. The sidebar PNG is a byte-for-byte copy
-of the 256x256 RGBA purple app icon; its canvas and alpha silhouette match
-the green Leafyrino sidebar logo. No existing icon is changed.
+of the 256x256 RGBA purple app icon; it uses the same canvas and framing as
+the green Leafyrino sidebar logo, checked side by side at tab size. The
+source rasters have slightly different antialiasing. No existing icon is changed.
 
 ### Stage C, part 2 — single-row tab scroll
 
@@ -253,6 +254,29 @@ Selection, filtering, size changes, and reorder reveal the selected tab.
 Dialogs, popup windows, vertical tabs, hidden tabs, and the setting-off
 path retain the existing horizontal/vertical layout functions.
 Drag auto-scroll at the viewport edges is intentionally omitted.
+
+### Stage C, part 3 — pinned tabs
+
+New files: `src/widgets/NotebookPinnedTabs.cpp` (pin order and user-close
+guard), `src/widgets/helper/NotebookTabSatorino.cpp` (pin action, icon,
+tooltip, and bulk-action counts), and
+`tests/src/NotebookPinnedTabs.cpp`. The pure helper gains pin/insertion/
+reorder boundaries. Pinning appends to the pinned group; unpinning starts
+the unpinned group. New tabs are unpinned. A pinned tab's duplicate starts
+the unpinned group; ordinary duplicates keep their existing adjacency.
+Alphabetical sorting operates inside each group. Pinned tabs scroll with
+the row and also work in the existing wrapped and vertical layouts.
+
+User closes go through `requestRemovePage`; raw `removePage` remains
+available to programmatic teardown. Bulk menus count actual visible,
+unpinned targets and enable each action only when it has a target (so
+Close All can close a single remaining unpinned tab). The pin is always
+painted in the title/X color, including with close buttons disabled. Its
+area selects the tab, shows a tooltip, and never closes or unpins it.
+The layout encoder emits `"pinned": true` only for pins; loading defaults
+to false and restores each pin at the boundary, repairing hand-edited
+order even when the layout is locked. SplitContainer's popup copying is
+unchanged, so popping out a pinned tab does not pin the new popup tab.
 
 ## What "leafyrino" is allowed to remain
 
@@ -280,6 +304,23 @@ one marked addTab line), `src/CMakeLists.txt` (marked satorino block +
 OUTPUT_NAME + installs), `src/messages/MessageElement.hpp` (untouched — next
 free badge bit was `1LL << 49` as of writing).
 
+### Stage C hot-files table
+
+| Upstream file | Why it changes |
+|---|---|
+| `src/CMakeLists.txt` | register every new application source in the marked block |
+| `src/singletons/Settings.hpp` | one marked default-on tab scroll key |
+| `src/widgets/dialogs/SettingsDialog.cpp` | include and add Satorino directly after General |
+| `src/widgets/helper/SettingsDialogTab.hpp` | append Satorino without renumbering existing IDs |
+| `src/widgets/Notebook.hpp` | declare strip/pin hooks and their local state |
+| `src/widgets/Notebook.cpp` | route layout/wheel/selection, enforce insertion/reorder/sort groups, guard hotkey closes, connect live setting |
+| `src/widgets/helper/NotebookTab.hpp` | declare pin state, action hooks, painter, and tooltip event |
+| `src/widgets/helper/NotebookTab.cpp` | small pin/menu/paint/input hooks, skip pins in bulk closes, and map drag coordinates |
+| `src/common/WindowDescriptors.hpp` | optional per-tab pinned flag |
+| `src/common/WindowDescriptors.cpp` | load pinned with a false default |
+| `src/singletons/WindowManager.cpp` | encode true pins and restore pinned-first order |
+| `tests/CMakeLists.txt` | register pure math and notebook pin regression tests |
+
 ## Post-sync checklist
 
 1. `git submodule update --init --recursive`
@@ -297,7 +338,14 @@ free badge bit was `1LL << 49` as of writing).
    drag reorder after scrolling. Toggle off for stock wrapping/growing.
    Check dialogs, popup windows, Left/Right, hidden tabs, UI scaling, and
    wheel over chat content for unchanged behavior.
-8. Smoke test: Settings → Themes (card grid, apply, system theme dropdowns,
+8. Smoke test: pin/unpin, add/duplicate, drag and move-tab hotkeys across the
+   pin boundary, alphabetical sort, and layout lock. Test wrapped, scrolling,
+   and vertical tabs. With Dark/White themes at 1x/2x and compact/normal tabs,
+   verify always-visible pins (close buttons on/off), long-title clipping,
+   tooltip, pin clicks, and X/middle/menu/hotkey/bulk close protection. Save
+   and reload, including hand-edited out-of-order pins with layout locked;
+   check unpinned JSON lacks the key, window close, and popup copying.
+9. Smoke test: Settings → Themes (card grid, apply, system theme dropdowns,
    open folder, seeding), General has no theme controls, `/settheme Dark`,
    `/settheme` (no args — lists themes), About page,
    launch twice (single instance still activates the running window).

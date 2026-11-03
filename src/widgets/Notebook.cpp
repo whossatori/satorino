@@ -15,6 +15,7 @@
 #include "singletons/StreamerMode.hpp"
 #include "singletons/Theme.hpp"
 #include "singletons/WindowManager.hpp"
+#include "util/NotebookTabLayout.hpp"  // satorino: pin group boundaries
 #include "widgets/buttons/DrawnButton.hpp"
 // #include "widgets/buttons/InitMoltorinoUpdateButton.hpp"
 #include "widgets/buttons/PixmapButton.hpp"
@@ -137,14 +138,10 @@ NotebookTab *Notebook::addPageAt(QWidget *page, int position, QString title,
     item.page = page;
     item.tab = tab;
 
-    if (position == -1)
-    {
-        this->items_.push_back(item);
-    }
-    else
-    {
-        this->items_.insert(position, item);
-    }
+    // satorino: new tabs and duplicates are unpinned, after the pinned group.
+    position = satorino::tabInsertionIndex(position, this->getPageCount(),
+                                           this->pinnedTabCount());
+    this->items_.insert(position, item);
 
     page->hide();
     page->setParent(this);
@@ -259,7 +256,7 @@ void Notebook::removeCurrentPage()
 {
     if (this->selectedPage_ != nullptr)
     {
-        this->removePage(this->selectedPage_);
+        this->requestRemovePage(this->selectedPage_);  // satorino: protect pins
     }
 }
 
@@ -702,7 +699,20 @@ void Notebook::rearrangePage(QWidget *page, int index)
         return;
     }
 
-    this->items_.move(this->indexOf(page), index);
+    // satorino: both drag and hotkey moves stay in the tab's pin group.
+    const int from = this->indexOf(page);
+    if (from < 0)
+    {
+        return;
+    }
+    index =
+        satorino::tabReorderIndex(index, this->items_[from].tab->isPinned(),
+                                  this->getPageCount(), this->pinnedTabCount());
+    if (from == index)
+    {
+        return;
+    }
+    this->items_.move(from, index);
 
     this->ensureSelectedTabVisible_ = true;  // satorino: reveal reordered tab
 
@@ -1459,6 +1469,11 @@ void Notebook::sortTabsAlphabetically()
     assert(!this->isNotebookLayoutLocked() &&
            "sortTabsAlphabetically called while notebook layout is locked");
     std::ranges::sort(this->items_, [](const Item &a, const Item &b) {
+        // satorino: alphabetize within each group, never across the boundary.
+        if (a.tab->isPinned() != b.tab->isPinned())
+        {
+            return a.tab->isPinned();
+        }
         const QString &lhs = a.tab->getTitle();
         const QString &rhs = b.tab->getTitle();
         return lhs.compare(rhs, Qt::CaseInsensitive) < 0;

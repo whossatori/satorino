@@ -1098,6 +1098,11 @@ QJsonArray WindowManager::getOpenTabSnapshot() const
 void WindowManager::encodeTab(SplitContainer *tab, bool isSelected,
                               QJsonObject &obj)
 {
+    // satorino: omit false so unpinned layouts keep their existing JSON shape.
+    if (tab->getTab()->isPinned())
+    {
+        obj.insert("pinned", true);
+    }
     // custom tab title
     if (tab->getTab()->hasCustomTitle())
     {
@@ -1230,6 +1235,9 @@ void WindowManager::applyWindowLayout(const WindowLayout &layout)
         for (const auto &tab : windowData.tabs_)
         {
             SplitContainer *page = window.getNotebook().addPage(false);
+
+            // satorino: each restored pin appends to its group, repairing order.
+            page->getTab()->setPinned(tab.pinned_);
 
             // set custom title
             if (!tab.customTitle_.isEmpty())

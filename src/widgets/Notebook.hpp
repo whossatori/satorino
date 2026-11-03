@@ -47,6 +47,8 @@ public:
     NotebookTab *addPageAt(QWidget *page, int position,
                            QString title = QString(), bool select = false);
     void removePage(QWidget *page);
+    void requestRemovePage(
+        QWidget *page);  // satorino: user close respects pins
     void duplicatePage(QWidget *page);
     void removeCurrentPage();
 
@@ -164,6 +166,11 @@ protected:
     void sortTabsAlphabetically();
 
 private:
+    // satorino: pin state is independent of layout locks during restoration.
+    friend class NotebookTab;
+    int pinnedTabCount() const;
+    void updatePinnedTabOrder(QWidget *page);
+
     struct LayoutContext {
         int left = 0;
         int right = 0;

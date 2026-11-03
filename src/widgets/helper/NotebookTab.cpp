@@ -214,14 +214,18 @@ NotebookTab::NotebookTab(Notebook *notebook)
         this->showRenameDialog();
     });
 
+    this->addPinAction();  // satorino: Pin/Unpin immediately after Rename
+
     // XXX: this doesn't update after changing hotkeys
 
-    this->menu_.addAction("Close Tab",
-                          getApp()->getHotkeys()->getDisplaySequence(
-                              HotkeyCategory::Window, "removeTab"),
-                          [this]() {
-                              this->notebook_->removePage(this->page);
-                          });
+    this->closeTabAction_ =
+        this->menu_.addAction("Close Tab",  // satorino: pin-aware
+                              getApp()->getHotkeys()->getDisplaySequence(
+                                  HotkeyCategory::Window, "removeTab"),
+                              [this]() {
+                                  this->notebook_->requestRemovePage(
+                                      this->page);  // satorino: protect pins
+                              });
 
     this->closeMultipleTabsMenu_ = new QMenu("Close Multiple Tabs", this);
 
@@ -332,12 +336,13 @@ void NotebookTab::recreateCloseMultipleTabsMenu(
             }
 
             auto *tab = container->getTab();
-            if (!tab || !tab->isVisible())
+            // satorino: bulk close skips pinned tabs.
+            if (!tab || !tab->isVisible() || tab->isPinned())
             {
                 continue;
             }
 
-            this->notebook_->removePage(page);
+            this->notebook_->requestRemovePage(page);
         }
     });
 
@@ -388,7 +393,8 @@ void NotebookTab::recreateCloseMultipleTabsMenu(
                     }
 
                     auto *tab = container->getTab();
-                    if (!tab || !tab->isVisible())
+                    // satorino: bulk close skips pinned tabs.
+                    if (!tab || !tab->isVisible() || tab->isPinned())
                     {
                         continue;
                     }
@@ -398,7 +404,7 @@ void NotebookTab::recreateCloseMultipleTabsMenu(
 
                 for (auto *page : pagesToRemove)
                 {
-                    this->notebook_->removePage(page);
+                    this->notebook_->requestRemovePage(page);
                 }
             });
 
@@ -432,12 +438,13 @@ void NotebookTab::recreateCloseMultipleTabsMenu(
                     }
 
                     auto *tab = container->getTab();
-                    if (!tab || !tab->isVisible())
+                    // satorino: bulk close skips pinned tabs.
+                    if (!tab || !tab->isVisible() || tab->isPinned())
                     {
                         continue;
                     }
 
-                    this->notebook_->removePage(p);
+                    this->notebook_->requestRemovePage(p);
                 }
             });
 
@@ -468,14 +475,20 @@ void NotebookTab::recreateCloseMultipleTabsMenu(
                 }
 
                 auto *tab = container->getTab();
-                if (!tab || !tab->isVisible())
+                // satorino: bulk close skips pinned tabs.
+                if (!tab || !tab->isVisible() || tab->isPinned())
                 {
                     continue;
                 }
 
-                this->notebook_->removePage(p);
+                this->notebook_->requestRemovePage(p);
             }
         });
+    // satorino: first/last actions are All/Other; count only closable targets.
+    this->closeAllVisibleTabsAction_ =
+        this->closeMultipleTabsMenu_->actions().front();
+    this->closeOtherVisibleTabsAction_ =
+        this->closeMultipleTabsMenu_->actions().back();
 }
 
 void NotebookTab::showRenameDialog()
@@ -548,7 +561,7 @@ int NotebookTab::normalTabWidthForHeight(int height) const
         getApp()->getFonts()->getFontMetrics(FontStyle::UiTabs, scale);
 
     float compactDivider = getCompactDivider(getSettings()->tabStyle);
-    if (this->hasXButton())
+    if (this->isPinned() || this->hasXButton())  // satorino: reserve pin space
     {
         width = static_cast<int>(metrics.horizontalAdvance(this->getTitle()) +
                                  (32 / compactDivider * scale));
@@ -1260,9 +1273,18 @@ void NotebookTab::paintEvent(QPaintEvent *)
     translateRectForLocation(textRect, this->tabLocation_,
                              this->selected_ ? -1 : -2);
 
-    if (this->shouldDrawXButton())
+    if (this->isPinned() || this->shouldDrawXButton())  // satorino: pin space
     {
         textRect.setRight(textRect.right() - this->height() / 2);
+    }
+
+    // satorino: clip long titles before the always-visible pin, including compact tabs.
+    painter.save();
+    if (this->isPinned())
+    {
+        textRect.setRight(std::min(textRect.right(),
+                                   this->getXRect().left() - int(2 * scale)));
+        painter.setClipRect(textRect, Qt::IntersectClip);
     }
 
     int width = metrics.horizontalAdvance(this->getTitle());
@@ -1273,9 +1295,14 @@ void NotebookTab::paintEvent(QPaintEvent *)
     QTextOption option(alignment);
     option.setWrapMode(QTextOption::NoWrap);
     painter.drawText(textRect, this->getTitle(), option);
+    painter.restore();  // satorino: end title clip
 
     // draw close x
-    if (this->shouldDrawXButton())
+    if (this->isPinned())  // satorino: display-only, theme-colored vector pin
+    {
+        this->paintPin(painter);
+    }
+    else if (this->shouldDrawXButton())
     {
         painter.setRenderHint(QPainter::Antialiasing, false);
 
@@ -1334,7 +1361,8 @@ void NotebookTab::paintEvent(QPaintEvent *)
 
 bool NotebookTab::hasXButton() const
 {
-    return getSettings()->showTabCloseButton &&
+    return !this->isPinned() &&
+           getSettings()->showTabCloseButton &&  // satorino: pins replace X
            this->notebook_->getAllowUserTabManagement();
 }
 
@@ -1348,7 +1376,9 @@ void NotebookTab::mousePressEvent(QMouseEvent *event)
     if (event->button() == Qt::LeftButton)
     {
         this->mouseDown_ = true;
-        this->mouseDownX_ = this->getXRect().contains(event->pos());
+        this->mouseDownX_ =
+            this->hasXButton() &&  // satorino: pin clicks select
+            this->getXRect().contains(event->pos());
 
         this->notebook_->select(this->page);
     }
@@ -1360,21 +1390,9 @@ void NotebookTab::mousePressEvent(QMouseEvent *event)
         switch (event->button())
         {
             case Qt::RightButton: {
+                // satorino: aboutToShow updates pin and closable-target actions.
                 this->menu_.popup(event->globalPosition().toPoint() +
                                   QPoint(0, 8));
-
-                const int visibleTabCount =
-                    this->notebook_->getVisibleTabCount();
-                const int selectedTabIndex =
-                    this->notebook_->visibleIndexOf(this->page);
-
-                this->closeMultipleTabsMenu_->setEnabled(visibleTabCount > 1);
-
-                this->closeTabsBeforeSelectedAction_->setEnabled(
-                    selectedTabIndex > 0);
-                this->closeTabsAfterSelectedAction_->setEnabled(
-                    selectedTabIndex != -1 &&
-                    selectedTabIndex < (visibleTabCount - 1));
             }
             break;
             default:;
@@ -1386,6 +1404,14 @@ void NotebookTab::mouseReleaseEvent(QMouseEvent *event)
 {
     this->mouseDown_ = false;
 
+    // satorino: pins cannot be closed by middle-click or the indicator area.
+    if (this->isPinned())
+    {
+        this->mouseDownX_ = false;
+        this->update();
+        return;
+    }
+
     auto removeThisPage = [this] {
         auto reply = QMessageBox::question(
             this, "Remove this tab",
@@ -1394,7 +1420,7 @@ void NotebookTab::mouseReleaseEvent(QMouseEvent *event)
 
         if (reply == QMessageBox::Yes)
         {
-            this->notebook_->removePage(this->page);
+            this->notebook_->requestRemovePage(this->page);
         }
     };
 
@@ -1426,6 +1452,12 @@ void NotebookTab::mouseDoubleClickEvent(QMouseEvent *event)
 {
     const auto canRenameTab = this->notebook_->getAllowUserTabManagement() &&
                               getSettings()->disableTabRenamingOnClick == false;
+
+    // satorino: even double-clicking the display-only pin just selects the tab.
+    if (this->isPinned() && this->getXRect().contains(event->pos()))
+    {
+        return;
+    }
 
     if (event->button() == Qt::LeftButton && canRenameTab)
     {
@@ -1507,8 +1539,7 @@ void NotebookTab::dropEvent(QDropEvent *event)
 
 void NotebookTab::mouseMoveEvent(QMouseEvent *event)
 {
-    if (getSettings()->showTabCloseButton &&
-        this->notebook_->getAllowUserTabManagement())
+    if (this->hasXButton())  // satorino: the pin has no close-button hover state
     {
         bool overX = this->getXRect().contains(event->pos());
 

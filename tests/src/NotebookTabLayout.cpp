@@ -29,3 +29,32 @@ TEST(NotebookTabLayout, SelectionRevealsEitherEdgeWithoutMovingVisibleTabs)
     EXPECT_DOUBLE_EQ(ensureTabVisible(600, 1000, 0, 400, 150), 600);
     EXPECT_DOUBLE_EQ(ensureTabVisible(600, 200, 300, 100, 80), 0);
 }
+
+TEST(NotebookTabLayout, NewTabsCannotPrecedeThePinnedGroup)
+{
+    EXPECT_EQ(tabInsertionIndex(-1, 5, 2), 5);
+    EXPECT_EQ(tabInsertionIndex(0, 5, 2), 2);
+    EXPECT_EQ(tabInsertionIndex(3, 5, 2), 3);
+    EXPECT_EQ(tabInsertionIndex(100, 5, 2), 5);
+    EXPECT_EQ(tabInsertionIndex(0, 5, 5), 5);
+    EXPECT_EQ(tabInsertionIndex(-1, 0, 0), 0);
+}
+
+TEST(NotebookTabLayout, ReorderClampsToOwnGroup)
+{
+    EXPECT_EQ(tabReorderIndex(4, true, 5, 2), 1);
+    EXPECT_EQ(tabReorderIndex(-1, true, 5, 2), 0);
+    EXPECT_EQ(tabReorderIndex(0, false, 5, 2), 2);
+    EXPECT_EQ(tabReorderIndex(100, false, 5, 2), 4);
+    EXPECT_EQ(tabReorderIndex(0, false, 5, 0), 0);
+    EXPECT_EQ(tabReorderIndex(100, true, 5, 5), 4);
+    EXPECT_EQ(tabReorderIndex(0, false, 0, 0), -1);
+}
+
+TEST(NotebookTabLayout, PinAndUnpinUseTheGroupBoundary)
+{
+    EXPECT_EQ(tabPinIndex(true, 1), 0);
+    EXPECT_EQ(tabPinIndex(true, 3), 2);
+    EXPECT_EQ(tabPinIndex(false, 2), 2);
+    EXPECT_EQ(tabPinIndex(false, 0), 0);
+}
