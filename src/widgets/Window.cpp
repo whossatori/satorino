@@ -54,7 +54,9 @@ namespace chatterino {
 
 Window::Window(WindowType type, QWidget *parent)
     : BaseWindow(
-          {BaseWindow::EnableCustomFrame, BaseWindow::ClearBuffersOnDpiChange},
+          {BaseWindow::EnableCustomFrame, BaseWindow::ClearBuffersOnDpiChange,
+           type == WindowType::Main ? BaseWindow::SatorinoTitlePaint
+                                    : BaseWindow::None},  // satorino: Main only
           parent)
     , type_(type)
     , notebook_(new SplitNotebook(this))

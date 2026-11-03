@@ -1145,6 +1145,8 @@ set(SOURCE_FILES
         widgets/settingspages/ThemeCard.hpp
         widgets/settingspages/ThemesPage.cpp
         widgets/settingspages/ThemesPage.hpp
+        widgets/SatorinoTitleLabel.cpp
+        widgets/SatorinoTitleLabel.hpp
         # satorino: end additional sources
 
         widgets/splits/ClosedSplits.cpp

@@ -48,6 +48,9 @@ public:
 
         /// Override the default stylesheet & user-specificed theme with our settings.qss stylesheet
         UseSettingsStylesheet = 1 << 11,
+
+        SatorinoTitlePaint = 1
+                             << 12,  // satorino: Main window title widget only
     };
 
     explicit BaseWindow(FlagsEnum<Flags> flags_ = None,

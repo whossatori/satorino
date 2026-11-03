@@ -16,6 +16,7 @@
 #include "widgets/buttons/TitlebarButton.hpp"
 #include "widgets/buttons/TitlebarButtons.hpp"
 #include "widgets/Label.hpp"
+#include "widgets/SatorinoTitleLabel.hpp"  // satorino: local animated title
 #include "widgets/Window.hpp"
 
 #include <QApplication>
@@ -330,7 +331,10 @@ void BaseWindow::init()
             buttonLayout->setContentsMargins(0, 0, 0, 0);
             layout->addLayout(buttonLayout);
 
-            Label *title = new Label;
+            // satorino: other windows retain the stock plain title label.
+            Label *title = this->flags_.has(SatorinoTitlePaint)
+                               ? new SatorinoTitleLabel
+                               : new Label;
             QObject::connect(this, &QWidget::windowTitleChanged,
                              [title](const QString &text) {
                                  title->setText(text);

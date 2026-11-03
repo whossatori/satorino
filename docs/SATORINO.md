@@ -419,10 +419,29 @@ safe mode and after account changes. The custom frame follows the same
 windowTitleChanged signal. Version::fullVersion, About, --version, user
 agents, and other windows keep their existing version information.
 
+### Embedded animated title paint
+
+The Main window's custom frame uses a small Label subclass. The user's
+unaltered WebP is embedded as :/satorino-paint.webp. Its 150 frames are
+50 ms each (7.5 seconds), with infinite looping. On first show a worker
+uses Qt's webp QImageReader to require animation support and decode all
+frames. Until ready, on failure, or for a nonanimated resource, the stock
+plain label is painted. The font and padding come from Label; the image
+covers the text rectangle and fills the glyphs with a texture brush.
+Only this label is updated per frame. Its precise single-shot timer pauses
+when hidden/minimized, retaining the remaining frame delay and loop state.
+A gtest probes the embedded asset through the installed qwebp handler;
+it has not been run here. No 7TV, account, network or Desktop path is used
+at runtime. Native OS title bars remain plain text.
+
 ### Sync notes
 
 | Upstream file | Hook |
 |---|---|
-| `src/widgets/Window.cpp` | set the Main window title to exactly satorino |
+| `src/widgets/Window.cpp` | plain Main title and Main-only custom-label flag |
+| `src/widgets/BaseWindow.hpp` | one Main-title flag |
+| `src/widgets/BaseWindow.cpp` | construct the flagged title Label subclass |
+| `src/CMakeLists.txt` | register new sources inside the marked block |
+| `tests/CMakeLists.txt` | register the embedded qwebp animation probe |
 
 Stage D compile and runtime behavior are unverified; see REPORT-D.md.
