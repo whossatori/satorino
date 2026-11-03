@@ -434,12 +434,22 @@ A gtest probes the embedded asset through the installed qwebp handler;
 it has not been run here. No 7TV, account, network or Desktop path is used
 at runtime. Native OS title bars remain plain text.
 
+### Live title paint toggle
+
+Settings -> Satorino -> Appearance has Animated title paint, default on,
+stored at /satorino/title/animatedPaint. Turning it off paints the stock
+plain title and stops the timer immediately. Turning it back on resumes
+the frame/delay state, or lazily starts decoding if it has never loaded.
+It does not depend on 7TV settings. All title behavior remains unverified
+on Windows until the compile and runtime checks are run.
+
 ### Sync notes
 
 | Upstream file | Hook |
 |---|---|
 | `src/widgets/Window.cpp` | plain Main title and Main-only custom-label flag |
 | `src/widgets/BaseWindow.hpp` | one Main-title flag |
+| `src/singletons/Settings.hpp` | one default-on title paint key in the marked public block |
 | `src/widgets/BaseWindow.cpp` | construct the flagged title Label subclass |
 | `src/CMakeLists.txt` | register new sources inside the marked block |
 | `tests/CMakeLists.txt` | register the embedded qwebp animation probe |

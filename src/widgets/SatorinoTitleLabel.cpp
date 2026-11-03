@@ -6,6 +6,7 @@
 
 #include "Application.hpp"
 #include "singletons/Fonts.hpp"
+#include "singletons/Settings.hpp"
 
 #include <QEvent>
 #include <QFontMetricsF>
@@ -51,6 +52,11 @@ TitlePaintAnimation loadSatorinoTitlePaint()
 
 SatorinoTitleLabel::SatorinoTitleLabel()
 {
+    getSettings()->satorinoAnimatedTitlePaint.connect(
+        [this](bool enabled) {
+            this->setPaintEnabled(enabled);
+        },
+        this->connections_);
     this->timer_.setSingleShot(true);
     this->timer_.setTimerType(Qt::PreciseTimer);
     QObject::connect(&this->timer_, &QTimer::timeout, this,

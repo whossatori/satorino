@@ -47,6 +47,12 @@ void SatorinoPage::initLayout(GeneralPageView &layout)
         ->setTooltip("Shows all tabs in one row that you scroll with the mouse "
                      "wheel.")
         ->addTo(layout);
+    layout.addTitle("Appearance");
+    SettingWidget::checkbox("Animated title paint",
+                            getSettings()->satorinoAnimatedTitlePaint)
+        ->setTooltip("Fill the main window title with the animated satorino "
+                     "paint. Turning this off stops its animation timer.")
+        ->addTo(layout);
     layout.addStretch();
 }
 

@@ -1345,6 +1345,9 @@ public:
 
     // satorino: single-row scrolling for user-managed horizontal tabs.
     BoolSetting satorinoTabScroll = {"/satorino/tabs/scrollEnabled", true};
+    // satorino: independent of 7TV/account settings; applied live by the label.
+    BoolSetting satorinoAnimatedTitlePaint = {"/satorino/title/animatedPaint",
+                                              true};
 
 private:
     void updateModerationActions();
