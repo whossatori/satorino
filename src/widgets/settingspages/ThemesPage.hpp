@@ -21,12 +21,13 @@ class ThemeCard;
 
 // satorino: dedicated Themes settings page.
 //
-// The themes are shown as a grid of preview cards (ThemeCard) inside a
-// panel, with the adaptive system theme dropdowns (moved from
-// Settings -> General) underneath. The page owns no theme state of its
-// own: activating a card writes the same "/appearance/theme/name" setting
-// as /settheme, and the highlighted card follows that setting in both
-// directions. See docs/SATORINO.md.
+// The themes are shown as a grid of preview cards (ThemeCard) under a
+// standard section title, with the adaptive system theme dropdowns (moved
+// from Settings -> General) underneath - the same TitleLabel/SubtitleLabel
+// language as the other settings pages, styled by resources/qss/settings.qss.
+// The page owns no theme state of its own: activating a card writes the same
+// "/appearance/theme/name" setting as /settheme, and the highlighted card
+// follows that setting in both directions. See docs/SATORINO.md.
 class ThemesPage : public SettingsPage
 {
 public:
@@ -37,11 +38,11 @@ public:
     void onShow() override;
 
 private:
-    void addCard(const QString &title, const QString &key,
-                 const ThemePreviewColors &primary,
-                 const std::optional<ThemePreviewColors> &secondary =
-                     std::nullopt,
-                 const QString &tooltip = {});
+    void addCard(
+        const QString &title, const QString &key,
+        const ThemePreviewColors &primary,
+        const std::optional<ThemePreviewColors> &secondary = std::nullopt,
+        const QString &tooltip = {});
 
     void rebuildThemeList();
 

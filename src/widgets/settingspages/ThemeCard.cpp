@@ -18,14 +18,19 @@ namespace {
 using namespace chatterino;
 
 // Card chrome. The settings dialog is pinned dark
-// (BaseWindow::UseSettingsStylesheet + resources/qss/settings.qss), so the
-// chrome is fixed as well and only the swatches vary by theme - the grid
-// looks identical in every app theme, like the rest of the dialog.
-const QColor CARD_BACKGROUND{0x24, 0x24, 0x28};
-const QColor CARD_BORDER{0x45, 0x47, 0x5a};
-const QColor CARD_BORDER_HOVER{0x58, 0x5b, 0x70};
-const QColor CARD_SELECTED_BORDER{0xcb, 0xa6, 0xf7};
-const QColor CARD_TEXT{0xee, 0xee, 0xee};
+// (BaseWindow::UseSettingsStylesheet + resources/qss/settings.qss + the
+// app-wide dark palette from RunGui), so the chrome reuses the app's own
+// colors to match the rest of the dialog: #333 is QPalette::Base - the
+// surface of every combo box in the dialog - #444/#545454 are the app's
+// border greys (settings.qss paints the tooltip border #545454) and
+// #4FC3F7 is the accent settings.qss paints section titles with. Only the
+// swatches vary by theme - the grid looks identical in every app theme,
+// like the rest of the dialog.
+const QColor CARD_BACKGROUND{0x33, 0x33, 0x33};
+const QColor CARD_BORDER{0x44, 0x44, 0x44};
+const QColor CARD_BORDER_HOVER{0x54, 0x54, 0x54};
+const QColor CARD_SELECTED_BORDER{0x4f, 0xc3, 0xf7};
+const QColor CARD_TEXT{0xff, 0xff, 0xff};
 
 constexpr int CARD_WIDTH = 130;
 constexpr int CARD_HEIGHT = 85;
@@ -81,8 +86,7 @@ QStringList wrapTitle(const QString &title, const QFont &font, int maxWidth,
 
     for (const auto &word : title.split(u' ', Qt::SkipEmptyParts))
     {
-        const auto candidate =
-            current.isEmpty() ? word : current + u' ' + word;
+        const auto candidate = current.isEmpty() ? word : current + u' ' + word;
 
         if (fits(candidate) || current.isEmpty())
         {
@@ -104,10 +108,9 @@ QStringList wrapTitle(const QString &title, const QFont &font, int maxWidth,
     if (!current.isEmpty())
     {
         // a single word wider than the card (long file names) gets elided
-        lines.append(fits(current)
-                         ? current
-                         : metrics.elidedText(current, Qt::ElideRight,
-                                              maxWidth));
+        lines.append(fits(current) ? current
+                                   : metrics.elidedText(current, Qt::ElideRight,
+                                                        maxWidth));
     }
 
     return lines;
@@ -168,16 +171,15 @@ void ThemeCard::paintEvent(QPaintEvent * /*event*/)
     // the flow layout never shift between states)
     const bool selected = this->selected_;
     const double borderWidth = selected ? 2.0 : 1.0;
-    const QColor borderColor = selected ? CARD_SELECTED_BORDER
+    const QColor borderColor = selected             ? CARD_SELECTED_BORDER
                                : this->underMouse() ? CARD_BORDER_HOVER
                                                     : CARD_BORDER;
 
     QPainterPath body;
-    body.addRoundedRect(
-        QRectF(this->rect())
-            .adjusted(borderWidth / 2, borderWidth / 2, -borderWidth / 2,
-                      -borderWidth / 2),
-        CARD_RADIUS, CARD_RADIUS);
+    body.addRoundedRect(QRectF(this->rect())
+                            .adjusted(borderWidth / 2, borderWidth / 2,
+                                      -borderWidth / 2, -borderWidth / 2),
+                        CARD_RADIUS, CARD_RADIUS);
     painter.fillPath(body, CARD_BACKGROUND);
 
     QPen borderPen(borderColor);
@@ -191,8 +193,8 @@ void ThemeCard::paintEvent(QPaintEvent * /*event*/)
         QPen focusPen(CARD_SELECTED_BORDER);
         focusPen.setStyle(Qt::DashLine);
         painter.setPen(focusPen);
-        painter.drawRoundedRect(
-            QRectF(this->rect()).adjusted(3, 3, -3, -3), 4, 4);
+        painter.drawRoundedRect(QRectF(this->rect()).adjusted(3, 3, -3, -3), 4,
+                                4);
     }
 
     // five square swatches: the theme background plus four accents,
@@ -253,17 +255,16 @@ void ThemeCard::paintEvent(QPaintEvent * /*event*/)
     painter.setPen(CARD_TEXT);
 
     const int titleWidth = this->width() - 2 * TITLE_SIDE_MARGIN;
-    const auto lines = wrapTitle(this->title_, titleFont, titleWidth,
-                                 TITLE_MAX_LINES);
+    const auto lines =
+        wrapTitle(this->title_, titleFont, titleWidth, TITLE_MAX_LINES);
     // keep single-line names optically centred in the two-line title area
-    const int top = TITLE_AREA_TOP + (lines.size() == 1 ? TITLE_LINE_STEP / 2
-                                                        : 0);
+    const int top =
+        TITLE_AREA_TOP + (lines.size() == 1 ? TITLE_LINE_STEP / 2 : 0);
     for (int i = 0; i < lines.size(); i++)
     {
-        painter.drawText(
-            QRectF(TITLE_SIDE_MARGIN, top + i * TITLE_LINE_STEP, titleWidth,
-                   TITLE_LINE_STEP),
-            Qt::AlignHCenter | Qt::AlignVCenter, lines.at(i));
+        painter.drawText(QRectF(TITLE_SIDE_MARGIN, top + i * TITLE_LINE_STEP,
+                                titleWidth, TITLE_LINE_STEP),
+                         Qt::AlignHCenter | Qt::AlignVCenter, lines.at(i));
     }
 }
 

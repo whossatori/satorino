@@ -104,16 +104,19 @@ re-grep `satorino` and `leafyrino`):
 | `src/widgets/dialogs/SettingsDialog.cpp` | one marked `addTab(ThemesPage)` line + include |
 | `src/CMakeLists.txt` | sources registered in the marked `# satorino:` block |
 
-New files: `src/widgets/settingspages/ThemesPage.{hpp,cpp}` (a panel with a
-wrapping `FlowLayout` grid of cards, plus the "ADAPTIVE SYSTEM THEME"
-dropdowns under the grid) and
+New files: `src/widgets/settingspages/ThemesPage.{hpp,cpp}` (a wrapping
+`FlowLayout` grid of cards under a standard `TitleLabel` section title, plus
+the "Adaptive system theme" dropdowns under a `SubtitleLabel` — the same
+section-header language as the General page, styled by settings.qss) and
 `src/widgets/settingspages/ThemeCard.{hpp,cpp}` (fixed-size preview card:
-background + accent swatches, centred two-line name, 1px `#45475a` border,
-2px `#cba6f7` when selected, hover + Enter/Space activation). Card chrome is
-pinned to the dialog's fixed dark style — only the swatches vary by theme.
-Activating a card writes the same `/appearance/theme/name` setting as
-`/settheme`, and the highlighted card follows that setting in both
-directions.
+background + accent swatches, centred two-line name, 1px `#444444` border,
+2px `#4FC3F7` when selected, hover + Enter/Space activation). Card chrome
+reuses the app's own dialog palette — `#333333` is `QPalette::Base`, the
+surface of every combo box in the dialog, and `#4FC3F7` is the accent
+settings.qss paints section titles with — and is pinned to the dialog's
+fixed dark style, so only the swatches vary by theme. Activating a card
+writes the same `/appearance/theme/name` setting as `/settheme`, and the
+highlighted card follows that setting in both directions.
 
 ### Task 3 — `/settheme` command
 

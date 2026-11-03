@@ -8,13 +8,13 @@
 #include "singletons/Paths.hpp"
 #include "singletons/Theme.hpp"
 #include "widgets/layout/FlowLayout.hpp"
+#include "widgets/settingspages/GeneralPageView.hpp"
 #include "widgets/settingspages/SettingWidget.hpp"
 #include "widgets/settingspages/ThemeCard.hpp"
 
 #include <QDesktopServices>
 #include <QDir>
 #include <QFile>
-#include <QFont>
 #include <QFrame>
 #include <QLabel>
 #include <QPushButton>
@@ -70,37 +70,6 @@ void seedThemesDirectory(const QString &directory)
     }
 }
 
-// A panel on the Themes page. The settings dialog is pinned dark
-// (BaseWindow::UseSettingsStylesheet + resources/qss/settings.qss), so the
-// panel chrome is fixed as well and only the theme swatches vary - the
-// grid looks identical in every app theme, like the rest of the dialog.
-QFrame *makePanel(QWidget *parent)
-{
-    auto *panel = new QFrame(parent);
-    panel->setObjectName("satorinoThemesPanel");
-    panel->setStyleSheet("#satorinoThemesPanel {"
-                         "  background: #1a1a1c;"
-                         "  border: 1px solid #2a2a30;"
-                         "  border-radius: 8px;"
-                         "}");
-    return panel;
-}
-
-// Small muted uppercase section header inside a panel.
-QLabel *makePanelHeader(const QString &text, QWidget *parent)
-{
-    auto *label = new QLabel(text, parent);
-    label->setStyleSheet("color: #999;");
-
-    auto font = label->font();
-    font.setPixelSize(11);
-    font.setBold(true);
-    font.setLetterSpacing(QFont::AbsoluteSpacing, 1.5);
-    label->setFont(font);
-
-    return label;
-}
-
 }  // namespace
 
 ThemesPage::ThemesPage()
@@ -131,26 +100,22 @@ ThemesPage::ThemesPage()
     description->setStyleSheet("color: #999;");
     contentLayout->addWidget(description);
 
-    auto *panel = makePanel(content);
-    auto *panelLayout = new QVBoxLayout(panel);
-    panelLayout->setContentsMargins(12, 10, 12, 12);
-    panelLayout->setSpacing(8);
-    panelLayout->addWidget(makePanelHeader("THEME", panel));
+    // the same section header style the other settings pages use -
+    // settings.qss paints TitleLabel with the dialog accent (#4FC3F7)
+    contentLayout->addWidget(new TitleLabel(QStringLiteral("Theme:")));
 
     this->flow_ = new FlowLayout({0, 10, 12});
-    panelLayout->addLayout(this->flow_);
-    contentLayout->addWidget(panel);
+    contentLayout->addLayout(this->flow_);
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
     // the adaptive system theme dropdowns moved from Settings -> General
-    // (same setting keys, same behaviour) live under the grid
-    auto *systemPanel = makePanel(content);
-    this->systemLayout_ = new QVBoxLayout(systemPanel);
-    this->systemLayout_->setContentsMargins(12, 10, 12, 12);
+    // (same setting keys, same behaviour) live under the grid, under a
+    // SubtitleLabel like the subsections on the General page
+    this->systemLayout_ = new QVBoxLayout;
     this->systemLayout_->setSpacing(8);
     this->systemLayout_->addWidget(
-        makePanelHeader("ADAPTIVE SYSTEM THEME", systemPanel));
-    contentLayout->addWidget(systemPanel);
+        new SubtitleLabel(QStringLiteral("Adaptive system theme:")));
+    contentLayout->addLayout(this->systemLayout_);
 #endif
 
     this->hint_ = new QLabel(content);
