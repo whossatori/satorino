@@ -25,7 +25,8 @@ enum class SettingsTabId {
     Accounts,
     Moderation,
     About,
-    Technorino
+    Technorino,
+    Satorino,  // satorino: append IDs to preserve existing values
 };
 
 class SettingsDialogTab : public BaseWidget

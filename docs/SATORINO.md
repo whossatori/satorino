@@ -218,6 +218,21 @@ every format, dominant colour exactly #cba6f7, shape and luminance
 structure preserved, no old green left. macOS rendering itself is
 untested - no macOS build exists.
 
+### Stage C, part 1 — Satorino settings tab
+
+| File | Why |
+|---|---|
+| `src/widgets/dialogs/SettingsDialog.cpp` | marked include and Satorino tab immediately after General |
+| `src/widgets/helper/SettingsDialogTab.hpp` | append Satorino ID without changing existing IDs |
+| `src/singletons/Settings.hpp` | marked default-on tab scroll setting in the public settings block |
+| `src/widgets/Notebook.cpp` | live refresh of every SplitNotebook when tab scroll changes |
+| `src/CMakeLists.txt` | register SatorinoPage sources in the marked block |
+
+New files: `src/widgets/settingspages/SatorinoPage.{hpp,cpp}` and
+`resources/settings/satorino.png`. The sidebar PNG is a byte-for-byte copy
+of the 256x256 RGBA purple app icon; its canvas and alpha silhouette match
+the green Leafyrino sidebar logo. No existing icon is changed.
+
 ## What "leafyrino" is allowed to remain
 
 `git grep -in leafyrino` after a sync should only return:
@@ -252,7 +267,10 @@ free badge bit was `1LL << 49` as of writing).
 3. `git grep -in 'leafyrino'` — only the allowed leftovers above.
 4. Re-check the hot files listed above by hand.
 5. Configure + build (see below), fix conflicts fallout.
-6. Smoke test: Settings → Themes (card grid, apply, system theme dropdowns,
+6. Smoke test: Settings → Satorino immediately after General; search for
+   "Tab scroll", verify its default-on checkbox and live toggle. Leafyrino
+   must keep its green logo.
+7. Smoke test: Settings → Themes (card grid, apply, system theme dropdowns,
    open folder, seeding), General has no theme controls, `/settheme Dark`,
    `/settheme` (no args — lists themes), About page,
    launch twice (single instance still activates the running window).

@@ -1343,6 +1343,9 @@ public:
     void enableAutoTranslateChannel(const QString &channelName);
     void disableAutoTranslateChannel(const QString &channelName);
 
+    // satorino: single-row scrolling for user-managed horizontal tabs.
+    BoolSetting satorinoTabScroll = {"/satorino/tabs/scrollEnabled", true};
+
 private:
     void updateModerationActions();
 

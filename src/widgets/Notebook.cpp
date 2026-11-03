@@ -1597,6 +1597,13 @@ SplitNotebook::SplitNotebook(Window *parent)
             this->setGrowWrappedNotebookLines(value);
         },
         this->signalHolder_, true);
+
+    // satorino: apply tab scroll changes to every SplitNotebook immediately.
+    getSettings()->satorinoTabScroll.connect(
+        [this] {
+            this->refresh();
+        },
+        this->signalHolder_, false);
 }
 
 void SplitNotebook::addNotebookActionsToMenu(QMenu *menu)
