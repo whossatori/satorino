@@ -7,14 +7,17 @@
 #include "Application.hpp"
 #include "singletons/Paths.hpp"
 #include "singletons/Theme.hpp"
+#include "widgets/layout/FlowLayout.hpp"
+#include "widgets/settingspages/ThemeCard.hpp"
 
 #include <QDesktopServices>
 #include <QDir>
 #include <QFile>
+#include <QFont>
+#include <QFrame>
 #include <QLabel>
-#include <QListWidget>
 #include <QPushButton>
-#include <QSignalBlocker>
+#include <QScrollArea>
 #include <QUrl>
 #include <QVBoxLayout>
 
@@ -67,41 +70,120 @@ void seedThemesDirectory(const QString &directory)
     }
 }
 
+// A panel on the Themes page. The settings dialog is pinned dark
+// (BaseWindow::UseSettingsStylesheet + resources/qss/settings.qss), so the
+// panel chrome is fixed as well and only the theme swatches vary - the
+// grid looks identical in every app theme, like the rest of the dialog.
+QFrame *makePanel(QWidget *parent)
+{
+    auto *panel = new QFrame(parent);
+    panel->setObjectName("satorinoThemesPanel");
+    panel->setStyleSheet("#satorinoThemesPanel {"
+                         "  background: #1a1a1c;"
+                         "  border: 1px solid #2a2a30;"
+                         "  border-radius: 8px;"
+                         "}");
+    return panel;
+}
+
+// Small muted uppercase section header inside a panel.
+QLabel *makePanelHeader(const QString &text, QWidget *parent)
+{
+    auto *label = new QLabel(text, parent);
+    label->setStyleSheet("color: #999;");
+
+    auto font = label->font();
+    font.setPixelSize(11);
+    font.setBold(true);
+    font.setLetterSpacing(QFont::AbsoluteSpacing, 1.5);
+    label->setFont(font);
+
+    return label;
+}
+
 }  // namespace
 
 ThemesPage::ThemesPage()
 {
+    this->setStyleSheet("#themesScrollContent { background: #222; }");
+
     auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+
+    auto *scroll = new QScrollArea(this);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    layout->addWidget(scroll);
+
+    auto *content = new QWidget;
+    content->setObjectName("themesScrollContent");
+
+    auto *contentLayout = new QVBoxLayout(content);
+    contentLayout->setContentsMargins(16, 12, 16, 16);
+    contentLayout->setSpacing(12);
 
     auto *description = new QLabel(
         "Select a theme - it is applied immediately. Custom themes are .json "
         "files placed in the themes folder in your application data "
         "directory.",
-        this);
+        content);
     description->setWordWrap(true);
-    layout->addWidget(description);
+    description->setStyleSheet("color: #999;");
+    contentLayout->addWidget(description);
 
-    this->list_ = new QListWidget(this);
-    layout->addWidget(this->list_, 1);
+    auto *panel = makePanel(content);
+    auto *panelLayout = new QVBoxLayout(panel);
+    panelLayout->setContentsMargins(12, 10, 12, 12);
+    panelLayout->setSpacing(8);
+    panelLayout->addWidget(makePanelHeader("THEME", panel));
 
-    this->hint_ = new QLabel(this);
+    this->flow_ = new FlowLayout({0, 10, 12});
+    panelLayout->addLayout(this->flow_);
+    contentLayout->addWidget(panel);
+
+    this->hint_ = new QLabel(content);
     this->hint_->setWordWrap(true);
+    this->hint_->setStyleSheet("color: #999;");
     this->hint_->setToolTip("Custom themes are loaded from this folder");
-    layout->addWidget(this->hint_);
+    contentLayout->addWidget(this->hint_);
 
-    auto *openButton = new QPushButton("Open themes folder", this);
+    auto *openButton = new QPushButton("Open themes folder", content);
     openButton->setToolTip(
         "Opens the themes folder in your file manager. If it does not exist "
         "yet it is created and seeded with an example theme and a README.");
-    layout->addWidget(openButton, 0, Qt::AlignLeft);
+    contentLayout->addWidget(openButton, 0, Qt::AlignLeft);
 
-    QObject::connect(this->list_, &QListWidget::currentRowChanged, this,
-                     [this](int row) {
-                         this->applyTheme(row);
-                     });
+    contentLayout->addStretch(1);
+
+    scroll->setWidget(content);
+
     QObject::connect(openButton, &QPushButton::clicked, this, [this] {
         this->openThemesFolder();
     });
+
+    // The highlighted card follows the theme setting in both directions:
+    // clicking a card writes the setting (see addCard), and any other
+    // writer (/settheme, ...) updates the grid through this connection.
+    getTheme()->themeName.connect(
+        [this](const auto &) {
+            this->updateSelectedCard();
+        },
+        this->managedConnections_);
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+    // the System card previews the dark/light system theme pair - rebuild
+    // it when either setting changes
+    getTheme()->darkSystemThemeName.connect(
+        [this](const auto &) {
+            this->rebuildThemeList();
+        },
+        this->managedConnections_);
+    getTheme()->lightSystemThemeName.connect(
+        [this](const auto &) {
+            this->rebuildThemeList();
+        },
+        this->managedConnections_);
+#endif
 
     this->rebuildThemeList();
 }
@@ -115,69 +197,113 @@ void ThemesPage::onShow()
 
 bool ThemesPage::filterElements(const QString &query)
 {
-    if (query.isEmpty())
+    // Cards are taken out of the flow layout and only the matching ones are
+    // re-added - FlowLayout reserves space for hidden widgets, so removing
+    // them from the layout is what collapses the gaps.
+    while (auto *item = this->flow_->takeAt(0))
     {
-        for (int i = 0; i < this->list_->count(); i++)
-        {
-            this->list_->item(i)->setHidden(false);
-        }
-        return true;
+        delete item;
     }
 
     bool any = false;
-    for (int i = 0; i < this->list_->count(); i++)
+    for (auto *card : this->cards_)
     {
-        auto *item = this->list_->item(i);
-        const bool match = item->text().contains(query, Qt::CaseInsensitive);
-        item->setHidden(!match);
-        any |= match;
+        const bool match = query.isEmpty() ||
+                           card->title().contains(query, Qt::CaseInsensitive);
+        if (match)
+        {
+            this->flow_->addWidget(card);
+            card->show();
+            any = true;
+        }
+        else
+        {
+            card->hide();
+        }
     }
+
+    if (!any && !query.isEmpty())
+    {
+        // keep the page findable through its other controls (the folder
+        // hint, the description, ...)
+        for (auto *label : this->findChildren<QLabel *>())
+        {
+            if (label->text().contains(query, Qt::CaseInsensitive))
+            {
+                any = true;
+                break;
+            }
+        }
+    }
+
     return any;
+}
+
+void ThemesPage::addCard(const QString &title, const QString &key,
+                         const ThemePreviewColors &primary,
+                         const std::optional<ThemePreviewColors> &secondary,
+                         const QString &tooltip)
+{
+    auto *card = new ThemeCard(title, key, primary, secondary);
+    if (!tooltip.isEmpty())
+    {
+        card->setToolTip(tooltip);
+    }
+    this->flow_->addWidget(card);
+    this->cards_.push_back(card);
+
+    QObject::connect(card, &ThemeCard::activated, this, [this, key] {
+        // the exact same setting write /settheme performs - writing
+        // themeName triggers Theme::update(), which applies the theme live
+        // and persists it
+        getTheme()->themeName = key;
+    });
 }
 
 void ThemesPage::rebuildThemeList()
 {
-    const QSignalBlocker blocked(this->list_);
-
-    this->list_->clear();
+    while (auto *item = this->flow_->takeAt(0))
+    {
+        if (auto *card = item->widget())
+        {
+            card->deleteLater();
+        }
+        delete item;
+    }
+    this->cards_.clear();
 
     const auto available = getTheme()->availableThemes();
-    const QString currentKey = getTheme()->themeName.getValue();
 
-    int currentRow = -1;
-    int row = 0;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+    // the adaptive card comes first, like the "System" entry of the list
+    // it replaces
+    this->addCard(
+        QStringLiteral("System"), QStringLiteral("System"),
+        getTheme()->previewColors(getTheme()->darkSystemThemeName.getValue()),
+        getTheme()->previewColors(getTheme()->lightSystemThemeName.getValue()),
+        QStringLiteral("Automatically uses the dark or light system theme "
+                       "that matches your system's colour scheme."));
+#endif
+
     for (const auto &[name, key] : available)
     {
-        auto *item = new QListWidgetItem(name, this->list_);
-        item->setData(Qt::UserRole, key);
-        if (key.toString() == currentKey)
-        {
-            currentRow = row;
-        }
-        row++;
+        this->addCard(name, key.toString(),
+                      getTheme()->previewColors(key.toString()));
     }
 
-    if (currentRow != -1)
-    {
-        this->list_->setCurrentRow(currentRow);
-    }
+    this->updateSelectedCard();
 
     this->hint_->setText(QStringLiteral("Themes folder: %1")
                              .arg(getApp()->getPaths().themesDirectory));
 }
 
-void ThemesPage::applyTheme(int row)
+void ThemesPage::updateSelectedCard()
 {
-    auto *item = this->list_->item(row);
-    if (item == nullptr)
+    const auto currentKey = getTheme()->themeName.getValue();
+    for (auto *card : this->cards_)
     {
-        return;
+        card->setSelected(card->key() == currentKey);
     }
-
-    // Same setting and apply path as the theme dropdown in Settings ->
-    // General: writing themeName triggers Theme::update() which applies the
-    // theme live and persists it.
-    getTheme()->themeName = item->data(Qt::UserRole).toString();
 }
 
 void ThemesPage::openThemesFolder()

@@ -35,6 +35,18 @@ struct ThemeDescriptor {
     bool custom{};
 };
 
+// satorino: swatch colors for one theme card on the Themes settings page
+// (docs/SATORINO.md). The first entry is the theme background, the other
+// four are accents - all taken from the real theme definition so custom
+// themes preview correctly.
+struct ThemePreviewColors {
+    QColor background;      // colors.window.background
+    QColor accent;          // colors.accent
+    QColor selectedTab;     // colors.tabs.selected.backgrounds.regular
+    QColor link;            // colors.messages.textColors.link
+    QColor highlightFlash;  // colors.messages.highlightAnimationStart
+};
+
 class Theme final
 {
 public:
@@ -167,6 +179,12 @@ public:
     void rescanThemes();
 
     std::vector<std::pair<QString, QVariant>> availableThemes() const;
+
+    // satorino: preview colors for one theme card on the Themes settings
+    // page (docs/SATORINO.md). Colors are read from the theme's own
+    // definition - there is no per-theme table, so custom themes preview
+    // exactly the way they apply.
+    ThemePreviewColors previewColors(const QString &key);
 
     pajlada::Signals::NoArgSignal updated;
 

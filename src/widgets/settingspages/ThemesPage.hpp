@@ -4,18 +4,26 @@
 
 #pragma once
 
+#include "singletons/Theme.hpp"
 #include "widgets/settingspages/SettingsPage.hpp"
 
+#include <optional>
+#include <vector>
+
 class QLabel;
-class QListWidget;
 
 namespace chatterino {
 
+class FlowLayout;
+class ThemeCard;
+
 // satorino: dedicated Themes settings page.
 //
-// Shares the theme list and the "/appearance/theme/name" setting with the
-// theme dropdown in Settings -> General - there is no duplicated state.
-// See docs/SATORINO.md.
+// The themes are shown as a grid of preview cards (ThemeCard) inside a
+// panel. The page owns no theme state of its own: activating a card writes
+// the same "/appearance/theme/name" setting as /settheme, and the
+// highlighted card follows that setting in both directions. See
+// docs/SATORINO.md.
 class ThemesPage : public SettingsPage
 {
 public:
@@ -26,12 +34,21 @@ public:
     void onShow() override;
 
 private:
+    void addCard(const QString &title, const QString &key,
+                 const ThemePreviewColors &primary,
+                 const std::optional<ThemePreviewColors> &secondary =
+                     std::nullopt,
+                 const QString &tooltip = {});
+
     void rebuildThemeList();
-    void applyTheme(int row);
+
+    void updateSelectedCard();
+
     void openThemesFolder();
 
-    QListWidget *list_{};
+    FlowLayout *flow_{};
     QLabel *hint_{};
+    std::vector<ThemeCard *> cards_{};
 };
 
 }  // namespace chatterino

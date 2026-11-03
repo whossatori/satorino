@@ -670,6 +670,88 @@ void Theme::rescanThemes()
     this->loadAvailableThemes(getApp()->getPaths());
 }
 
+// satorino: preview colors for one theme card on the Themes settings page.
+// Reads the theme's own JSON with the same metadata.fallbackTheme
+// resolution as parseFrom(), so a custom theme previews exactly the way it
+// applies - there is no per-theme color table here.
+ThemePreviewColors Theme::previewColors(const QString &key)
+{
+    auto descriptor = this->findThemeByKey(key);
+    if (!descriptor)
+    {
+        descriptor = Theme::fallbackTheme;
+    }
+
+    auto root = loadTheme(*descriptor);
+    if (!root)
+    {
+        // listed but unreadable (e.g. removed between scan and render) -
+        // show a neutral preview instead of no card at all
+        return {
+            .background = QColor(0x22, 0x22, 0x26),
+            .accent = QColor(0x45, 0x47, 0x5a),
+            .selectedTab = QColor(0x58, 0x5b, 0x70),
+            .link = QColor(0x6c, 0x6f, 0x85),
+            .highlightFlash = QColor(0x89, 0x8c, 0x9b),
+        };
+    }
+
+    std::optional<QJsonObject> fallbackRoot;
+    if (descriptor->custom)
+    {
+        const bool isLight = (*root)["metadata"_L1]["iconTheme"_L1]
+                                 .toString() == u"dark"_s;
+        const auto fallbackName =
+            (*root)["metadata"_L1]["fallbackTheme"_L1].toString(
+                isLight ? u"Light"_s : u"Dark"_s);
+        for (const auto &builtIn : Theme::builtInThemes)
+        {
+            if (fallbackName.compare(builtIn.key, Qt::CaseInsensitive) == 0)
+            {
+                fallbackRoot = loadTheme(builtIn);
+                break;
+            }
+        }
+    }
+
+    const auto fallback = fallbackRoot.value_or(QJsonObject());
+    const auto colors = (*root)["colors"_L1].toObject();
+    const auto fallbackColors = fallback["colors"_L1].toObject();
+
+    const auto window = colors["window"_L1].toObject();
+    const auto fallbackWindow = fallbackColors["window"_L1].toObject();
+    const auto selectedBackgrounds = colors["tabs"_L1]["selected"_L1]
+                                         .toObject()["backgrounds"_L1]
+                                         .toObject();
+    const auto fallbackSelectedBackgrounds =
+        fallbackColors["tabs"_L1]["selected"_L1].toObject()
+            ["backgrounds"_L1].toObject();
+    const auto messages = colors["messages"_L1].toObject();
+    const auto fallbackMessages = fallbackColors["messages"_L1].toObject();
+    const auto textColors = messages["textColors"_L1].toObject();
+    const auto fallbackTextColors =
+        fallbackMessages["textColors"_L1].toObject();
+
+    // neutral greys in case a key is missing even from the fallback theme
+    ThemePreviewColors out{
+        .background = QColor(0x22, 0x22, 0x26),
+        .accent = QColor(0x45, 0x47, 0x5a),
+        .selectedTab = QColor(0x58, 0x5b, 0x70),
+        .link = QColor(0x6c, 0x6f, 0x85),
+        .highlightFlash = QColor(0x89, 0x8c, 0x9b),
+    };
+
+    parseInto(window, fallbackWindow, "background"_L1, out.background);
+    parseInto(colors, fallbackColors, "accent"_L1, out.accent);
+    parseInto(selectedBackgrounds, fallbackSelectedBackgrounds, "regular"_L1,
+              out.selectedTab);
+    parseInto(textColors, fallbackTextColors, "link"_L1, out.link);
+    parseInto(messages, fallbackMessages, "highlightAnimationStart"_L1,
+              out.highlightFlash);
+
+    return out;
+}
+
 void Theme::normalizeColor(QColor &color) const
 {
     if (this->isLightTheme())
