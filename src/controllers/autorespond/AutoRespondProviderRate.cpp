@@ -9,6 +9,7 @@
 #include "singletons/Settings.hpp"
 #include "debug/AssertInGuiThread.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <mutex>
 
@@ -23,7 +24,7 @@ std::chrono::milliseconds TwitchIrcServer::autoRespondSendWait(
     {
         std::lock_guard<std::mutex> connectionLock(this->connectionMutex_);
         if (!this->writeConnection_ || !this->writeConnection_->isConnected())
-            return std::chrono::milliseconds(120000);
+            return std::chrono::milliseconds(1000);
     }
     // Read the SAME histories used by prepareToSend. No send, logging, signal or
     // system-message insertion happens under this mutex during this query.

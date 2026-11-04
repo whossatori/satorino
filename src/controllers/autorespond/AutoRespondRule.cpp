@@ -4,6 +4,7 @@
 
 #include "controllers/autorespond/AutoRespondRule.hpp"
 #include <QUuid>
+#include <utility>
 
 namespace chatterino::satorino {
 AutoRespondTimer AutoRespondRule::timerRule() const

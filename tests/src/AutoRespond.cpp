@@ -622,3 +622,20 @@ TEST(AutoRespond, OuterSendFeedbackSurvivesNestedNormalPreparation)
     EXPECT_EQ(result.prepared, "outer");
     EXPECT_EQ(result.accepted, true);
 }
+
+TEST(AutoRespond, ModelSurvivesSettingsServiceDestruction)
+{
+    auto settings = std::make_unique<AutoRespondSettings>();
+    const auto previous = settings->rules.getValueCopy();
+    settings->rules.setValue({});
+    AutoRespondModel model(*settings);
+    model.addRule();
+    ASSERT_EQ(model.rowCount(), 1);
+    settings.reset();
+    EXPECT_EQ(model.flags(model.index(0, 0)), Qt::NoItemFlags);
+    model.addRule();
+    QCoreApplication::processEvents();
+    EXPECT_EQ(model.rowCount(), 0);
+    AutoRespondSettings restore;
+    restore.rules.setValue(previous);
+}

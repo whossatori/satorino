@@ -238,7 +238,7 @@ void SatorinoTitleLabel::paintEvent(QPaintEvent * /*event*/)
         return;
     }
 
-    // Fill the larger glyphs at the widget's DPR, using the same text rectangle.
+    // Fill the bold glyphs at the widget's DPR, using the same text rectangle.
     const qreal dpr = this->devicePixelRatioF();
     QPixmap texture((bounds.size() * dpr).toSize());
     texture.setDevicePixelRatio(dpr);

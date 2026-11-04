@@ -4,6 +4,8 @@
 
 #pragma once
 #include "controllers/autorespond/AutoRespondRule.hpp"
+#include <deque>
+#include <optional>
 #include <memory>
 #include <span>
 
