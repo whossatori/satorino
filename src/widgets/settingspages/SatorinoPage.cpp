@@ -5,6 +5,7 @@
 #include "widgets/settingspages/SatorinoPage.hpp"
 
 #include "singletons/Settings.hpp"
+#include "widgets/settingspages/AutoRespondSettingsView.hpp"
 #include "widgets/settingspages/GeneralPageView.hpp"
 #include "widgets/settingspages/SettingWidget.hpp"
 
@@ -53,6 +54,7 @@ void SatorinoPage::initLayout(GeneralPageView &layout)
         ->setTooltip("Fill the main window title with the animated satorino "
                      "paint. Turning this off stops its animation timer.")
         ->addTo(layout);
+    satorino::addAutoRespondSettings(layout);
     layout.addStretch();
 }
 
