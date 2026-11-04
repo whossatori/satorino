@@ -443,6 +443,30 @@ the frame/delay state, or lazily starts decoding if it has never loaded.
 It does not depend on 7TV settings. All title behavior remains unverified
 on Windows until the compile and runtime checks are run.
 
+### Per-channel highlight matching and persistence
+
+Channel phrase lists are stored as an object at /satorino/highlights/channels,
+keyed by platform:lowercase-channel (twitch, kick, youtube). Empty lists are
+omitted. A controller-owned ChatterinoSetting uses the existing settings
+manager, including portable mode and settings snapshots. Each channel's
+editors share one SignalVector; synchronous edits rebuild and atomically
+publish compiled checks without the global editor's delayed update.
+
+The old HighlightPhrase schema is reused, with checks built by the active
+MessageHighlight matcher (same regex, case, boundaries and self suppression).
+The current global HighlightModel/editor was replaced upstream by a different
+three-column Model plus ConfigureDialog; the channel table will retain the
+requested phrase-only columns through a small dedicated model adapter.
+
+Channel matching uses a borrowed platform/name key with heterogeneous hash
+lookup under a shared lock, without allocating a normalized QString on the
+message path. Only matching channels visit phrase checks. The existing
+MessageBuilder/Kick/YouTube highlight blocks already consume check()'s result,
+including mentions, sound, alerts and color, so no duplicate builder hook is
+needed. Channel phrases override global color AND sound (including silence);
+alert and mentions flags are ORed. Old messages are not rechecked. The active
+pipeline's blacklisted-user and self-message suppression are preserved.
+
 ### Sync notes
 
 | Upstream file | Hook |
@@ -452,6 +476,8 @@ on Windows until the compile and runtime checks are run.
 | `src/singletons/Settings.hpp` | one default-on title paint key in the marked public block |
 | `src/widgets/BaseWindow.cpp` | construct the flagged title Label subclass |
 | `src/CMakeLists.txt` | register new sources inside the marked block |
-| `tests/CMakeLists.txt` | register the embedded qwebp animation probe |
+| `tests/CMakeLists.txt` | register qwebp and channel highlight regression tests |
+| `src/controllers/highlights/HighlightController.hpp` | own and expose channel highlight storage |
+| `src/controllers/highlights/HighlightController.cpp` | one final channel-result priority call |
 
 Stage D compile and runtime behavior are unverified; see REPORT-D.md.

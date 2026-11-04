@@ -1147,6 +1147,10 @@ set(SOURCE_FILES
         widgets/settingspages/ThemesPage.hpp
         widgets/SatorinoTitleLabel.cpp
         widgets/SatorinoTitleLabel.hpp
+        controllers/highlights/ChannelHighlightData.cpp
+        controllers/highlights/ChannelHighlightData.hpp
+        controllers/highlights/ChannelHighlights.cpp
+        controllers/highlights/ChannelHighlights.hpp
         # satorino: end additional sources
 
         widgets/splits/ClosedSplits.cpp

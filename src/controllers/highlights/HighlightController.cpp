@@ -167,7 +167,8 @@ std::pair<bool, HighlightResult> HighlightController::check(
         }
     }
 
-    return {highlighted, result};
+    // satorino: run even after a full global result; channel color/sound wins.
+    return this->channelHighlights_.apply(params, {highlighted, result});
 }
 
 std::unordered_set<QStringView> HighlightController::billTinHighlights()

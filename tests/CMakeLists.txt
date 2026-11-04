@@ -82,6 +82,7 @@ set(test_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/src/ColorInput.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/BotCommandSuggestions.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/SatorinoTitlePaint.cpp # satorino: qwebp animation probe
+    ${CMAKE_CURRENT_LIST_DIR}/src/ChannelHighlights.cpp # satorino: pure keys, lookup, precedence
     # Add your new file above this line!
 
     ${CMAKE_CURRENT_LIST_DIR}/src/lib/Snapshot.cpp

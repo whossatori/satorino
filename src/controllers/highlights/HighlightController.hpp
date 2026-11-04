@@ -7,6 +7,7 @@
 #include "common/FlagsEnum.hpp"
 #include "common/UniqueAccess.hpp"
 #include "controllers/highlights/HighlightCheck.hpp"
+#include "controllers/highlights/ChannelHighlights.hpp"  // satorino: channel phrases
 #include "controllers/highlights/HighlightResult.hpp"
 #include "singletons/Settings.hpp"
 
@@ -51,7 +52,14 @@ public:
     /// Whenever highlights are rebuilt, this variable might change.
     bool isSubscribedThreadHighlightEnabled = false;
 
+    // satorino: shared editor lists and compiled channel-scoped checks.
+    satorino::ChannelHighlights &channelHighlights()
+    {
+        return this->channelHighlights_;
+    }
+
 private:
+    satorino::ChannelHighlights channelHighlights_;
     void rebuildChecks(Settings &settings);
 
     UniqueAccess<std::vector<HighlightCheck>> checks_;
