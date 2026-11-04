@@ -193,15 +193,7 @@ QFont SatorinoTitleLabel::titleFont() const
 {
     auto font =
         getApp()->getFonts()->getFont(this->getFontStyle(), this->scale());
-    constexpr qreal multiplier = 1.625;
-    if (font.pointSizeF() > 0)
-    {
-        font.setPointSizeF(font.pointSizeF() * multiplier);
-    }
-    else
-    {
-        font.setPixelSize(qRound(font.pixelSize() * multiplier));
-    }
+    font.setWeight(QFont::Bold);
     return font;
 }
 
