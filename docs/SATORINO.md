@@ -667,3 +667,4 @@ sync script, badges, dependencies, automatic chat or channel-point actions
 were added. Nothing was compiled: no native toolchain/WSL distro is available.
 C++ tests and Windows/Twitch/Discord runtime checks are **NOT RUN**. See
 REPORT-F4.md for every pin suspect, verification and the Windows checklist.
+Batch 4 compile fix: use public QWidget repaint without changing the protected mock hook; audit/harden direct includes; compilation NOT RUN (REPORT-F4-FIX.md).

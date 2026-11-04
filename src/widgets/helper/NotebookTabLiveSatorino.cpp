@@ -13,6 +13,11 @@
 
 #include <QPainter>
 #include <QPainterPath>
+#include <QPen>  // satorino: complete paint types, independent of transitive headers
+#include <QPointF>
+#include <QRectF>
+
+#include <memory>
 
 namespace chatterino {
 

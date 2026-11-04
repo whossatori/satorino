@@ -16,11 +16,17 @@
 
 #include <QCheckBox>
 #include <QHeaderView>
+#include <QLabel>  // satorino: direct widget dependencies, independent of PCH
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QPointer>
+#include <QPushButton>
 #include <QSignalBlocker>
 #include <QTableView>
+#include <QVBoxLayout>
+#include <QWidget>
+
+#include <tuple>  // satorino: std::ignore
 
 namespace chatterino {
 

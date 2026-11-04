@@ -11,6 +11,8 @@
 #include <rapidjson/document.h>
 #include <rapidjson/error/en.h>
 
+#include <utility>  // satorino: moved retry metadata
+
 namespace chatterino {
 
 NetworkResult::NetworkResult(NetworkError error, const QVariant &httpStatusCode,

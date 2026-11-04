@@ -15,6 +15,7 @@
 #include <QtConcurrent>
 
 #include <cassert>
+#include <utility>  // satorino: fluent request moves
 
 namespace chatterino {
 

@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <QByteArray>  // satorino: public retry metadata type
 #include <QDateTime>
 #include <QJsonObject>
 #include <QStringList>

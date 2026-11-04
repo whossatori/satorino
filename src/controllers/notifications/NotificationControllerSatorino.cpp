@@ -7,6 +7,8 @@
 #include "controllers/notifications/SatorinoLiveNotifications.hpp"
 #include "providers/twitch/api/Helix.hpp"
 
+#include <QStringList>  // satorino: direct adapter dependency
+
 #include <utility>
 
 namespace chatterino {

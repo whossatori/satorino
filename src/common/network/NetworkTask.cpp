@@ -17,6 +17,8 @@
 #include <QNetworkReply>
 #include <QtConcurrent>
 
+#include <utility>  // satorino: moved response metadata
+
 #ifndef signals
 #    define signals public
 #endif

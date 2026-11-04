@@ -8,6 +8,7 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QNetworkReply>
+#include <QVariant>  // satorino: public status argument and implicit call-site conversions
 #include <rapidjson/document.h>
 
 #include <optional>

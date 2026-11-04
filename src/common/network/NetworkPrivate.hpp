@@ -14,6 +14,7 @@
 #include <QTimer>
 #include <QUrl>  // satorino: log URL redaction
 
+#include <chrono>  // satorino: explicit timeout dependency
 #include <memory>
 #include <optional>
 

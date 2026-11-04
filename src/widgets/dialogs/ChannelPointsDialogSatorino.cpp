@@ -13,6 +13,8 @@
 #    include <QEvent>
 #    include <QIcon>
 #    include <QLabel>
+#    include <QPointer>  // satorino: overlay lifetime tracking
+#    include <QTimer>
 #    include <QToolButton>
 
 #    include <algorithm>

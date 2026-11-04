@@ -1028,8 +1028,8 @@ void SplitContainer::refreshTabLiveStatus()
         }
     }
 
-    this->tab_
-        ->update();  // satorino: game changes can leave the live bool unchanged
+    // satorino: repaint through the public QWidget API; NotebookTab::update is protected.
+    static_cast<QWidget *>(this->tab_)->update();
     if (this->tab_->setLive(liveStatus) || this->tab_->setRerun(rerunStatus))
     {
         auto *notebook = dynamic_cast<Notebook *>(this->parentWidget());
