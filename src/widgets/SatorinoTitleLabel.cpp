@@ -19,6 +19,7 @@
 #include <QtConcurrent/QtConcurrent>
 
 #include <algorithm>
+#include <cmath>
 #include <utility>
 
 namespace chatterino {
@@ -52,6 +53,7 @@ TitlePaintAnimation loadSatorinoTitlePaint()
 
 SatorinoTitleLabel::SatorinoTitleLabel()
 {
+    this->updateSize();
     getSettings()->satorinoAnimatedTitlePaint.connect(
         [this](bool enabled) {
             this->setPaintEnabled(enabled);
@@ -187,18 +189,43 @@ void SatorinoTitleLabel::advanceFrame()
     this->syncTimer();
 }
 
-void SatorinoTitleLabel::paintEvent(QPaintEvent *event)
+QFont SatorinoTitleLabel::titleFont() const
 {
-    if (!this->enabled_ || this->animation_.frames.size() <= 1)
+    auto font =
+        getApp()->getFonts()->getFont(this->getFontStyle(), this->scale());
+    constexpr qreal multiplier = 1.625;
+    if (font.pointSizeF() > 0)
     {
-        Label::paintEvent(event);
-        return;
+        font.setPointSizeF(font.pointSizeF() * multiplier);
     }
+    else
+    {
+        font.setPixelSize(qRound(font.pixelSize() * multiplier));
+    }
+    return font;
+}
 
+void SatorinoTitleLabel::updateSize()
+{
+    this->currentPadding_ = this->basePadding_.toMarginsF() * this->scale();
+    const QFontMetricsF metrics(this->titleFont());
+    const auto width = metrics.horizontalAdvance(this->getText()) +
+                       this->currentPadding_.left() +
+                       this->currentPadding_.right();
+    const auto height = metrics.height() + this->currentPadding_.top() +
+                        this->currentPadding_.bottom();
+    this->sizeHint_ = QSize(std::ceil(width), std::ceil(height));
+    this->minimumSizeHint_ = this->sizeHint_;
+    this->updateGeometry();
+    this->update();
+}
+
+void SatorinoTitleLabel::paintEvent(QPaintEvent * /*event*/)
+{
     QPainter painter(this);
-    painter.setFont(
-        getApp()->getFonts()->getFont(this->getFontStyle(), this->scale()));
-    const auto metrics = this->getFontMetrics();
+    const auto font = this->titleFont();
+    painter.setFont(font);
+    const QFontMetricsF metrics(font);
     const auto area = this->textRect();
     const QRectF bounds(area.left(), area.center().y() - metrics.height() / 2,
                         metrics.horizontalAdvance(this->getText()),
@@ -208,8 +235,17 @@ void SatorinoTitleLabel::paintEvent(QPaintEvent *event)
         return;
     }
 
-    // Like UrlPaint/Paint, fill glyphs with an image texture brush. Keep the
-    // glyph font and alignment from Label and rasterize at the widget's DPR.
+    QTextOption option(Qt::AlignLeft | Qt::AlignVCenter);
+    option.setWrapMode(QTextOption::NoWrap);
+    if (!this->enabled_ || this->animation_.frames.size() <= 1)
+    {
+        // The fallback and animated glyphs share the font used by sizeHint.
+        painter.setPen(this->palette().windowText().color());
+        painter.drawText(area, this->getText(), option);
+        return;
+    }
+
+    // Fill the larger glyphs at the widget's DPR, using the same text rectangle.
     const qreal dpr = this->devicePixelRatioF();
     QPixmap texture((bounds.size() * dpr).toSize());
     texture.setDevicePixelRatio(dpr);
@@ -231,8 +267,6 @@ void SatorinoTitleLabel::paintEvent(QPaintEvent *event)
     origin.translate(bounds.left(), bounds.top());
     brush.setTransform(origin);
     painter.setPen(QPen(brush, 0));
-    QTextOption option(Qt::AlignLeft | Qt::AlignVCenter);
-    option.setWrapMode(QTextOption::NoWrap);
     painter.drawText(area, this->getText(), option);
 }
 
