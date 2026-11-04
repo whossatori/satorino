@@ -271,7 +271,7 @@ void KickChannel::sendReply(const QString &message, const QString &replyToId)
 
     auto prepared = this->prepareMessage(message);
     // satorino: constrain auto replies after normal emoji/emote expansion.
-    prepared = satorino::limitAutoRespondSend(std::move(prepared));
+    prepared = satorino::limitAutoRespondSend(std::move(prepared), this);
     if (prepared.isEmpty())
     {
         return;
@@ -279,8 +279,12 @@ void KickChannel::sendReply(const QString &message, const QString &replyToId)
 
     if (!this->checkMessageRatelimit())
     {
+        satorino::recordAutoRespondSend(this,
+                                        false);  // satorino: retryable refusal
         return;
     }
+    satorino::recordAutoRespondSend(
+        this, true);  // satorino: accepted by the normal limiter
 
     this->updateSevenTVActivity();
     getKickApi()->sendMessage(

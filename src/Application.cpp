@@ -254,6 +254,9 @@ Application::Application(Settings &_settings, const Paths &paths,
 
 Application::~Application()
 {
+    if (this->autoRespond_)
+        this->autoRespond_
+            ->shutdown();  // satorino: disable hooks before teardown
     INSTANCE = nullptr;
 }
 
@@ -284,8 +287,6 @@ void Application::initialize(Settings &settings, const Paths &paths)
     this->emotes->initialize();
 
     this->accounts->load();
-    // satorino: own the GUI-thread auto respond scheduler for the app lifetime.
-    satorino::autoRespond();
 
     this->windows->initialize();
 
@@ -416,6 +417,10 @@ void Application::initialize(Settings &settings, const Paths &paths)
         QFontDatabase::addApplicationFont(":/fonts/consolas.otf");
 
     this->initialized = true;
+    // satorino: settings, accounts and all providers now exist. No lazy creation.
+    this->autoRespond_ =
+        std::make_unique<satorino::AutoRespondController>(*this);
+    this->autoRespond_->start();
 }
 
 void Application::connect()
@@ -840,6 +845,9 @@ SupibotCommands *Application::getSupibotCommands()
 
 void Application::aboutToQuit()
 {
+    if (this->autoRespond_)
+        this->autoRespond_
+            ->shutdown();  // satorino: stop before providers/windows
     ABOUT_TO_QUIT.store(true);
 
     this->eventSub->setQuitting();
@@ -854,6 +862,8 @@ void Application::aboutToQuit()
 
 void Application::stop()
 {
+    if (this->autoRespond_)
+        this->autoRespond_->shutdown();  // satorino: invalidate callbacks first
 #ifdef CHATTERINO_HAVE_PLUGINS
     this->plugins.reset();
 #endif
@@ -893,6 +903,8 @@ void Application::stop()
     this->imageUploader.reset();
     this->toasts.reset();
     this->windows.reset();
+    this->autoRespond_
+        .reset();  // satorino: views are gone; settings/accounts still exist
     this->hotkeys.reset();
     this->eventSub.reset();
     this->accounts.reset();

@@ -5,6 +5,7 @@
 #pragma once
 
 #include "controllers/autorespond/AutoRespondData.hpp"
+#include "controllers/autorespond/AutoRespondSettings.hpp"
 #include "messages/Message.hpp"
 
 #include <boost/signals2/connection.hpp>
@@ -18,6 +19,7 @@
 
 namespace chatterino {
 class Channel;
+class IApplication;
 enum class MessageContext;
 }  // namespace chatterino
 namespace chatterino::satorino {
@@ -25,7 +27,14 @@ namespace chatterino::satorino {
 class AutoRespondController : public QObject
 {
 public:
-    explicit AutoRespondController(QObject *parent);
+    explicit AutoRespondController(IApplication &app);
+    ~AutoRespondController() override;
+    void start();
+    void shutdown();
+    AutoRespondSettings &settings()
+    {
+        return this->settings_;
+    }
     void receive(const std::shared_ptr<Channel> &channel,
                  const MessagePtr &message);
 
@@ -37,6 +46,9 @@ private:
                 const QString &customSound = {});
     void resetSchedule();
 
+    IApplication &app_;
+    AutoRespondSettings settings_;
+    bool running_ = false;
     QTimer timer_;
     QElapsedTimer clock_;
     QDateTime previous_;
@@ -54,7 +66,7 @@ private:
     pajlada::Signals::SignalHolder connections_;
 };
 
-AutoRespondController &autoRespond();
+AutoRespondController *tryAutoRespond();
 // Single common insertion hook. History insertion/merge paths never call it;
 // reposts, system messages, history flags and unsupported channels are rejected.
 void observeAutoRespond(Channel &channel, const MessagePtr &message,

@@ -5,6 +5,9 @@
 
 namespace chatterino {
 
+namespace satorino {
+class AutoRespondController;
+}  // namespace satorino
 class Args;
 class TwitchIrcServer;
 class ITwitchIrcServer;
@@ -202,6 +205,8 @@ private:
     std::unique_ptr<Logging> logging;
     std::unique_ptr<EmoteController> emotes;
     std::unique_ptr<AccountController> accounts;
+    std::unique_ptr<satorino::AutoRespondController>
+        autoRespond_;  // satorino: outlives its settings views
     std::unique_ptr<eventsub::IController> eventSub;
     std::unique_ptr<HotkeyController> hotkeys;
     std::unique_ptr<WindowManager> windows;

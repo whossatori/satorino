@@ -1905,7 +1905,8 @@ void TwitchChannel::sendMessage(const QString &message)
     // Do last message processing
     QString parsedMessage = this->prepareMessage(message);
     // satorino: constrain auto replies after all normal message expansion.
-    parsedMessage = satorino::limitAutoRespondSend(std::move(parsedMessage));
+    parsedMessage =
+        satorino::limitAutoRespondSend(std::move(parsedMessage), this);
     if (parsedMessage.isEmpty())
     {
         return;
@@ -1921,6 +1922,8 @@ void TwitchChannel::sendMessage(const QString &message)
     auto sendNormally = [this, &parsedMessage] {
         bool messageSent = false;
         this->sendMessageSignal.invoke(parsedMessage, messageSent);
+        satorino::recordAutoRespondSend(
+            this, messageSent);  // satorino: owned dispatch feedback
         this->updateBttvActivity();
         this->updateSevenTVActivity();
 
@@ -1932,7 +1935,7 @@ void TwitchChannel::sendMessage(const QString &message)
     };
 
     // satorino: auto replies use the ordinary channel send handler and limiter.
-    if (satorino::isAutoRespondSend())
+    if (satorino::isAutoRespondSend(this))
     {
         sendNormally();
         return;

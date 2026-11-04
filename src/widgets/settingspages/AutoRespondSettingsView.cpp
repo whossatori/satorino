@@ -197,7 +197,14 @@ void prepareTable(EditableModelView *view)
 
 void addAutoRespondSettings(GeneralPageView &view)
 {
-    auto &settings = autoRespondSettings();
+    auto *available = tryAutoRespondSettings();
+    if (!available)
+    {
+        view.addTitle("Auto respond");
+        view.addDescription("Available after application startup.");
+        return;
+    }
+    auto &settings = *available;
     view.addTitle("Auto respond");
     SettingWidget::checkbox("Enable auto respond", settings.enabled)
         ->addTo(view);

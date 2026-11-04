@@ -62,11 +62,4 @@ AutoRespondSettings::AutoRespondSettings()
     });
 }
 
-AutoRespondSettings &autoRespondSettings()
-{
-    assertInGuiThread();
-    static AutoRespondSettings settings;
-    return settings;
-}
-
 }  // namespace chatterino::satorino

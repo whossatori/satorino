@@ -7,48 +7,72 @@
 #include "common/Channel.hpp"
 #include "controllers/autorespond/AutoRespondData.hpp"
 #include "debug/AssertInGuiThread.hpp"
-#include "providers/twitch/TwitchChannel.hpp"
 
-#include <pajlada/signals/signalholder.hpp>
-#include <QScopedValueRollback>
+#include <QCoreApplication>
 
+#include <atomic>
+#include <memory>
 #include <utility>
 
 namespace chatterino::satorino {
 namespace {
-thread_local AutoRespondSubmission *submission = nullptr;
-}
+struct SendState {
+    const Channel *target = nullptr;
+    AutoRespondSubmission result;
+};
+thread_local std::shared_ptr<SendState> activeSend;
+std::atomic_bool sending{false};
+
+class SendScope
+{
+public:
+    explicit SendScope(std::shared_ptr<SendState> state)
+        : previous_(std::exchange(activeSend, std::move(state)))
+    {
+        sending.store(true);
+    }
+    ~SendScope()
+    {
+        activeSend = std::move(this->previous_);
+        sending.store(activeSend != nullptr);
+    }
+
+private:
+    std::shared_ptr<SendState> previous_;
+};
+}  // namespace
 
 AutoRespondSubmission sendAutoRespond(Channel &channel, const QString &message)
 {
-    assertInGuiThread();
-    AutoRespondSubmission result;
-    const QScopedValueRollback guard(submission, &result);
-    pajlada::Signals::SignalHolder connections;
-    if (channel.getType() == Channel::Type::Twitch)
-    {
-        // Registered after the server's normal handler. Capture its local rate
-        // limiter result; remote API/IRC acceptance remains asynchronous.
-        auto &twitch = static_cast<TwitchChannel &>(channel);
-        connections.managedConnect(twitch.sendMessageSignal,
-                                   [&](const QString &, bool &sent) {
-                                       result.accepted = sent;
-                                   });
-    }
+    if (!QCoreApplication::instance() || !isGuiThread() ||
+        isAutoRespondSend() || QCoreApplication::closingDown())
+        return {};
+    // Owned state never points at a return value or a stack local. No temporary
+    // observer is attached to the channel signal, even for a synchronous send.
+    const auto state = std::make_shared<SendState>();
+    state->target = &channel;
+    const SendScope scope(state);
     channel.sendMessage(message);
-    return result;
+    return state->result;
 }
 
-bool isAutoRespondSend()
+bool isAutoRespondSend(const Channel *channel)
 {
-    return submission != nullptr;
+    return channel ? activeSend && activeSend->target == channel
+                   : sending.load();
 }
 
-QString limitAutoRespondSend(QString prepared)
+QString limitAutoRespondSend(QString prepared, const Channel *channel)
 {
-    if (!submission)
+    if (!isAutoRespondSend(channel) || !activeSend)
         return prepared;
-    submission->prepared = sanitizeAutoRespond(prepared);
-    return submission->prepared;
+    activeSend->result.prepared = sanitizeAutoRespond(prepared);
+    return activeSend->result.prepared;
+}
+
+void recordAutoRespondSend(const Channel *channel, bool accepted)
+{
+    if (isAutoRespondSend(channel) && activeSend)
+        activeSend->result.accepted = accepted;
 }
 }  // namespace chatterino::satorino

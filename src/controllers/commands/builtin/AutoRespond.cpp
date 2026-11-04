@@ -14,7 +14,14 @@ QString autoRespond(const CommandContext &ctx)
 {
     if (!ctx.channel)
         return {};
-    auto &settings = satorino::autoRespondSettings();
+    auto *available = satorino::tryAutoRespondSettings();
+    if (!available)
+    {
+        ctx.channel->addSystemMessage(
+            "Auto respond is unavailable while the app starts or stops.");
+        return {};
+    }
+    auto &settings = *available;
     const auto action = ctx.words.value(1).toLower();
     if (ctx.words.size() != 2 ||
         (action != "on" && action != "off" && action != "status"))

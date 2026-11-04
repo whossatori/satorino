@@ -24,9 +24,12 @@
 
 #include <algorithm>
 #include <cmath>
+#include <atomic>
 
 namespace chatterino::satorino {
 namespace {
+std::atomic_bool observeEnabled{false};
+AutoRespondController *activeController = nullptr;
 
 QString channelKey(const Channel &channel)
 {
@@ -47,7 +50,10 @@ struct Identity {
 };
 Identity currentIdentity(const Channel &channel)
 {
-    auto *accounts = getApp()->getAccounts();
+    auto *app = tryGetApp();
+    auto *accounts = app ? app->getAccounts() : nullptr;
+    if (!accounts)
+        return {};
     if (channel.getType() == Channel::Type::Twitch &&
         accounts->twitch.isLoggedIn())
     {
@@ -70,54 +76,68 @@ bool ready(const Channel &channel)
         return false;
     if (channel.getType() == Channel::Type::Twitch)
     {
-        const auto &twitch = static_cast<const TwitchChannel &>(channel);
+        const auto *typed = dynamic_cast<const TwitchChannel *>(&channel);
+        auto *app = tryGetApp();
+        auto *server = app ? app->getTwitch() : nullptr;
+        if (!typed || !server)
+            return false;
+        const auto &twitch = *typed;
         return !twitch.isAnonymous() && twitch.isAutoRespondConnected() &&
-               getApp()->getTwitch()
-                       ->getChannelOrEmpty(channel.getName())
-                       .get() == &channel;
+               server->getChannelOrEmpty(channel.getName()).get() == &channel;
     }
     if (channel.getType() == Channel::Type::Kick)
     {
-        const auto &kick = static_cast<const KickChannel &>(channel);
+        const auto *typed = dynamic_cast<const KickChannel *>(&channel);
+        auto *app = tryGetApp();
+        auto *server = app ? app->getKickChatServer() : nullptr;
+        if (!typed || !server)
+            return false;
+        const auto &kick = *typed;
         return kick.roomID() != 0 &&
-               getApp()->getKickChatServer()->findBySlug(kick.slug()).get() ==
-                   &channel &&
-               getApp()->getKickChatServer()->liveUpdates().isRoomConnected(
-                   kick.roomID());
+               server->findBySlug(kick.slug()).get() == &channel &&
+               server->liveUpdates().isRoomConnected(kick.roomID());
     }
     return false;
 }
 
 std::vector<ChannelPtr> timerTargets(const QString &key)
 {
-    std::vector<ChannelPtr> channels;
-    getApp()->getTwitch()->forEachChannel([&](const ChannelPtr &channel) {
-        if (channel->getType() == Channel::Type::Twitch &&
-            (key == "*" || channelKey(*channel) == key) && ready(*channel))
-            channels.push_back(channel);
+    std::vector<ChannelPtr> candidates;
+    auto *app = tryGetApp();
+    if (!app)
+        return candidates;
+    // Enumeration holds Twitch's channelMutex. Filter after taking a snapshot;
+    // ready()/getChannelOrEmpty would recursively acquire that same mutex.
+    if (auto *server = app->getTwitch())
+        server->forEachChannel([&](ChannelPtr channel) {
+            if (channel)
+                candidates.push_back(std::move(channel));
+        });
+    if (auto *server = app->getKickChatServer())
+        server->forEachChannel([&](KickChannel &channel) {
+            if (auto ptr = channel.weakFromThis().lock())
+                candidates.push_back(std::move(ptr));
+        });
+    std::erase_if(candidates, [&](const auto &channel) {
+        return (key != "*" && channelKey(*channel) != key) || !ready(*channel);
     });
-    getApp()->getKickChatServer()->forEachChannel([&](KickChannel &channel) {
-        if ((key == "*" || channelKey(channel) == key) && ready(channel))
-            channels.push_back(channel.sharedFromThis());
-    });
-    // Stable ordering makes a global cap predictable when it truncates a broadcast.
-    std::ranges::sort(channels, {}, [](const auto &channel) {
+    std::ranges::sort(candidates, {}, [](const auto &channel) {
         return channelKey(*channel);
     });
-    return channels;
+    return candidates;
 }
 
 }  // namespace
 
-AutoRespondController::AutoRespondController(QObject *parent)
-    : QObject(parent)
+AutoRespondController::AutoRespondController(IApplication &app)
+    : app_(app)
 {
     this->clock_.start();
     this->timer_.setInterval(1000);
     this->timer_.setTimerType(Qt::PreciseTimer);
     QObject::connect(&this->timer_, &QTimer::timeout, this,
                      &AutoRespondController::tick);
-    auto &settings = autoRespondSettings();
+    auto &settings = this->settings_;
     settings.enabled.connect(
         [this] {
             this->resetSchedule();
@@ -133,15 +153,17 @@ AutoRespondController::AutoRespondController(QObject *parent)
             this->resetSchedule();
         },
         this->connections_, false);
-    auto *accounts = getApp()->getAccounts();
-    this->twitchConnection_ =
-        accounts->twitch.currentUserChanged.connect([this] {
-            this->resetSchedule();
-        });
-    this->connections_.managedConnect(accounts->kick.currentUserChanged,
-                                      [this] {
-                                          this->resetSchedule();
-                                      });
+    if (auto *accounts = this->app_.getAccounts())
+    {
+        this->twitchConnection_ =
+            accounts->twitch.currentUserChanged.connect([this] {
+                this->resetSchedule();
+            });
+        this->connections_.managedConnect(accounts->kick.currentUserChanged,
+                                          [this] {
+                                              this->resetSchedule();
+                                          });
+    }
 }
 
 void AutoRespondController::rebuildTriggers()
@@ -149,7 +171,7 @@ void AutoRespondController::rebuildTriggers()
     assertInGuiThread();
     ++this->revision_;
     this->triggers_.clear();
-    for (const auto &rule : autoRespondSettings().triggers.getValueCopy())
+    for (const auto &rule : this->settings_.triggers.getValueCopy())
     {
         if (!rule.enabled || rule.id.isEmpty() || rule.pattern.isEmpty())
             continue;
@@ -165,7 +187,8 @@ void AutoRespondController::resetSchedule()
     ++this->revision_;
     this->previous_ = QDateTime::currentDateTime();
     this->previousSteady_ = this->clock_.elapsed();
-    if (autoRespondSettings().enabled.getValue())
+    observeEnabled.store(this->running_ && this->settings_.enabled.getValue());
+    if (this->running_ && this->settings_.enabled.getValue())
         this->timer_.start();
     else
         this->timer_.stop();
@@ -175,8 +198,9 @@ void AutoRespondController::receive(const ChannelPtr &channel,
                                     const MessagePtr &message)
 {
     assertInGuiThread();
-    auto &settings = autoRespondSettings();
-    if (!settings.enabled.getValue() || !ready(*channel))
+    auto &settings = this->settings_;
+    if (!this->running_ || !channel || !message ||
+        !settings.enabled.getValue() || !ready(*channel))
         return;
     // Also reject stale unflagged replay traffic, without inspecting old chat.
     if (message->serverReceivedTime.isValid() &&
@@ -243,9 +267,9 @@ void AutoRespondController::submit(const ChannelPtr &channel,
                                    bool sound, const QString &customSound)
 {
     assertInGuiThread();
-    auto &settings = autoRespondSettings();
-    if (!settings.enabled.getValue() || !ready(*channel) ||
-        currentIdentity(*channel).id != identity)
+    auto &settings = this->settings_;
+    if (!this->running_ || !channel || !settings.enabled.getValue() ||
+        !ready(*channel) || currentIdentity(*channel).id != identity)
         return;
     const auto clean = sanitizeAutoRespond(text);
     if (clean.isEmpty() || !this->limits_.takeGlobal(
@@ -259,23 +283,24 @@ void AutoRespondController::submit(const ChannelPtr &channel,
     if (!sent.prepared.isEmpty())
         this->limits_.rememberSent(channelKey(*channel), sent.prepared,
                                    this->clock_.elapsed());
-    if (sent.prepared.isEmpty() || sent.accepted == false)
+    if (sent.prepared.isEmpty() || sent.accepted != true)
         return;
     // Channel::sendMessage is void and remote acceptance is asynchronous. This
     // reports submission truthfully; normal limiter/API errors remain visible.
     if (settings.showNote.getValue())
         channel->addSystemMessage("auto respond submitted: " + clean);
-    if (sound)
-        getApp()->getSound()->play(customSound.isEmpty()
-                                       ? QUrl("qrc:/sounds/ping2.wav")
-                                       : QUrl(customSound));
+    if (sound && this->app_.getSound())
+        this->app_.getSound()->play(customSound.isEmpty()
+                                        ? QUrl("qrc:/sounds/ping2.wav")
+                                        : QUrl(customSound));
 }
 
 void AutoRespondController::tick()
 {
     assertInGuiThread();
-    auto &settings = autoRespondSettings();
-    if (!settings.enabled.getValue())
+    auto &settings = this->settings_;
+    if (!this->running_ || !settings.enabled.getValue() ||
+        !this->previous_.isValid())
         return;
     const auto now = QDateTime::currentDateTime();
     const auto steady = this->clock_.elapsed();
@@ -325,34 +350,66 @@ void AutoRespondController::tick()
     this->previousSteady_ = steady;
 }
 
-AutoRespondController &autoRespond()
+AutoRespondController::~AutoRespondController()
+{
+    this->shutdown();
+}
+void AutoRespondController::start()
 {
     assertInGuiThread();
-    static QPointer<AutoRespondController> controller;
-    if (!controller)
-        controller = new AutoRespondController(QCoreApplication::instance());
-    return *controller;
+    if (this->running_ || this->app_.isTest() || isAppAboutToQuit())
+        return;
+    activeController = this;
+    this->running_ = true;
+    this->resetSchedule();
 }
-
+void AutoRespondController::shutdown()
+{
+    assertInGuiThread();
+    observeEnabled.store(false);
+    this->running_ = false;
+    ++this->revision_;
+    this->timer_.stop();
+    this->connections_.clear();
+    this->twitchConnection_.disconnect();
+    if (activeController == this)
+        activeController = nullptr;
+}
+AutoRespondController *tryAutoRespond()
+{
+    return activeController;
+}
+AutoRespondSettings *tryAutoRespondSettings()
+{
+    return activeController ? &activeController->settings() : nullptr;
+}
 void observeAutoRespond(Channel &channel, const MessagePtr &message,
                         MessageContext context,
                         std::optional<MessageFlags> overridingFlags)
 {
-    if ((channel.getType() != Channel::Type::Twitch &&
+    // Cheap non-creating gate: startup, master off, tests, sends and shutdown.
+    if (!observeEnabled.load() || isAutoRespondSend())
+        return;
+    if (!message ||
+        (channel.getType() != Channel::Type::Twitch &&
          channel.getType() != Channel::Type::Kick) ||
         !isAutoRespondLiveMessage(context, message->flags) ||
         (overridingFlags &&
-         !isAutoRespondLiveMessage(context, *overridingFlags)) ||
-        getApp()->isTest())
+         !isAutoRespondLiveMessage(context, *overridingFlags)))
         return;
-    // Make even an off-thread producer safe; no matcher/settings/UI work there.
-    runInGuiThread([weak = channel.weak_from_this(), message] {
-        if (auto target = weak.lock())
-        {
-            if (autoRespondSettings().enabled.getValue())
-                autoRespond().receive(target, message);
-        }
-    });
+    auto *contextObject = QCoreApplication::instance();
+    if (!contextObject || QCoreApplication::closingDown())
+        return;
+    // Never run matching inside an upstream signal/mutex-protected insertion.
+    QMetaObject::invokeMethod(
+        contextObject,
+        [weak = channel.weak_from_this(), message] {
+            if (!observeEnabled.load() || isAutoRespondSend())
+                return;
+            if (auto *controller = tryAutoRespond())
+                if (auto target = weak.lock())
+                    controller->receive(target, message);
+        },
+        Qt::QueuedConnection);
 }
-
 }  // namespace chatterino::satorino

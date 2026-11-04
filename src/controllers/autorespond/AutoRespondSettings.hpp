@@ -34,6 +34,6 @@ private:
     pajlada::Signals::SignalHolder connections_;
 };
 
-AutoRespondSettings &autoRespondSettings();
+AutoRespondSettings *tryAutoRespondSettings();
 
 }  // namespace chatterino::satorino

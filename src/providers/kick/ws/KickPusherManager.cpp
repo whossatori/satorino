@@ -313,6 +313,8 @@ void KickPusherManager::partChannel(const QString &name)
 // satorino: an open websocket and an assigned subscription are both required.
 bool KickPusherManager::isChannelConnected(const QString &name) const
 {
+    if (!isGuiThread())
+        return false;  // satorino: client maps mutate only on the GUI thread
     for (const auto &[id, client] : this->private_->clients())
     {
         if (client->isAutoRespondConnected(name))

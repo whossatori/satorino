@@ -4,6 +4,7 @@
 
 #include "controllers/autorespond/AutoRespondData.hpp"
 #include "controllers/autorespond/AutoRespondConnectionState.hpp"
+#include "controllers/autorespond/AutoRespondController.hpp"
 #include "controllers/autorespond/AutoRespondSettings.hpp"
 #include "controllers/autorespond/AutoRespondSend.hpp"
 #include "common/Channel.hpp"
@@ -278,7 +279,7 @@ TEST(AutoRespond, FinalExpansionGuardIsScopedToAutoSends)
         void sendMessage(const QString &message) override
         {
             this->wire =
-                limitAutoRespondSend(message + "\n" + QString(600, u'x'));
+                limitAutoRespondSend(message + "\n" + QString(600, u'x'), this);
         }
         QString wire;
     } channel;
@@ -411,4 +412,41 @@ TEST(AutoRespond, QueuedUnconfirmedAndRejoinedRoomsCannotReceiveTimers)
     state.confirm(topic);
     state.reset();
     EXPECT_FALSE(state.connected(topic, true, true));
+}
+
+TEST(AutoRespond, SendContextIsOwnedTargetScopedAndRejectsReentry)
+{
+    class ReentrantChannel : public chatterino::Channel
+    {
+    public:
+        ReentrantChannel()
+            : Channel("test", Type::Misc)
+        {
+        }
+        void sendMessage(const QString &message) override
+        {
+            this->nested = sendAutoRespond(*this, "nested");
+            this->prepared = limitAutoRespondSend(message + "\nnext", this);
+            recordAutoRespondSend(this, true);
+        }
+        AutoRespondSubmission nested;
+        QString prepared;
+    } channel;
+    const auto result = sendAutoRespond(channel, "outer");
+    EXPECT_TRUE(channel.nested.prepared.isEmpty());
+    EXPECT_EQ(result.prepared, "outer next");
+    EXPECT_EQ(result.accepted, true);
+    EXPECT_FALSE(isAutoRespondSend());
+    recordAutoRespondSend(&channel, false);
+    EXPECT_EQ(result.accepted,
+              true);  // state cannot be written after the scope
+}
+TEST(AutoRespond, InactiveHookDoesNotCreateSettingsOrRequireAnApplication)
+{
+    EXPECT_EQ(tryAutoRespond(), nullptr);
+    EXPECT_EQ(tryAutoRespondSettings(), nullptr);
+    chatterino::Channel channel("not-connected",
+                                chatterino::Channel::Type::Twitch);
+    observeAutoRespond(channel, {}, chatterino::MessageContext::Original, {});
+    EXPECT_EQ(tryAutoRespondSettings(), nullptr);
 }
