@@ -68,7 +68,7 @@ std::optional<QRegularExpressionMatch> matchAutoRespond(
     const AutoRespondTrigger &rule, const AutoRespondInput &input,
     const QRegularExpression &expression);
 // Replaces controls/line separators, preserves surrogate pairs and caps UTF-16
-// units AND UTF-8 bytes. The conservative bound fits either platform's limit.
+// units AND UTF-8 bytes (at most 500). The bound fits either platform's limit.
 QString sanitizeAutoRespond(QStringView text, int maxLength = 500);
 QString expandAutoRespond(QStringView text, const AutoRespondInput &input,
                           const QRegularExpressionMatch &match,

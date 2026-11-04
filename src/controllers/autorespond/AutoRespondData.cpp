@@ -69,6 +69,7 @@ std::optional<QRegularExpressionMatch> matchAutoRespond(
 
 QString sanitizeAutoRespond(QStringView text, int maxLength)
 {
+    maxLength = std::min(maxLength, 500);
     if (maxLength <= 0)
     {
         return {};
@@ -99,7 +100,7 @@ QString sanitizeAutoRespond(QStringView text, int maxLength)
         {
             part.append(ch);
         }
-        const auto n = part.toUtf8().size();
+        const int n = static_cast<int>(part.toUtf8().size());
         if (result.size() + part.size() > maxLength || bytes + n > maxLength)
         {
             break;
@@ -113,6 +114,7 @@ QString sanitizeAutoRespond(QStringView text, int maxLength)
 QString expandAutoRespond(QStringView text, const AutoRespondInput &input,
                           const QRegularExpressionMatch &match, int maxLength)
 {
+    maxLength = std::clamp(maxLength, 0, 500);
     // Single pass: placeholders introduced by a username or capture are literal.
     QString result;
     for (qsizetype i = 0; i < text.size() && result.size() <= maxLength * 2;

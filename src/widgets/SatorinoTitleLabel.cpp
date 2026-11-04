@@ -214,7 +214,8 @@ void SatorinoTitleLabel::updateSize()
                        this->currentPadding_.right();
     const auto height = metrics.height() + this->currentPadding_.top() +
                         this->currentPadding_.bottom();
-    this->sizeHint_ = QSize(std::ceil(width), std::ceil(height));
+    this->sizeHint_ = QSize(static_cast<int>(std::ceil(width)),
+                            static_cast<int>(std::ceil(height)));
     this->minimumSizeHint_ = this->sizeHint_;
     this->updateGeometry();
     this->update();

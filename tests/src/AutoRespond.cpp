@@ -110,6 +110,7 @@ TEST(AutoRespond, ResponsesAreOneLineAndBoundedWithoutSplittingUnicode)
                                                     "c")),
               "a b c");
     EXPECT_EQ(sanitizeAutoRespond(QString(1000, u'x')).size(), 500);
+    EXPECT_EQ(sanitizeAutoRespond(QString(1000, u'x'), 1000).size(), 500);
     EXPECT_TRUE(sanitizeAutoRespond(u"hello", 0).isEmpty());
     const auto emoji = QString::fromUtf8("\xf0\x9f\x98\x80");
     EXPECT_TRUE(sanitizeAutoRespond(emoji, 3).isEmpty());
