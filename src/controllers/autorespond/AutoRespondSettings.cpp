@@ -3,63 +3,66 @@
 // SPDX-License-Identifier: MIT
 
 #include "controllers/autorespond/AutoRespondSettings.hpp"
-
 #include "debug/AssertInGuiThread.hpp"
+#include <QScopedValueRollback>
+#include <QUuid>
+#include <set>
 
 namespace chatterino::satorino {
-namespace {
-
-template <typename Rule>
-void syncRows(SignalVector<Rule> &rows, const std::vector<Rule> &rules)
-{
-    if (rows.raw() == rules)
-        return;
-    rows.clear();
-    for (const auto &rule : rules)
-        rows.append(rule);
-}
-
-template <typename Rule, typename Changed>
-void watchRows(SignalVector<Rule> &rows,
-               pajlada::Signals::SignalHolder &connections, Changed changed)
-{
-    connections.managedConnect(rows.itemInserted, [changed](auto) {
-        changed();
-    });
-    connections.managedConnect(rows.itemRemoved, [changed](auto) {
-        changed();
-    });
-    connections.managedConnect(rows.itemsCleared, changed);
-}
-
-}  // namespace
-
 AutoRespondSettings::AutoRespondSettings()
 {
-    this->triggers.connect(
+    assertInGuiThread();
+    auto manager = pajlada::Settings::SettingManager::getInstance();
+    if (!manager->get("/satorino/autorespond/rules"))
+    {
+        auto migrated = readAutoRespondRules(
+            nullptr, manager->get("/satorino/autorespond/triggers"),
+            manager->get("/satorino/autorespond/timers"));
+        // Persist even an empty migration so legacy lists are read only once.
+        rapidjson::Document document;
+        auto encoded = pajlada::Serialize<std::vector<AutoRespondRule>>::get(
+            migrated, document.GetAllocator());
+        manager->set("/satorino/autorespond/rules", encoded);
+    }
+    // Missing/duplicate IDs in hand-edited JSON must not alias cooldowns/dates.
+    auto stored = this->rules.getValueCopy();
+    std::set<QString> ids;
+    for (auto &rule : stored)
+    {
+        if (rule.id.isEmpty() || !ids.insert(rule.id).second)
+        {
+            rule.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+            ids.insert(rule.id);
+        }
+    }
+    this->rules.setValue(stored);
+    this->rules.connect(
         [this] {
             assertInGuiThread();
-            this->synchronizing_ = true;
-            syncRows(this->triggerRows, this->triggers.getValueCopy());
-            this->synchronizing_ = false;
+            {
+                const QScopedValueRollback guard(this->synchronizing_, true);
+                const auto replacement = this->rules.getValueCopy();
+                if (this->rows.raw() != replacement)
+                {
+                    this->rows.clear();
+                    for (const auto &rule : replacement)
+                        this->rows.append(rule);
+                }
+            }
+            // Models defer structural reloads until the current editor/signal returns.
+            this->changed.invoke();
         },
         this->connections_);
-    this->timers.connect(
-        [this] {
-            assertInGuiThread();
-            this->synchronizing_ = true;
-            syncRows(this->timerRows, this->timers.getValueCopy());
-            this->synchronizing_ = false;
-        },
-        this->connections_);
-    watchRows(this->triggerRows, this->connections_, [this] {
+    const auto persist = [this] {
         if (!this->synchronizing_)
-            this->triggers.setValue(this->triggerRows.raw());
+            this->rules.setValue(this->rows.raw());
+    };
+    this->connections_.managedConnect(this->rows.itemInserted, [persist](auto) {
+        persist();
     });
-    watchRows(this->timerRows, this->connections_, [this] {
-        if (!this->synchronizing_)
-            this->timers.setValue(this->timerRows.raw());
+    this->connections_.managedConnect(this->rows.itemRemoved, [persist](auto) {
+        persist();
     });
+    this->connections_.managedConnect(this->rows.itemsCleared, persist);
 }
-
 }  // namespace chatterino::satorino

@@ -3,67 +3,40 @@
 // SPDX-License-Identifier: MIT
 
 #pragma once
-
-#include "common/SignalVectorModel.hpp"
-#include "controllers/autorespond/AutoRespondData.hpp"
+#include "controllers/autorespond/AutoRespondSettings.hpp"
+#include <QAbstractTableModel>
+#include <optional>
 
 namespace chatterino::satorino {
-
-class AutoRespondTriggerModel : public SignalVectorModel<AutoRespondTrigger>
+class AutoRespondModel : public QAbstractTableModel
 {
 public:
-    enum Column {
-        Enabled,
-        Label,
-        Channel,
-        Pattern,
-        Regex,
-        CaseSensitive,
-        Response,
-        Sound,
-        CustomSound,
-        Cooldown,
-        Delay,
-        Count
-    };
-    explicit AutoRespondTriggerModel(SignalVector<AutoRespondTrigger> &rows);
+    enum Column { Enabled, Label, Type, Channel, When, Response, Count };
+    explicit AutoRespondModel(AutoRespondSettings &settings,
+                              QObject *parent = nullptr);
+    int rowCount(const QModelIndex &parent = {}) const override;
+    int columnCount(const QModelIndex &parent = {}) const override;
+    QVariant data(const QModelIndex &index, int role) const override;
+    Qt::ItemFlags flags(const QModelIndex &index) const override;
+    QVariant headerData(int section, Qt::Orientation orientation,
+                        int role) const override;
+    bool setHeaderData(int, Qt::Orientation, const QVariant &, int) override;
     bool setData(const QModelIndex &index, const QVariant &value,
                  int role) override;
+    bool removeRows(int row, int count,
+                    const QModelIndex &parent = {}) override;
     bool moveRows(const QModelIndex &, int source, int count,
                   const QModelIndex &, int destination) override;
-
-protected:
-    AutoRespondTrigger getItemFromRow(std::vector<QStandardItem *> &row,
-                                      const AutoRespondTrigger &original,
-                                      std::optional<QModelIndex>,
-                                      std::optional<int>) override;
-    void getRowFromItem(const AutoRespondTrigger &item,
-                        std::vector<QStandardItem *> &row) override;
+    std::optional<AutoRespondRule> ruleAt(int row) const;
+    int rowForId(const QString &id) const;
+    bool updateRule(const AutoRespondRule &rule);
+    void addRule(AutoRespondType type = AutoRespondType::Trigger);
 
 private:
-    SignalVector<AutoRespondTrigger> &rows_;
+    void scheduleReload();
+    AutoRespondSettings &settings_;
+    std::vector<AutoRespondRule> rows_;
+    bool reloadPending_ = false;
+    pajlada::Signals::SignalHolder connections_;
 };
-
-class AutoRespondTimerModel : public SignalVectorModel<AutoRespondTimer>
-{
-public:
-    enum Column { Enabled, Label, Channel, Message, Time, Days, Count };
-    explicit AutoRespondTimerModel(SignalVector<AutoRespondTimer> &rows);
-    bool setData(const QModelIndex &index, const QVariant &value,
-                 int role) override;
-    bool moveRows(const QModelIndex &, int source, int count,
-                  const QModelIndex &, int destination) override;
-
-protected:
-    AutoRespondTimer getItemFromRow(std::vector<QStandardItem *> &row,
-                                    const AutoRespondTimer &original,
-                                    std::optional<QModelIndex>,
-                                    std::optional<int>) override;
-    void getRowFromItem(const AutoRespondTimer &item,
-                        std::vector<QStandardItem *> &row) override;
-
-private:
-    SignalVector<AutoRespondTimer> &rows_;
-};
-
 }  // namespace chatterino::satorino

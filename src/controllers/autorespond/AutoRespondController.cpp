@@ -143,16 +143,12 @@ AutoRespondController::AutoRespondController(IApplication &app)
             this->resetSchedule();
         },
         this->connections_);
-    settings.triggers.connect(
+    settings.rules.connect(
         [this] {
             this->rebuildTriggers();
-        },
-        this->connections_);
-    settings.timers.connect(
-        [this] {
             this->resetSchedule();
         },
-        this->connections_, false);
+        this->connections_);
     if (auto *accounts = this->app_.getAccounts())
     {
         this->twitchConnection_ =
@@ -171,9 +167,10 @@ void AutoRespondController::rebuildTriggers()
     assertInGuiThread();
     ++this->revision_;
     this->triggers_.clear();
-    for (const auto &rule : this->settings_.triggers.getValueCopy())
+    for (const auto &rule : this->settings_.rules.getValueCopy())
     {
-        if (!rule.enabled || rule.id.isEmpty() || rule.pattern.isEmpty())
+        if (rule.type != AutoRespondType::Trigger || !rule.enabled ||
+            rule.id.isEmpty() || rule.pattern.isEmpty())
             continue;
         const auto expression = autoRespondExpression(rule);
         if (expression.isValid())
@@ -306,8 +303,11 @@ void AutoRespondController::tick()
     const auto steady = this->clock_.elapsed();
     const auto zone = QTimeZone::systemTimeZone();
     auto dates = settings.consumedDates.getValueCopy();
-    for (const auto &rule : settings.timers.getValueCopy())
+    for (const auto &stored : settings.rules.getValueCopy())
     {
+        if (stored.type != AutoRespondType::Timer)
+            continue;
+        const auto rule = stored.timerRule();
         if (rule.id.isEmpty() || !rule.enabled)
             continue;
         auto &consumed = this->consumed_[rule.id];

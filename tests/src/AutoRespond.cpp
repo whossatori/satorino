@@ -5,6 +5,7 @@
 #include "controllers/autorespond/AutoRespondData.hpp"
 #include "controllers/autorespond/AutoRespondConnectionState.hpp"
 #include "controllers/autorespond/AutoRespondController.hpp"
+#include "controllers/autorespond/AutoRespondModel.hpp"
 #include "controllers/autorespond/AutoRespondSettings.hpp"
 #include "controllers/autorespond/AutoRespondSend.hpp"
 #include "common/Channel.hpp"
@@ -247,8 +248,7 @@ TEST(AutoRespond, SettingsRoundTripAndMissingKeysKeepSafeDefaults)
     EXPECT_FALSE(defaults.enabled.getValue());
     EXPECT_EQ(defaults.perMinute.getValue(), 6);
     EXPECT_TRUE(defaults.showNote.getValue());
-    EXPECT_TRUE(defaults.triggers.getValueCopy().empty());
-    EXPECT_TRUE(defaults.timers.getValueCopy().empty());
+    EXPECT_TRUE(defaults.rules.getValueCopy().empty());
 }
 
 TEST(AutoRespond, HistoryRepostsAndSpecialMessageFlagsAreNeverLive)
@@ -449,4 +449,73 @@ TEST(AutoRespond, InactiveHookDoesNotCreateSettingsOrRequireAnApplication)
                                 chatterino::Channel::Type::Twitch);
     observeAutoRespond(channel, {}, chatterino::MessageContext::Original, {});
     EXPECT_EQ(tryAutoRespondSettings(), nullptr);
+}
+
+TEST(AutoRespond, UnifiedRulesMigrateLegacyIdsAndKeepNewRowsDisabled)
+{
+    auto triggerRule = trigger();
+    triggerRule.id = "existing-trigger";
+    triggerRule.enabled = true;
+    AutoRespondTimer timerRule;
+    timerRule.id = "existing-timer";
+    timerRule.enabled = true;
+    timerRule.message = "scheduled";
+    timerRule.time = "19:25";
+    timerRule.days = 5;
+    rapidjson::Document doc;
+    auto triggers = pajlada::Serialize<std::vector<AutoRespondTrigger>>::get(
+        {triggerRule}, doc.GetAllocator());
+    auto timers = pajlada::Serialize<std::vector<AutoRespondTimer>>::get(
+        {timerRule}, doc.GetAllocator());
+    auto migrated = readAutoRespondRules(nullptr, &triggers, &timers);
+    ASSERT_EQ(migrated.size(), 2);
+    EXPECT_EQ(migrated[0].id, "existing-trigger");
+    EXPECT_TRUE(migrated[0].enabled);
+    EXPECT_EQ(migrated[1].timerRule(), timerRule);
+    auto encoded = pajlada::Serialize<std::vector<AutoRespondRule>>::get(
+        migrated, doc.GetAllocator());
+    EXPECT_EQ(readAutoRespondRules(&encoded, &triggers, &timers), migrated);
+    rapidjson::Value empty(rapidjson::kArrayType);
+    EXPECT_TRUE(readAutoRespondRules(&empty, &triggers, &timers).empty());
+    EXPECT_TRUE(readAutoRespondRules(nullptr, nullptr, nullptr).empty());
+    for (auto type : {AutoRespondType::Trigger, AutoRespondType::Timer})
+    {
+        const auto rule = newAutoRespondRule(type);
+        EXPECT_FALSE(rule.enabled);
+        EXPECT_FALSE(rule.id.isEmpty());
+        EXPECT_EQ(rule.type, type);
+    }
+}
+TEST(AutoRespond, UnifiedModelHasSixColumnsAndRealUncheckedEnabledRole)
+{
+    AutoRespondSettings settings;
+    struct Restore {
+        AutoRespondSettings &settings;
+        std::vector<AutoRespondRule> previous;
+        ~Restore()
+        {
+            this->settings.rules.setValue(this->previous);
+        }
+    } restore{settings, settings.rules.getValueCopy()};
+    settings.rules.setValue({});
+    AutoRespondModel model(settings);
+    model.addRule();
+    ASSERT_EQ(model.columnCount(), 6);
+    ASSERT_EQ(model.rowCount(), 1);
+    const auto enabled = model.index(0, AutoRespondModel::Enabled);
+    EXPECT_EQ(model.data(enabled, Qt::CheckStateRole).toInt(), Qt::Unchecked);
+    EXPECT_TRUE(model.flags(enabled).testFlag(Qt::ItemIsUserCheckable));
+    EXPECT_FALSE(model.data(enabled, Qt::DisplayRole).isValid());
+    EXPECT_TRUE(model.setData(enabled, Qt::Checked, Qt::CheckStateRole));
+    EXPECT_TRUE(settings.rules.getValueCopy()[0].enabled);
+    const auto id = settings.rules.getValueCopy()[0].id;
+    EXPECT_TRUE(
+        model.setData(model.index(0, AutoRespondModel::Type), 1, Qt::EditRole));
+    EXPECT_EQ(settings.rules.getValueCopy()[0].id, id);
+    EXPECT_EQ(settings.rules.getValueCopy()[0].type, AutoRespondType::Timer);
+    model.addRule(AutoRespondType::Timer);
+    EXPECT_FALSE(settings.rules.getValueCopy()[1].enabled);
+    EXPECT_TRUE(model.moveRows({}, 0, 1, {}, 1));
+    EXPECT_EQ(settings.rules.getValueCopy()[1].id, id);
+    EXPECT_TRUE(model.removeRow(1));
 }
