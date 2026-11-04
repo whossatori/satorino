@@ -69,11 +69,11 @@ cat >> "$packaging_dir/DEBIAN/control" << EOF
 Package: satorino
 Version: $chatterino_version
 Architecture: amd64
-Maintainer: Satorino <https://github.com/satorino/satorino>
+Maintainer: Satorino <https://github.com/whossatori/satorino>
 Depends: $dependencies
 Section: net
 Priority: optional
-Homepage: https://github.com/satorino/satorino
+Homepage: https://github.com/whossatori/satorino
 Description: Satorino - chat client for Twitch (built for $ubuntu_release)
 EOF
 cat "$packaging_dir/DEBIAN/control"

@@ -27,14 +27,14 @@
         <keyword>chat</keyword>
         <keyword>twitch</keyword>
     </keywords>
-    <url type="homepage">https://github.com/satorino/satorino</url>
-    <url type="bugtracker">https://github.com/satorino/satorino/issues</url>
+    <url type="homepage">https://github.com/whossatori/satorino</url>
+    <url type="bugtracker">https://github.com/whossatori/satorino/issues</url>
     <provides>
         <binary>satorino</binary>
     </provides>
     <releases>
         <release version="2.5.6" date="2026-11-01">
-            <url>https://github.com/satorino/satorino/releases</url>
+            <url>https://github.com/whossatori/satorino/releases</url>
         </release>
     </releases>
 </component>

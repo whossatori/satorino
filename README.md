@@ -17,13 +17,13 @@ Features taken from (go star them):
 To get the source code with the required submodules, run:
 
 ```shell
-git clone --recurse-submodules https://github.com/satorino/satorino.git
+git clone --recurse-submodules https://github.com/whossatori/satorino.git
 ```
 
 or
 
 ```shell
-git clone https://github.com/satorino/satorino.git
+git clone https://github.com/whossatori/satorino.git
 cd satorino
 git submodule update --init --recursive
 ```
