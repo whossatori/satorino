@@ -46,7 +46,13 @@ void NotebookTab::addPinAction()
 
 void NotebookTab::updateTabManagementActions()
 {
-    this->pinTabAction_->setText(this->isPinned() ? "Unpin Tab" : "Pin Tab");
+    auto pinText = QString(this->isPinned() ? "Unpin Tab" : "Pin Tab");
+    // Disabled menu tooltips vary by platform; keep the reason always visible.
+    if (this->notebook_->isNotebookLayoutLocked())
+    {
+        pinText += " (turn off Lock Tab Layout in this menu)";
+    }
+    this->pinTabAction_->setText(pinText);
     this->pinTabAction_->setVisible(
         this->notebook_->getAllowUserTabManagement());
     this->pinTabAction_->setEnabled(!this->notebook_->isNotebookLayoutLocked());

@@ -285,6 +285,11 @@ public:
     bool isEmpty() const override;
     bool canSendMessage() const override;
     bool isAnonymous() const;
+    // satorino: let mention replies reject a known disconnected origin.
+    bool isDisconnected() const
+    {
+        return this->disconnected_;
+    }
     void sendMessage(const QString &message) override;
     bool sendMessageViaIrc(const QString &message, int duplicateNonce = 0);
     bool sendSpamMessageViaHelix(

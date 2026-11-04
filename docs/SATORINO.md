@@ -503,3 +503,36 @@ review here until compilation and runtime tests are run.
 | `src/widgets/splits/SplitHeader.cpp` | one include and menu call after Set filters… |
 
 Stage D compile and runtime behavior are unverified; see REPORT-D.md.
+
+## Stage F batch 1
+
+Mentions is the global TwitchMentions channel (/mentions); both Twitch and
+Kick repost the original message with its channel name, platform and ID.
+Stock already showed reply controls, but inferred the pseudochannel instead
+of the message's origin. A data-only MentionReply helper now validates the
+message and thread root, and looks up the existing Twitch/Kick channel at
+action time. A reply without a loaded root is unavailable. No channel is
+joined or created. Missing, disconnected, anonymous or unwritable origins
+produce a local error. The input keeps its weak channel reference, shows
+“Replying to @name in #channel”, and resolves the origin again before sending
+(including after outgoing translation). Sending uses the existing channel
+sendReply path and its limiter, preparation and reply parent ID. Normal
+splits keep their existing reply behavior. There is no separate per-channel
+Mentions type; filtered Mentions splits use the same path.
+
+Pin/Unpin Tab now says “(turn off Lock Tab Layout in this menu)” while locked.
+That exact setting is in the tab's context menu, not General settings.
+The disabled label is used so the explanation is visible without relying on
+platform-specific disabled-action tooltips. Pin behavior is unchanged.
+
+New sources: util/MentionReply.{hpp,cpp} and
+widgets/splits/SplitInputSatorino.cpp, registered in the marked CMake block;
+13 regression tests in tests/src/MentionReply.cpp. Upstream hooks are marked
+// satorino: in ChannelView, SplitInput and TwitchChannel (one read-only
+connection-state accessor). The existing fork-owned NotebookTabSatorino
+holds the label change. No chat automation was added.
+
+clang-format 19.1.7 and patch replay are checked for the batch. Compilation,
+gtests and Windows GUI/network behavior: **NOT RUN**; no native C++/Qt
+toolchain or WSL distribution is installed. See the delivered REPORT-F1.md
+for the executed checks and Windows checklist.

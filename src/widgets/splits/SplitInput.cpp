@@ -1492,7 +1492,16 @@ void SplitInput::openEmotePopup()
 QString SplitInput::handleSendMessage(const std::vector<QString> &arguments)
 {
     ChannelPtr c;
-    if (this->replyTarget_)
+    // satorino: an unavailable mention origin must never fall back to the split.
+    if (this->replyTarget_ && this->mentionReply_)
+    {
+        c = this->resolveMentionReplyForSend(this->replyTarget_);
+        if (!c)
+        {
+            return "";
+        }
+    }
+    else if (this->replyTarget_)
     {
         c = this->replyChannel_.lock();
     }
@@ -1668,8 +1677,18 @@ bool SplitInput::maybeSendTranslatedMessage(
         this->ui_.translationPreviewWidget->show();
     }
 
-    auto sendTranslated = [this, channel, sourceMessage, replyMessageID,
-                           arguments](QString translatedText) {
+    // satorino: translation can finish after the origin was closed or left.
+    auto mentionTarget = this->mentionReply_ ? this->replyTarget_ : nullptr;
+    auto normalChannel = mentionTarget ? ChannelPtr{} : channel;
+    auto sendTranslated = [this, normalChannel, mentionTarget, sourceMessage,
+                           replyMessageID, arguments](QString translatedText) {
+        auto channel = mentionTarget
+                           ? this->resolveMentionReplyForSend(mentionTarget)
+                           : normalChannel;
+        if (!channel)
+        {
+            return;
+        }
         translatedText = translatedText.trimmed();
         translatedText.replace('\n', ' ');
         if (translatedText.isEmpty())
@@ -4001,6 +4020,9 @@ void SplitInput::setReply(MessagePtr target, std::weak_ptr<Channel> channel)
         this->ui_.textEdit->resetCompletion();
     }
 
+    // satorino: remember the source even if the split changes while composing.
+    this->mentionReply_ = target && this->split_->getChannel()->getType() ==
+                                        Channel::Type::TwitchMentions;
     if (target != nullptr)
     {
         this->replyTarget_ = std::move(target);
@@ -4051,6 +4073,16 @@ void SplitInput::setReply(MessagePtr target, std::weak_ptr<Channel> channel)
             this->ui_.textEdit->resetCompletion();
             this->ui_.replyLabel->setText("Replying to @" +
                                           this->replyTarget_->displayName);
+            // satorino: make the destination visible before sending a mention reply.
+            if (this->mentionReply_)
+            {
+                if (auto origin = this->replyChannel_.lock())
+                {
+                    this->ui_.replyLabel->setText(
+                        "Replying to @" + this->replyTarget_->displayName +
+                        " in #" + origin->getName());
+                }
+            }
             this->relayoutParentWidgets();
         }
     }

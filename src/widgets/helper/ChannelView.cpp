@@ -45,6 +45,7 @@
 #include "util/DistanceBetweenPoints.hpp"
 #include "util/Helpers.hpp"
 #include "util/IncognitoBrowser.hpp"
+#include "util/MentionReply.hpp"  // satorino: reply to a mention in its origin
 #include "util/MultiChannel.hpp"
 #include "util/QMagicEnum.hpp"
 #include "util/Twitch.hpp"
@@ -4628,6 +4629,13 @@ void ChannelView::handleLinkClick(QMouseEvent *event, const Link &link,
         }
         break;
         case Link::ViewThread: {
+            // satorino: the thread arrow in Mentions composes at the origin.
+            if (this->underlyingChannel_->getType() ==
+                Channel::Type::TwitchMentions)
+            {
+                this->setInputReply(layout->getMessagePtr());
+                break;
+            }
             this->showReplyThreadPopup(layout->getMessagePtr());
         }
         break;
@@ -4765,6 +4773,28 @@ void ChannelView::setInputReply(const MessagePtr &message)
 
     if (message == nullptr || this->split_ == nullptr)
     {
+        return;
+    }
+
+    // satorino: Mentions keeps the real origin in the message, not the view.
+    if (this->underlyingChannel_->getType() == Channel::Type::TwitchMentions)
+    {
+        auto result =
+            mentionReplyTarget(*message, QDateTime::currentDateTime());
+        if (result.target)
+        {
+            if (auto origin = findMentionReplyChannel(*result.target))
+            {
+                const auto &parent = message->replyThread
+                                         ? message->replyThread->root()
+                                         : message;
+                this->split_->setInputReply(parent, origin);
+                return;
+            }
+            result = mentionReplyTarget(*message, QDateTime::currentDateTime(),
+                                        false);
+        }
+        this->underlyingChannel_->addSystemMessage(result.unavailableReason);
         return;
     }
 

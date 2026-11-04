@@ -268,6 +268,9 @@ protected:
 
     MessagePtr replyTarget_ = nullptr;
     std::weak_ptr<Channel> replyChannel_;
+    // satorino: re-resolve mention origins instead of falling back to a split.
+    bool mentionReply_ = false;
+    ChannelPtr resolveMentionReplyForSend(const MessagePtr &message);
     bool enableInlineReplying_;
 
     pajlada::Signals::SignalHolder managedConnections_;

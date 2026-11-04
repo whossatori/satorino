@@ -84,6 +84,7 @@ set(test_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/src/SatorinoTitlePaint.cpp # satorino: qwebp animation probe
     ${CMAKE_CURRENT_LIST_DIR}/src/ChannelHighlights.cpp # satorino: pure keys, lookup, precedence
     ${CMAKE_CURRENT_LIST_DIR}/src/ChannelHighlightModel.cpp # satorino: shared phrase tables
+    ${CMAKE_CURRENT_LIST_DIR}/src/MentionReply.cpp # satorino: mention reply target regression tests
     # Add your new file above this line!
 
     ${CMAKE_CURRENT_LIST_DIR}/src/lib/Snapshot.cpp
