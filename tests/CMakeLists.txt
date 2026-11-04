@@ -82,6 +82,7 @@ set(test_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/src/ColorInput.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/BotCommandSuggestions.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/SatorinoTitlePaint.cpp # satorino: qwebp animation probe
+    ${CMAKE_CURRENT_LIST_DIR}/src/AutoRespond.cpp # satorino: pure auto respond rules and scheduling
     ${CMAKE_CURRENT_LIST_DIR}/src/ChannelHighlights.cpp # satorino: pure keys, lookup, precedence
     ${CMAKE_CURRENT_LIST_DIR}/src/ChannelHighlightModel.cpp # satorino: shared phrase tables
     # Add your new file above this line!
