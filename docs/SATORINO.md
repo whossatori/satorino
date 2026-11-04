@@ -610,7 +610,7 @@ no value for a timer. Deadline dates use normal settings persistence.
 
 The owner reports Stages A-D merged, green and working on Windows. Stage E
 has NOT been compiled or run here: WSL lists no installed distribution, and
-no native compiler/CMake/Qt installation was found. Eighteen regression tests
+no native compiler/CMake/Qt installation was found. Nineteen regression tests
 were authored, including an existing settings.json without the new keys,
 actual file save/reload, final-payload scoping, match/capture/boundary rules,
 cooldowns, shared limits, history/self/echo suppression and local/DST dates.
@@ -639,5 +639,12 @@ executed-versus-not-run table and Windows checklist.
 
 All auto respond policy/storage/models/editor/command implementations are in
 new files. No message builder, workflow, sync script, badge/payment block,
-existing logo or resource is changed by Stage E. Updater enablement/feed policy
+existing logo or animation asset is changed by Stage E. Updater enablement/feed policy
 is unchanged. The title's embedded WebP bytes are unchanged.
+
+
+Kick eligibility additionally requires a server-confirmed room subscription. The small transport hooks reset/forget
+acknowledgements on reconnect, subscribe and unsubscribe; queued authentication
+or joins cannot qualify as connected. The state policy lives in the new pure
+AutoRespondConnectionState.hpp helper. Preserve those hooks in both Kick
+websocket clients on sync; they do not change how normal subscriptions are sent.

@@ -5,6 +5,7 @@
 #include "providers/kick/ws/KickCentrifugoManager.hpp"
 
 #include "Application.hpp"
+#include "controllers/autorespond/AutoRespondConnectionState.hpp"  // satorino: confirmed rooms
 #include "common/network/NetworkRequest.hpp"
 #include "common/network/NetworkResult.hpp"
 #include "common/QLogging.hpp"
@@ -53,6 +54,13 @@ public:
 
     void checkHeartbeat();
 
+    // satorino: expose only a confirmed live subscription, not transport internals.
+    bool isAutoRespondConnected(const QString &topic) const
+    {
+        return this->autoRespondConnection_.connected(
+            topic, this->isOpen(), this->isSubscribed(topic));
+    }
+
     void subscribeImpl(const Subscription &topic);
     void unsubscribeImpl(const Subscription &topic);
 
@@ -61,6 +69,7 @@ public:
     QByteArray encodeUnsubscription(const Subscription &subscription);
 
 private:
+    satorino::AutoRespondConnectionState autoRespondConnection_;
     void onMessageUi(QByteArrayView msg);
     void onResponseOrUnk(BoostJsonObject root, QByteArrayView raw);
 
@@ -114,6 +123,8 @@ KickCentrifugoClient::KickCentrifugoClient(QString clientID,
 void KickCentrifugoClient::onOpen()
 {
     BasicPubSubClient::onOpen();
+    this->autoRespondConnection_
+        .reset();  // satorino: require fresh acknowledgements
     this->lastHeartbeat_ = std::chrono::steady_clock::now();
     this->doRefresh();
 }
@@ -209,6 +220,8 @@ void KickCentrifugoClient::sendRefreshOrConnect()
 void KickCentrifugoClient::subscribeImpl(const Subscription &topic)
 {
     assertInGuiThread();
+    this->autoRespondConnection_.forget(
+        topic);  // satorino: a queued join is not connected
     if (this->isConnected)
     {
         this->sendText(QByteArray::fromStdString(
@@ -222,6 +235,7 @@ void KickCentrifugoClient::subscribeImpl(const Subscription &topic)
 
 void KickCentrifugoClient::unsubscribeImpl(const Subscription &topic)
 {
+    this->autoRespondConnection_.forget(topic);  // satorino: drop parted rooms
     assertInGuiThread();
     if (this->isConnected)
     {
@@ -375,6 +389,8 @@ void KickCentrifugoClient::onResponseOrUnk(BoostJsonObject root,
 
     variant::Overloaded{
         [&](const SubCompletion &sub) {
+            this->autoRespondConnection_.confirm(QString::fromStdString(
+                sub.channel));  // satorino: server acknowledged
             // That's the main chat subscription.
             if (sub.channel.starts_with("chatrooms.") &&
                 sub.channel.ends_with(".v2"))
@@ -512,7 +528,7 @@ bool KickCentrifugoManager::isChannelConnected(const QString &name) const
 {
     for (const auto &[id, client] : this->private_->clients())
     {
-        if (client->isOpen() && client->isSubscribed(name))
+        if (client->isAutoRespondConnected(name))
             return true;
     }
     return false;

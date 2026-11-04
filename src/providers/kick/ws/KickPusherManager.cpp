@@ -5,6 +5,7 @@
 #include "providers/kick/ws/KickPusherManager.hpp"
 
 #include "Application.hpp"
+#include "controllers/autorespond/AutoRespondConnectionState.hpp"  // satorino: confirmed rooms
 #include "common/QLogging.hpp"
 #include "providers/kick/KickChatServer.hpp"
 #include "providers/kick/ws/KickWebSocketCommon.hpp"
@@ -42,6 +43,8 @@ public:
     void onOpen() /* override */
     {
         BasicPubSubClient::onOpen();
+        this->autoRespondConnection_
+            .reset();  // satorino: require fresh acknowledgements
         this->lastHeartbeat_ = std::chrono::steady_clock::now();
     }
 
@@ -59,10 +62,18 @@ public:
 
     void checkHeartbeat();
 
+    // satorino: expose only a confirmed live subscription, not transport internals.
+    bool isAutoRespondConnected(const QString &topic) const
+    {
+        return this->autoRespondConnection_.connected(
+            topic, this->isOpen(), this->isSubscribed(topic));
+    }
+
     QByteArray encodeSubscription(const Subscription &subscription);
     QByteArray encodeUnsubscription(const Subscription &subscription);
 
 private:
+    satorino::AutoRespondConnectionState autoRespondConnection_;
     void onMessageUi(const QByteArray &msg);
 
     std::chrono::steady_clock::time_point lastHeartbeat_;
@@ -111,6 +122,8 @@ void KickPusherClient::onMessageUi(const QByteArray &msg)
     else if (event == "pusher_internal:subscription_succeeded")
     {
         auto channel = rootObj["channel"].toStdString();
+        this->autoRespondConnection_.confirm(
+            QString::fromStdString(channel));  // satorino: server acknowledged
         // that's the main chat subscription
         if (channel.starts_with("chatrooms.") && channel.ends_with(".v2"))
         {
@@ -176,6 +189,8 @@ void KickPusherClient::checkHeartbeat()
 // NOLINTBEGIN(readability-convert-member-functions-to-static)
 QByteArray KickPusherClient::encodeSubscription(const Subscription &sub)
 {
+    this->autoRespondConnection_.forget(
+        sub);  // satorino: rejoin needs a new acknowledgement
     return QByteArray::fromStdString(boost::json::serialize(boost::json::object{
         {"event", "pusher:subscribe"},
         {"data",
@@ -188,6 +203,8 @@ QByteArray KickPusherClient::encodeSubscription(const Subscription &sub)
 
 QByteArray KickPusherClient::encodeUnsubscription(const Subscription &sub)
 {
+    this->autoRespondConnection_.forget(
+        sub);  // satorino: never retain parted rooms
     return QByteArray::fromStdString(boost::json::serialize(boost::json::object{
         {"event", "pusher:unsubscribe"},
         {"data",
@@ -298,7 +315,7 @@ bool KickPusherManager::isChannelConnected(const QString &name) const
 {
     for (const auto &[id, client] : this->private_->clients())
     {
-        if (client->isOpen() && client->isSubscribed(name))
+        if (client->isAutoRespondConnected(name))
             return true;
     }
     return false;

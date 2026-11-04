@@ -1169,6 +1169,7 @@ set(SOURCE_FILES
         controllers/autorespond/AutoRespondSend.hpp
         controllers/commands/builtin/AutoRespond.cpp
         controllers/commands/builtin/AutoRespond.hpp
+        controllers/autorespond/AutoRespondConnectionState.hpp
         # satorino: end additional sources
 
         widgets/splits/ClosedSplits.cpp

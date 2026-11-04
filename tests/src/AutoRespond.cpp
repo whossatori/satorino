@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "controllers/autorespond/AutoRespondData.hpp"
+#include "controllers/autorespond/AutoRespondConnectionState.hpp"
 #include "controllers/autorespond/AutoRespondSettings.hpp"
 #include "controllers/autorespond/AutoRespondSend.hpp"
 #include "common/Channel.hpp"
@@ -394,4 +395,20 @@ TEST(AutoRespond, InvalidAndDisabledTimerSchedulesHaveNoDeadline)
                                           QTimeZone::UTC);
     ASSERT_TRUE(next);
     EXPECT_EQ(*next, utc(5, 12, 0));
+}
+
+TEST(AutoRespond, QueuedUnconfirmedAndRejoinedRoomsCannotReceiveTimers)
+{
+    AutoRespondConnectionState state;
+    const QString topic = "chatrooms.123.v2";
+    EXPECT_FALSE(state.connected(topic, true, true));
+    state.confirm(topic);
+    EXPECT_TRUE(state.connected(topic, true, true));
+    EXPECT_FALSE(state.connected(topic, false, true));
+    EXPECT_FALSE(state.connected(topic, true, false));
+    state.forget(topic);
+    EXPECT_FALSE(state.connected(topic, true, true));
+    state.confirm(topic);
+    state.reset();
+    EXPECT_FALSE(state.connected(topic, true, true));
 }
