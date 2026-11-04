@@ -36,6 +36,7 @@
 #include "widgets/buttons/FollowButton.hpp"
 #include "widgets/buttons/LabelButton.hpp"
 #include "widgets/buttons/SvgButton.hpp"
+#include "widgets/dialogs/ChannelHighlightsDialog.hpp"  // satorino: channel phrases
 #include "widgets/dialogs/ChannelManagementDialog.hpp"
 #include "widgets/dialogs/SettingsDialog.hpp"
 #include "widgets/helper/CommonTexts.hpp"
@@ -1140,6 +1141,8 @@ std::unique_ptr<QMenu> SplitHeader::createMainMenu()
     menu->addAction(u"Set filters…"_s,
                     h->getDisplaySequence(HotkeyCategory::Split, "pickFilters"),
                     this->split_, &Split::setFiltersDialog);
+    satorino::addChannelHighlightsAction(
+        menu.get(), this->split_);  // satorino: channel phrases
 
     if (twitchChannel)
     {

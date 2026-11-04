@@ -1151,6 +1151,10 @@ set(SOURCE_FILES
         controllers/highlights/ChannelHighlightData.hpp
         controllers/highlights/ChannelHighlights.cpp
         controllers/highlights/ChannelHighlights.hpp
+        controllers/highlights/ChannelHighlightModel.cpp
+        controllers/highlights/ChannelHighlightModel.hpp
+        widgets/dialogs/ChannelHighlightsDialog.cpp
+        widgets/dialogs/ChannelHighlightsDialog.hpp
         # satorino: end additional sources
 
         widgets/splits/ClosedSplits.cpp

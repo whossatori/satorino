@@ -455,7 +455,7 @@ publish compiled checks without the global editor's delayed update.
 The old HighlightPhrase schema is reused, with checks built by the active
 MessageHighlight matcher (same regex, case, boundaries and self suppression).
 The current global HighlightModel/editor was replaced upstream by a different
-three-column Model plus ConfigureDialog; the channel table will retain the
+three-column Model plus ConfigureDialog; the channel table retains the
 requested phrase-only columns through a small dedicated model adapter.
 
 Channel matching uses a borrowed platform/name key with heterogeneous hash
@@ -467,6 +467,26 @@ needed. Channel phrases override global color AND sound (including silence);
 alert and mentions flags are ORed. Old messages are not rechecked. The active
 pipeline's blacklisted-user and self-message suppression are preserved.
 
+### Channel phrase editor
+
+The split menu has Channel highlights… directly after Set filters…. It is
+enabled only for a real Twitch, Kick, or YouTube channel, and rechecks the
+current selected channel whenever the menu opens. Aggregate multi-channel
+splits edit their active real child; special feeds/mentions/whispers are
+disabled. The window title is Channel highlights - #<channel> and its BasePopup
+uses the settings stylesheet. It edits the existing HighlightPhrase schema
+through SignalVectorModel and EditableModelView: pattern, mentions, taskbar
+flash, sound, custom file, colour, regex and case-sensitive columns, with
+add/delete and row movement. Double-click colour/custom-file cells to pick
+values; Use default sound clears the custom file while preserving the sound
+enable checkbox. Invalid regexes show their error and do not match.
+
+This current tree no longer has the old HighlightModel. The new channel-only
+adapter restores its requested table shape without changing the active global
+three-column Model or legacy migrations. Matching still uses the active global
+MessageHighlight implementation. All GUI and matching behavior is read-only
+review here until compilation and runtime tests are run.
+
 ### Sync notes
 
 | Upstream file | Hook |
@@ -474,10 +494,12 @@ pipeline's blacklisted-user and self-message suppression are preserved.
 | `src/widgets/Window.cpp` | plain Main title and Main-only custom-label flag |
 | `src/widgets/BaseWindow.hpp` | one Main-title flag |
 | `src/singletons/Settings.hpp` | one default-on title paint key in the marked public block |
+| `src/widgets/settingspages/SatorinoPage.cpp` | live Animated title paint checkbox |
 | `src/widgets/BaseWindow.cpp` | construct the flagged title Label subclass |
 | `src/CMakeLists.txt` | register new sources inside the marked block |
 | `tests/CMakeLists.txt` | register qwebp and channel highlight regression tests |
 | `src/controllers/highlights/HighlightController.hpp` | own and expose channel highlight storage |
 | `src/controllers/highlights/HighlightController.cpp` | one final channel-result priority call |
+| `src/widgets/splits/SplitHeader.cpp` | one include and menu call after Set filters… |
 
 Stage D compile and runtime behavior are unverified; see REPORT-D.md.
