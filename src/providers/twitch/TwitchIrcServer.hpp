@@ -111,6 +111,9 @@ public:
     void initialize();
 
     void aboutToQuit();
+    // satorino: read-only preflight using the normal send-limiter histories.
+    std::chrono::milliseconds autoRespondSendWait(
+        const std::shared_ptr<TwitchChannel> &channel);
 
     void forEachChannelAndSpecialChannels(
         std::function<void(ChannelPtr)> func) override;

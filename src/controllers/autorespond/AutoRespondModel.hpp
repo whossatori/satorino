@@ -5,6 +5,7 @@
 #pragma once
 #include "controllers/autorespond/AutoRespondSettings.hpp"
 #include <QAbstractTableModel>
+#include <QPointer>
 #include <optional>
 
 namespace chatterino::satorino {
@@ -34,7 +35,7 @@ public:
 
 private:
     void scheduleReload();
-    AutoRespondSettings &settings_;
+    QPointer<AutoRespondSettings> settings_;
     std::vector<AutoRespondRule> rows_;
     bool reloadPending_ = false;
     pajlada::Signals::SignalHolder connections_;

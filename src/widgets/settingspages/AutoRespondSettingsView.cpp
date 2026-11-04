@@ -53,15 +53,17 @@ public:
         auto background = option;
         this->initStyleOption(&background, index);
         background.features &= ~QStyleOptionViewItem::HasCheckIndicator;
-        QStyledItemDelegate::paint(painter, background, QModelIndex());
+        background.text.clear();
+        auto *style =
+            option.widget ? option.widget->style() : QApplication::style();
+        style->drawControl(QStyle::CE_ItemViewItem, &background, painter,
+                           option.widget);
         QStyleOptionButton box;
         box.state = QStyle::State_Enabled |
                     (index.data(Qt::CheckStateRole).toInt() == Qt::Checked
                          ? QStyle::State_On
                          : QStyle::State_Off);
         box.palette = option.palette;
-        auto *style =
-            option.widget ? option.widget->style() : QApplication::style();
         const int size = style->pixelMetric(QStyle::PM_IndicatorWidth, nullptr,
                                             option.widget);
         box.rect = QRect(option.rect.center() - QPoint(size / 2, size / 2),
@@ -200,8 +202,7 @@ class AutoRespondEditor : public QWidget
 {
 public:
     explicit AutoRespondEditor(AutoRespondSettings &settings)
-        : settings_(settings)
-        , model_(new AutoRespondModel(settings, this))
+        : model_(new AutoRespondModel(settings, this))
     {
         this->setMinimumWidth(0);
         this->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
@@ -358,6 +359,9 @@ public:
                     this->table_->selectRow(row);
                 this->refresh();
             });
+        QObject::connect(&settings, &QObject::destroyed, this, [this] {
+            this->setEnabled(false);
+        });
         this->refresh();
     }
 
@@ -428,7 +432,6 @@ private:
         for (int i = 0; i < 7; ++i)
             this->days_[i]->setChecked(rule->days & (1 << i));
     }
-    AutoRespondSettings &settings_;
     AutoRespondModel *model_;
     QTableView *table_ = nullptr;
     QString selectedId_;
@@ -452,14 +455,18 @@ void addAutoRespondSettings(GeneralPageView &view)
         view.addDescription("Available after application startup.");
         return;
     }
-    SettingWidget::checkbox("Enable auto respond", settings->enabled)
-        ->addTo(view);
-    SettingWidget::intInput("Maximum auto-sent messages per minute",
-                            settings->perMinute, {.min = 1, .max = 60})
-        ->addTo(view);
-    SettingWidget::checkbox("Show a note when auto respond sends",
-                            settings->showNote)
-        ->addTo(view);
+    auto *enabled =
+        SettingWidget::checkbox("Enable auto respond", settings->enabled);
+    enabled->addTo(view);
+    QObject::connect(settings, &QObject::destroyed, enabled, [enabled] {
+        enabled->setEnabled(false);
+    });
+    auto *note = SettingWidget::checkbox("Show a note when auto respond sends",
+                                         settings->showNote);
+    note->addTo(view);
+    QObject::connect(settings, &QObject::destroyed, note, [note] {
+        note->setEnabled(false);
+    });
     view.addDescription("Replies to live messages in Twitch and Kick channels. "
                         "Your own messages and history are ignored. "
                         "/autorespond off stops all rules immediately. YouTube "

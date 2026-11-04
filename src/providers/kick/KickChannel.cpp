@@ -283,8 +283,6 @@ void KickChannel::sendReply(const QString &message, const QString &replyToId)
                                         false);  // satorino: retryable refusal
         return;
     }
-    satorino::recordAutoRespondSend(
-        this, true);  // satorino: accepted by the normal limiter
 
     this->updateSevenTVActivity();
     getKickApi()->sendMessage(
@@ -309,6 +307,8 @@ void KickChannel::sendReply(const QString &message, const QString &replyToId)
                                        res.error());
             }
         });
+    // satorino: owned feedback after the normal dispatch returns.
+    satorino::recordAutoRespondSend(this, true, prepared);
 }
 
 void KickChannel::deleteMessage(const QString &messageID)

@@ -34,9 +34,8 @@ QString autoRespond(const CommandContext &ctx)
     if (action == "off")
         settings.enabled = false;
     ctx.channel->addSystemMessage(
-        QString("Auto respond is %1 (maximum %2 messages per minute).")
-            .arg(settings.enabled.getValue() ? "on" : "off")
-            .arg(settings.perMinute.getValue()));
+        QString("Auto respond is %1 (one shared paced send queue).")
+            .arg(settings.enabled.getValue() ? "on" : "off"));
     return {};
 }
 }  // namespace chatterino::commands

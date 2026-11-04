@@ -1922,8 +1922,6 @@ void TwitchChannel::sendMessage(const QString &message)
     auto sendNormally = [this, &parsedMessage] {
         bool messageSent = false;
         this->sendMessageSignal.invoke(parsedMessage, messageSent);
-        satorino::recordAutoRespondSend(
-            this, messageSent);  // satorino: owned dispatch feedback
         this->updateBttvActivity();
         this->updateSevenTVActivity();
 
@@ -1932,6 +1930,8 @@ void TwitchChannel::sendMessage(const QString &message)
             qCDebug(chatterinoTwitch) << "sent";
             this->lastSentMessage_ = parsedMessage;
         }
+        // satorino: record the OUTER payload after any re-entrant observers.
+        satorino::recordAutoRespondSend(this, messageSent, parsedMessage);
     };
 
     // satorino: auto replies use the ordinary channel send handler and limiter.

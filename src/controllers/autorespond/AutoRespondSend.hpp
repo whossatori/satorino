@@ -20,5 +20,6 @@ struct AutoRespondSubmission {
 AutoRespondSubmission sendAutoRespond(Channel &channel, const QString &message);
 bool isAutoRespondSend(const Channel *channel = nullptr);
 QString limitAutoRespondSend(QString prepared, const Channel *channel);
-void recordAutoRespondSend(const Channel *channel, bool accepted);
+void recordAutoRespondSend(const Channel *channel, bool accepted,
+                           const QString &prepared = {});
 }  // namespace chatterino::satorino

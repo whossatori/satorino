@@ -7,14 +7,14 @@
 #include "common/SignalVector.hpp"
 #include "controllers/autorespond/AutoRespondRule.hpp"
 #include <pajlada/signals/signalholder.hpp>
+#include <QObject>
 
 namespace chatterino::satorino {
-class AutoRespondSettings
+class AutoRespondSettings : public QObject
 {
 public:
     AutoRespondSettings();
     BoolSetting enabled{"/satorino/autorespond/enabled", false};
-    IntSetting perMinute{"/satorino/autorespond/perMinute", 6};
     BoolSetting showNote{"/satorino/autorespond/showNote", true};
     ChatterinoSetting<std::vector<AutoRespondRule>> rules{
         "/satorino/autorespond/rules", {}};

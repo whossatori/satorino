@@ -509,7 +509,7 @@ Stage D compile and runtime behavior are unverified; see REPORT-D.md.
 
 ### Appearance and repository corrections
 
-The Main custom-frame title uses 1.625 times the existing DPI-scaled UI font.
+The Main custom-frame title uses the stock DPI-scaled UI font with bold weight.
 Animated glyphs, the plain loading/disabled/error fallback and sizeHint all
 use that same font. The existing 30-scaled-pixel title bar can accommodate
 its font metrics; no other window or native OS title font is changed.
@@ -523,128 +523,85 @@ template. The placeholder statements earlier in this document are preserved
 as historical notes and are superseded by this paragraph. The workflow's
 satorino/satorino.exe entry is a filesystem path and is unchanged.
 
-### Embedded auto respond editor and persistence
+### Auto responses
 
-Auto respond lives entirely inside Settings -> satorino. A master switch
-(default OFF), maximum messages per minute (default 6, editable 1-60), and
-Show a note when auto respond sends (default on) precede embedded Triggers
-and Timers tables. The existing settings scroll area contains both tables;
-each table has its own scrolling, add/remove and move controls. New rules
-start disabled. Edits use the same SignalVector/EditableModelView adapters
-as channel highlights, with synchronous publication and settings snapshot
-synchronization. No new feature window or dialog is introduced.
+Settings -> satorino contains the live default-off master switch, the default-on
+local-note option, and one Auto responses table: Enabled, Label, Type, Channel,
+When and Response/Message. Other options are in a wrapping selected-rule panel.
+Trigger fields include regex/case, sound/custom file, cooldown and delay; timer
+fields include local HH:mm and weekdays. New rows are disabled. Enabled uses an
+explicit checkbox delegate. Table columns divide the viewport width with no
+horizontal scrollbar; full strings remain available in editors and tooltips.
 
-All keys are registered ChatterinoSettings under /satorino/autorespond/:
-enabled, perMinute, showNote, triggers, timers and consumedDates. Normal
-portable settings, save/load and snapshot infrastructure apply. Rule IDs
-are stable UUIDs. Missing keys retain safe defaults. Closed-channel rules
-are retained and work again when that channel is connected; no automatic
-channel joins are performed. Channel combo boxes list Twitch first, then
-Kick, plus the currently saved value. YouTube is read-only in this tree
-and is shown as unavailable; special/aggregate feeds are excluded.
+The unified /satorino/autorespond/rules key replaces separate lists. The old
+triggers/timers keys are read once only when the new key is absent; IDs, order
+within each list, enabled flags and all options are preserved. An explicit empty
+new list cannot resurrect old rules. Other keys are enabled, showNote and
+consumedDates. Missing settings load with safe defaults. ChatterinoSetting and
+SignalVector storage participate in normal portable saving and snapshots. Model
+structural reloads are deferred until the current editor/signal returns.
 
-Triggers have enabled, optional label, channel, pattern, regex,
-case-sensitive, response, sound/custom file, cooldown seconds (default 30,
-minimum 1, maximum 86400) and delay milliseconds (0-3600000, default 0).
-Matchers reuse highlight boundary constants and Unicode/case options;
-compiled expressions are cached until rules change. Invalid regexes show
-an error tooltip and do not run. Response placeholders are {user},
-{channel}, {match}, and {1} through {9}. Substitution is a single pass;
-placeholder text in captures/usernames is not interpreted again. Controls
-and line separators become spaces, malformed surrogate units are repaired,
-and both UTF-16 length and UTF-8 bytes are capped at 500. A scoped guard
-repeats the bound after normal emoji/emote/duplicate processing. Ordinary
-manual sends are unaffected. Sound uses the same default ping2 URL and
-optional local-file convention as the channel highlight editor; clearing
-a custom file does not change its playback checkbox.
+Twitch and Kick use normal send paths. YouTube is read-only. Channel choices keep
+saved closed channels and list Twitch first. Special channels, history, reposts,
+self messages, duplicate IDs and recent outgoing echoes do not trigger replies.
+Matching, captures, one-pass placeholders, per-rule cooldown and final-payload
+sanitizing retain Stage E behavior. Both UTF-16 units and UTF-8 bytes are bounded
+at 500 after normal emoji/emote/duplicate expansion.
 
-### Live-message and send safety
+### Runtime and send queue
 
-One marked Channel::addMessage hook observes only original messages in real
-Twitch/Kick channels. History prepend/fill/merge paths bypass it. Both normal
-and overriding flags reject recent history, reposts, system messages,
-whispers, moderation/AutoMod and shared-chat copies. Unflagged messages older
-than 60 seconds are also ignored. The hook posts to the GUI thread when
-needed. With the master off no incoming rule is evaluated and nothing sends.
+Application explicitly owns the controller and its settings. Creation follows
+settings/accounts/provider initialization. Hooks are disabled and timers stopped
+before provider teardown; settings views use guarded service pointers. No hook,
+command or settings page constructs a runtime. The common Channel::addMessage
+observer returns through an atomic gate during startup, tests, off, sending and
+shutdown. Accepted observations always post to the GUI thread and carry a session
+generation, so off/on cannot revive a previously posted observation.
 
-The controller requires an existing connected channel and a logged-in,
-non-anonymous account. User ID/login checks suppress self messages; a bounded
-ID cache suppresses duplicate delivery. Original and processed outgoing text
-are remembered per channel for 60 seconds to suppress echoes, conservatively
-including another sender repeating that exact text. Per-rule cooldowns are
-reserved at matching/scheduling time, even if the delayed send is cancelled
-or a send is later refused. The shared monotonic rolling-minute budget counts
-attempts across triggers, timers, platforms and channels. It remains in force
-when the master is toggled; exhausted sends are skipped rather than queued.
+Normal sends use owned heap state with direct provider feedback. There is no
+temporary channel signal observer or stack-address submission pointer. Feedback
+records the outer prepared payload after re-entrant observers. Notes and sounds
+post after the send stack returns. The Twitch limiter's system-message insertion
+cannot re-enter the hook, and timer target enumeration snapshots channels before
+performing lookups that acquire the same channel mutex. Kick connection queries
+run only on the GUI thread and require server-confirmed room subscriptions.
 
-Sends use Channel::sendMessage and the existing platform limiter. Twitch auto
-sends select its ordinary channel handler. All final send checks happen on
-the GUI thread. Delayed callbacks hold weak channel references and reject
-rule/master revisions, account changes, closed/disconnected targets or late
-callbacks after suspend. /autorespond on|off|status changes the same live
-master setting and prints a local system message. Optional per-send notes
-say auto respond submitted: ..., because the normal APIs cannot confirm
-remote delivery synchronously. Twitch local limiter refusals suppress the
-note and sound; Kick API/limiter errors remain handled by its normal path.
-The global budget and loop guard conservatively include refused attempts.
+Triggers and timers share one FIFO. The first departure may be immediate; later
+departures wait at least one second globally and at least 1100 ms for an ordinary
+Twitch destination. Read-only preflight uses the actual platform limiter histories,
+including manual sends, with a small timer-rounding margin. The existing normal
+limiter still decides acceptance. A local refusal keeps the head item and retries
+about a second later, for up to two minutes after reaching the head. Expired or
+invalid items are skipped. Every send revalidates login/account, connection, rule
+contents and session; master off immediately clears pending work. A long timer
+broadcast cannot be jumped by later trigger replies.
 
-### Local-time timers
+A broadcast queues one item per connected channel in stable order, consumes its
+daily occurrence once, and emits one optional local summary of submitted/skipped
+counts. It has no per-channel notes. Single sends retain optional local submission
+notes. Counts describe local platform-handler acceptance, not a remote-delivery
+acknowledgement. No rate configuration is added: pacing is fixed in code.
 
-Timers have enabled, optional label, channel, message, local HH:mm time and
-weekday checkboxes (all seven by default, Monday bit 0). The next-fire and
-short-tick due decisions are pure functions receiving explicit times and a
-time zone. The GUI scheduler runs without opening settings. A consumed local
-date is stored per rule, including offline, missed and capped occurrences,
-so reconnecting or moving the clock back cannot replay that day's firing.
-A broadcast consumes one occurrence and shares the global send budget.
+Timers remain local-time, once per rule/day, with selected weekdays. Startup,
+offline deadlines, suspend/long ticks and clock jumps do not catch up. Missing
+spring-forward times are skipped and repeated fall-back times use their first
+occurrence. Consumed dates use normal settings persistence. /autorespond
+on|off|status changes the same master switch and reports local status.
 
-Startup does not catch up. Long ticks, suspend/resume and wall-clock jumps
-skip crossed deadlines. The scheduler accepts only short ticks (at most
-2.5 seconds, with wall/monotonic elapsed times agreeing within one second).
-Spring-forward nonexistent times are skipped; repeated fall-back times use
-the first occurrence only. Rule edits/master/account changes reset the
-comparison point. Timers support {channel}; sender/match placeholders have
-no value for a timer. Deadline dates use normal settings persistence.
+## Stage E fixes — Windows feedback
 
-### Validation and sync notes
+The original Stage E was built and exercised by the owner, who reported excessive
+title size, send-time crashes, and a table too wide for the default window. New
+commits on top of 223ac95d8 restore stock-size bold title text, harden send and
+service lifetimes, unify the editor/storage, and introduce the paced retry queue.
+The precise Windows crash cause is not proven without a runtime reproduction or
+stack trace. Source review found unsafe lifetime/re-entrancy surfaces and a
+recursive timer-enumeration mutex lookup; these are addressed defensively.
 
-The owner reports Stages A-D merged, green and working on Windows. Stage E
-has NOT been compiled or run here: WSL lists no installed distribution, and
-no native compiler/CMake/Qt installation was found. Nineteen regression tests
-were authored, including an existing settings.json without the new keys,
-actual file save/reload, final-payload scoping, match/capture/boundary rules,
-cooldowns, shared limits, history/self/echo suppression and local/DST dates.
-All are NOT RUN. See the external Stage E deliverable REPORT-E.md for the
-executed-versus-not-run table and Windows checklist.
-
-| Upstream/hot file | Stage E hook to retain on sync |
-|---|---|
-| src/widgets/SatorinoTitleLabel.* | shared larger font for glyph/fallback paint and hints |
-| src/widgets/dialogs/SettingsDialog.cpp | lowercase visible tab label only |
-| src/widgets/settingspages/SatorinoPage.cpp | one embedded auto respond section call |
-| src/CMakeLists.txt | every new source/header in the marked satorino block |
-| tests/CMakeLists.txt | register AutoRespond.cpp |
-| src/Application.cpp | initialize the GUI scheduler after accounts load |
-| src/common/Channel.cpp | one original/live insertion observer, including overriding flags |
-| src/controllers/commands/CommandController.cpp | register /autorespond |
-| src/controllers/completion/sources/CommandSource.cpp | command usage hint |
-| src/providers/twitch/TwitchChannel.hpp | read-only joined/connected query |
-| src/providers/twitch/TwitchChannel.cpp | scoped final-payload guard and ordinary limited dispatch |
-| src/providers/kick/KickChannel.cpp | scoped final-payload guard after emoji/emote expansion |
-| src/providers/kick/KickLiveUpdates.* | read-only room connection query |
-| src/providers/kick/ws/KickWebSocketManager.hpp | connection query interface |
-| src/providers/kick/ws/KickPusherManager.* and KickCentrifugoManager.* | open assigned-subscription query, excluding pending/offline clients |
-| src/common/Version.cpp, src/singletons/Updates.cpp, ThemesPage.cpp | correct repository URLs and updater dialog text |
-| root CMakeLists.txt, README.md, .CI metadata/scripts, appdata XML, windows.rc.in, issue template | real repository owner |
-
-All auto respond policy/storage/models/editor/command implementations are in
-new files. No message builder, workflow, sync script, badge/payment block,
-existing logo or animation asset is changed by Stage E. Updater enablement/feed policy
-is unchanged. The title's embedded WebP bytes are unchanged.
-
-
-Kick eligibility additionally requires a server-confirmed room subscription. The small transport hooks reset/forget
-acknowledgements on reconnect, subscribe and unsubscribe; queued authentication
-or joins cannot qualify as connected. The state policy lives in the new pure
-AutoRespondConnectionState.hpp helper. Preserve those hooks in both Kick
-websocket clients on sync; they do not change how normal subscriptions are sent.
+No fixes were compiled or run locally. See REPORT-E-FIXES.md in the external fixes
+deliverable folder for reviewed suspects, exact checks and the Windows checklist.
+On sync retain Application ownership/start/shutdown hooks; the single Channel
+observer; Twitch/Kick final-payload/feedback hooks and limiter preflight declarations;
+Kick confirmed-subscription queries; command registration/completion; and every
+new source/header in the marked CMake block. Message builders, workflows, badge
+blocks, the sync script, logos, WebP bytes and native title-bar height are unchanged.

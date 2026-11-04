@@ -78,7 +78,6 @@ class AutoRespondLimits
 {
 public:
     bool reserveRule(const QString &id, int cooldownSeconds, qint64 nowMs);
-    bool takeGlobal(int messagesPerMinute, qint64 nowMs);
     void rememberSent(const QString &channel, const QString &text,
                       qint64 nowMs);
     bool wasAutoSent(const QString &channel, const QString &text, qint64 nowMs);
@@ -90,7 +89,6 @@ private:
         qint64 at;
     };
     std::map<QString, qint64> rules_;
-    std::deque<qint64> sends_;
     std::deque<Echo> echoes_;
 };
 

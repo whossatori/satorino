@@ -12,21 +12,30 @@ namespace chatterino::satorino {
 AutoRespondModel::AutoRespondModel(AutoRespondSettings &settings,
                                    QObject *parent)
     : QAbstractTableModel(parent)
-    , settings_(settings)
+    , settings_(&settings)
     , rows_(settings.rows.raw())
 {
+    QObject::connect(&settings, &QObject::destroyed, this, [this] {
+        QTimer::singleShot(0, this, [this] {
+            this->beginResetModel();
+            this->rows_.clear();
+            this->endResetModel();
+        });
+    });
     this->connections_.managedConnect(settings.changed, [this] {
         this->scheduleReload();
     });
 }
 void AutoRespondModel::scheduleReload()
 {
-    if (this->reloadPending_)
+    if (!this->settings_ || this->reloadPending_)
         return;
     this->reloadPending_ = true;
     QTimer::singleShot(0, this, [this] {
         this->reloadPending_ = false;
-        const auto replacement = this->settings_.rows.raw();
+        const auto replacement = this->settings_
+                                     ? this->settings_->rows.raw()
+                                     : std::vector<AutoRespondRule>{};
         if (replacement == this->rows_)
             return;
         this->beginResetModel();
@@ -109,7 +118,7 @@ QVariant AutoRespondModel::data(const QModelIndex &index, int role) const
 }
 Qt::ItemFlags AutoRespondModel::flags(const QModelIndex &index) const
 {
-    if (!this->ruleAt(index.row()) || index.column() < 0 ||
+    if (!this->settings_ || !this->ruleAt(index.row()) || index.column() < 0 ||
         index.column() >= Count)
         return Qt::NoItemFlags;
     auto flags = Qt::ItemIsEnabled | Qt::ItemIsSelectable;
@@ -173,10 +182,12 @@ bool AutoRespondModel::setData(const QModelIndex &index, const QVariant &value,
 }
 bool AutoRespondModel::updateRule(const AutoRespondRule &rule)
 {
+    if (!this->settings_)
+        return false;
     const int row = this->rowForId(rule.id);
     if (row < 0)
         return false;
-    auto latest = this->settings_.rules.getValueCopy();
+    auto latest = this->settings_->rules.getValueCopy();
     const auto found = std::ranges::find(latest, rule.id, &AutoRespondRule::id);
     if (found == latest.end() || *found != this->rows_[row])
     {
@@ -187,14 +198,14 @@ bool AutoRespondModel::updateRule(const AutoRespondRule &rule)
         return true;
     *found = rule;
     this->rows_[row] = rule;
-    this->settings_.rules.setValue(latest);
+    this->settings_->rules.setValue(latest);
     Q_EMIT this->dataChanged(this->index(row, 0), this->index(row, Count - 1),
                              {});
     return true;
 }
 void AutoRespondModel::addRule(AutoRespondType type)
 {
-    if (this->settings_.rows.raw() != this->rows_)
+    if (!this->settings_ || this->settings_->rows.raw() != this->rows_)
     {
         this->scheduleReload();
         return;
@@ -203,24 +214,25 @@ void AutoRespondModel::addRule(AutoRespondType type)
     this->beginInsertRows({}, row, row);
     this->rows_.push_back(newAutoRespondRule(type));
     this->endInsertRows();
-    this->settings_.rules.setValue(this->rows_);
+    this->settings_->rules.setValue(this->rows_);
 }
 bool AutoRespondModel::removeRows(int row, int count, const QModelIndex &parent)
 {
-    if (parent.isValid() || count != 1 || !this->ruleAt(row) ||
-        this->settings_.rows.raw() != this->rows_)
+    if (!this->settings_ || parent.isValid() || count != 1 ||
+        !this->ruleAt(row) || this->settings_->rows.raw() != this->rows_)
         return false;
     this->beginRemoveRows({}, row, row);
     this->rows_.erase(this->rows_.begin() + row);
     this->endRemoveRows();
-    this->settings_.rules.setValue(this->rows_);
+    this->settings_->rules.setValue(this->rows_);
     return true;
 }
 bool AutoRespondModel::moveRows(const QModelIndex &, int source, int count,
                                 const QModelIndex &, int destination)
 {
-    if (count != 1 || !this->ruleAt(source) || !this->ruleAt(destination) ||
-        source == destination || this->settings_.rows.raw() != this->rows_)
+    if (!this->settings_ || count != 1 || !this->ruleAt(source) ||
+        !this->ruleAt(destination) || source == destination ||
+        this->settings_->rows.raw() != this->rows_)
         return false;
     // EditableModelView buttons pass a target row rather than Qt's insertion offset.
     const int insertion = destination > source ? destination + 1 : destination;
@@ -230,7 +242,7 @@ bool AutoRespondModel::moveRows(const QModelIndex &, int source, int count,
     this->rows_.erase(this->rows_.begin() + source);
     this->rows_.insert(this->rows_.begin() + destination, std::move(item));
     this->endMoveRows();
-    this->settings_.rules.setValue(this->rows_);
+    this->settings_->rules.setValue(this->rows_);
     return true;
 }
 }  // namespace chatterino::satorino

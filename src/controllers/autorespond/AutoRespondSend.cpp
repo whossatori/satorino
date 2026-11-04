@@ -70,9 +70,14 @@ QString limitAutoRespondSend(QString prepared, const Channel *channel)
     return activeSend->result.prepared;
 }
 
-void recordAutoRespondSend(const Channel *channel, bool accepted)
+void recordAutoRespondSend(const Channel *channel, bool accepted,
+                           const QString &prepared)
 {
     if (isAutoRespondSend(channel) && activeSend)
+    {
+        if (!prepared.isNull())
+            activeSend->result.prepared = sanitizeAutoRespond(prepared);
         activeSend->result.accepted = accepted;
+    }
 }
 }  // namespace chatterino::satorino

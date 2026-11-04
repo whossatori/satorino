@@ -168,21 +168,6 @@ bool AutoRespondLimits::reserveRule(const QString &id, int cooldownSeconds,
     return true;
 }
 
-bool AutoRespondLimits::takeGlobal(int messagesPerMinute, qint64 nowMs)
-{
-    while (!this->sends_.empty() && nowMs - this->sends_.front() >= 60000)
-    {
-        this->sends_.pop_front();
-    }
-    if (messagesPerMinute < 1 ||
-        this->sends_.size() >= static_cast<std::size_t>(messagesPerMinute))
-    {
-        return false;
-    }
-    this->sends_.push_back(nowMs);
-    return true;
-}
-
 void AutoRespondLimits::rememberSent(const QString &channel,
                                      const QString &text, qint64 nowMs)
 {

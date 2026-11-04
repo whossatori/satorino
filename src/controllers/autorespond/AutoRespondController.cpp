@@ -21,6 +21,7 @@
 
 #include <QCoreApplication>
 #include <QPointer>
+#include <QScopeGuard>
 
 #include <algorithm>
 #include <cmath>
@@ -29,6 +30,7 @@
 namespace chatterino::satorino {
 namespace {
 std::atomic_bool observeEnabled{false};
+std::atomic_uint64_t observationGeneration{0};
 AutoRespondController *activeController = nullptr;
 
 QString channelKey(const Channel &channel)
@@ -72,6 +74,9 @@ Identity currentIdentity(const Channel &channel)
 
 bool ready(const Channel &channel)
 {
+    auto *app = tryGetApp();
+    if (!app || isAppAboutToQuit() || !app->getAccounts())
+        return false;
     if (!channel.canSendMessage() || currentIdentity(channel).id.isEmpty())
         return false;
     if (channel.getType() == Channel::Type::Twitch)
@@ -135,18 +140,21 @@ AutoRespondController::AutoRespondController(IApplication &app)
     this->clock_.start();
     this->timer_.setInterval(1000);
     this->timer_.setTimerType(Qt::PreciseTimer);
+    this->queueTimer_.setSingleShot(true);
+    this->queueTimer_.setTimerType(Qt::PreciseTimer);
     QObject::connect(&this->timer_, &QTimer::timeout, this,
                      &AutoRespondController::tick);
-    auto &settings = this->settings_;
-    settings.enabled.connect(
+    QObject::connect(&this->queueTimer_, &QTimer::timeout, this,
+                     &AutoRespondController::processQueue);
+    this->settings_.enabled.connect(
         [this] {
             this->resetSchedule();
         },
         this->connections_);
-    settings.rules.connect(
+    this->settings_.rules.connect(
         [this] {
             this->rebuildTriggers();
-            this->resetSchedule();
+            this->resetSchedule(false);
         },
         this->connections_);
     if (auto *accounts = this->app_.getAccounts())
@@ -161,11 +169,57 @@ AutoRespondController::AutoRespondController(IApplication &app)
                                           });
     }
 }
-
+AutoRespondController::~AutoRespondController()
+{
+    this->shutdown();
+}
+void AutoRespondController::start()
+{
+    assertInGuiThread();
+    if (this->running_ || this->app_.isTest() || isAppAboutToQuit())
+        return;
+    activeController = this;
+    this->running_ = true;
+    this->resetSchedule();
+}
+void AutoRespondController::shutdown()
+{
+    assertInGuiThread();
+    observeEnabled.store(false);
+    this->running_ = false;
+    ++this->revision_;
+    observationGeneration.fetch_add(1);
+    this->timer_.stop();
+    this->queueTimer_.stop();
+    this->clearQueue();
+    this->connections_.clear();
+    this->twitchConnection_.disconnect();
+    if (activeController == this)
+        activeController = nullptr;
+}
+void AutoRespondController::resetSchedule(bool invalidate)
+{
+    assertInGuiThread();
+    observeEnabled.store(this->running_ && this->settings_.enabled.getValue());
+    if (invalidate)
+    {
+        ++this->revision_;
+        observationGeneration.fetch_add(1);
+        this->queueTimer_.stop();
+        this->clearQueue();
+    }
+    this->previous_ = QDateTime::currentDateTime();
+    this->previousSteady_ = this->clock_.elapsed();
+    const bool enabled = this->running_ && this->settings_.enabled.getValue();
+    observeEnabled.store(enabled);
+    if (enabled)
+        this->timer_.start();
+    else
+        this->timer_.stop();
+}
 void AutoRespondController::rebuildTriggers()
 {
     assertInGuiThread();
-    ++this->revision_;
     this->triggers_.clear();
     for (const auto &rule : this->settings_.rules.getValueCopy())
     {
@@ -177,29 +231,20 @@ void AutoRespondController::rebuildTriggers()
             this->triggers_.emplace_back(rule, expression);
     }
 }
-
-void AutoRespondController::resetSchedule()
+bool AutoRespondController::ruleCurrent(const AutoRespondRule &rule) const
 {
-    assertInGuiThread();
-    ++this->revision_;
-    this->previous_ = QDateTime::currentDateTime();
-    this->previousSteady_ = this->clock_.elapsed();
-    observeEnabled.store(this->running_ && this->settings_.enabled.getValue());
-    if (this->running_ && this->settings_.enabled.getValue())
-        this->timer_.start();
-    else
-        this->timer_.stop();
+    const auto rules = this->settings_.rules.getValueCopy();
+    return std::ranges::any_of(rules, [&](const auto &current) {
+        return current.id == rule.id && current == rule && current.enabled;
+    });
 }
-
 void AutoRespondController::receive(const ChannelPtr &channel,
                                     const MessagePtr &message)
 {
     assertInGuiThread();
-    auto &settings = this->settings_;
-    if (!this->running_ || !channel || !message ||
-        !settings.enabled.getValue() || !ready(*channel))
+    if (!this->running_ || !this->settings_.enabled.getValue() || !channel ||
+        !message || !ready(*channel))
         return;
-    // Also reject stale unflagged replay traffic, without inspecting old chat.
     if (message->serverReceivedTime.isValid() &&
         message->serverReceivedTime.secsTo(QDateTime::currentDateTimeUtc()) >
             60)
@@ -219,7 +264,6 @@ void AutoRespondController::receive(const ChannelPtr &channel,
         this->limits_.wasAutoSent(key, message->messageText, now)};
     if (!canAutoRespond(input))
         return;
-    // EventSub/IRC duplicates cannot schedule two responses to the same ID.
     while (!this->seen_.empty() && now - this->seen_.front().at >= 300000)
         this->seen_.pop_front();
     if (!message->id.isEmpty())
@@ -247,68 +291,195 @@ void AutoRespondController::receive(const ChannelPtr &channel,
         QTimer::singleShot(std::clamp(rule.delayMs, 0, 3600000), this,
                            [this, weak = std::weak_ptr<Channel>(channel),
                             revision, due, rule, text, account = identity.id] {
-                               // No send after off/on, rule edits, an account switch, suspend,
-                               // teardown, or a closed/disconnected channel.
-                               if (revision != this->revision_ ||
-                                   this->clock_.elapsed() - due > 2500)
+                               if (!this->running_ ||
+                                   revision != this->revision_ ||
+                                   !this->settings_.enabled.getValue() ||
+                                   this->clock_.elapsed() - due > 2500 ||
+                                   !this->ruleCurrent(rule))
                                    return;
-                               if (const auto target = weak.lock())
-                                   this->submit(target, text, account,
-                                                rule.sound, rule.customSound);
+                               if (auto target = weak.lock())
+                                   this->enqueue(target, rule, text, account);
                            });
     }
 }
-
-void AutoRespondController::submit(const ChannelPtr &channel,
-                                   const QString &text, const QString &identity,
-                                   bool sound, const QString &customSound)
+void AutoRespondController::enqueue(
+    const ChannelPtr &channel, const AutoRespondRule &rule, const QString &text,
+    const QString &account, const std::shared_ptr<AutoRespondBatch> &batch)
+{
+    this->queue_.push({++this->nextToken_,
+                       this->revision_,
+                       channel,
+                       rule,
+                       sanitizeAutoRespond(text),
+                       account,
+                       batch,
+                       {}});
+    if (!this->queueTimer_.isActive())
+        this->queueTimer_.start(0);
+}
+void AutoRespondController::clearQueue()
+{
+    const auto pending = this->queue_.clear();
+    for (const auto &item : pending)
+        if (item.token != this->activeToken_)
+            this->finishBatch(item, false);
+}
+void AutoRespondController::finishBatch(const AutoRespondQueuedSend &item,
+                                        bool sent)
+{
+    if (!item.batch)
+    {
+        if (!sent && this->running_ && this->settings_.showNote.getValue())
+            this->postNote(item.channel,
+                           "auto respond sent 0 of 1 (1 skipped)");
+        return;
+    }
+    auto &batch = *item.batch;
+    if (sent)
+        ++batch.sent;
+    else
+        ++batch.skipped;
+    if (--batch.remaining != 0 || !this->running_ ||
+        !this->settings_.showNote.getValue())
+        return;
+    for (const auto &weak : batch.targets)
+        if (auto target = weak.lock())
+        {
+            this->postNote(target,
+                           QString("auto respond sent %1 of %2 (%3 skipped)")
+                               .arg(batch.sent)
+                               .arg(batch.total)
+                               .arg(batch.skipped));
+            break;
+        }
+}
+void AutoRespondController::postNote(std::weak_ptr<Channel> channel,
+                                     QString text)
+{
+    QTimer::singleShot(
+        0, this, [this, channel = std::move(channel), text = std::move(text)] {
+            if (!this->running_ || isAppAboutToQuit())
+                return;
+            if (auto target = channel.lock())
+                target->addSystemMessage(text);
+        });
+}
+void AutoRespondController::processQueue()
 {
     assertInGuiThread();
-    auto &settings = this->settings_;
-    if (!this->running_ || !channel || !settings.enabled.getValue() ||
-        !ready(*channel) || currentIdentity(*channel).id != identity)
+    if (this->processing_ || !this->running_ ||
+        !this->settings_.enabled.getValue() || isAppAboutToQuit())
         return;
-    const auto clean = sanitizeAutoRespond(text);
-    if (clean.isEmpty() || !this->limits_.takeGlobal(
-                               std::clamp(settings.perMinute.getValue(), 1, 60),
-                               this->clock_.elapsed()))
-        return;
-    this->limits_.rememberSent(channelKey(*channel), clean,
-                               this->clock_.elapsed());
-    const auto sent = sendAutoRespond(*channel, clean);
-    // Remember the actual expanded/duplicate-adjusted wire text as well.
-    if (!sent.prepared.isEmpty())
-        this->limits_.rememberSent(channelKey(*channel), sent.prepared,
-                                   this->clock_.elapsed());
-    if (sent.prepared.isEmpty() || sent.accepted != true)
-        return;
-    // Channel::sendMessage is void and remote acceptance is asynchronous. This
-    // reports submission truthfully; normal limiter/API errors remain visible.
-    if (settings.showNote.getValue())
-        channel->addSystemMessage("auto respond submitted: " + clean);
-    if (sound && this->app_.getSound())
-        this->app_.getSound()->play(customSound.isEmpty()
-                                        ? QUrl("qrc:/sounds/ping2.wav")
-                                        : QUrl(customSound));
+    this->processing_ = true;
+    const QPointer<AutoRespondController> self(this);
+    const auto guard = qScopeGuard([self] {
+        if (self)
+            self->processing_ = false;
+    });
+    while (!this->queue_.empty())
+    {
+        const auto now = this->clock_.elapsed();
+        this->queue_.startHead(now);
+        const auto item = this->queue_.front();
+        const auto channel = item.channel.lock();
+        if (item.session != this->revision_ || !channel || !ready(*channel) ||
+            currentIdentity(*channel).id != item.account ||
+            !this->ruleCurrent(item.rule) || item.text.isEmpty() ||
+            this->queue_.expired(now))
+        {
+            this->queue_.finish(item.token, now, false);
+            this->finishBatch(item, false);
+            continue;
+        }
+        qint64 providerWait = 0;
+        bool ordinaryTwitch = false;
+        if (auto twitch = std::dynamic_pointer_cast<TwitchChannel>(channel))
+        {
+            auto *server =
+                dynamic_cast<TwitchIrcServer *>(this->app_.getTwitch());
+            if (!server)
+            {
+                this->queue_.finish(item.token, now, false);
+                this->finishBatch(item, false);
+                continue;
+            }
+            providerWait = server->autoRespondSendWait(twitch).count();
+            ordinaryTwitch = !twitch->hasHighRateLimit();
+        }
+        else if (auto kick = std::dynamic_pointer_cast<KickChannel>(channel))
+            providerWait = kick->autoRespondSendWait().count();
+        const auto wait = this->queue_.wait(now, ordinaryTwitch, providerWait);
+        if (wait > 0)
+        {
+            const auto remaining =
+                std::max(qint64(1), 120000 - (now - *item.startedAt));
+            this->queueTimer_.start(
+                static_cast<int>(std::min(wait, remaining)));
+            return;
+        }
+        this->activeToken_ = item.token;
+        const auto result = sendAutoRespond(*channel, item.text);
+        if (!self)
+            return;  // a re-entrant upstream observer may have destroyed the app
+        this->activeToken_ = 0;
+        const bool valid = this->running_ &&
+                           this->settings_.enabled.getValue() &&
+                           item.session == this->revision_;
+        if (result.accepted == false && valid)
+        {
+            this->queue_.refused(this->clock_.elapsed());
+            const auto remaining = std::max(
+                qint64(1), 120000 - (this->clock_.elapsed() - *item.startedAt));
+            this->queueTimer_.start(
+                static_cast<int>(std::min(qint64(1100), remaining)));
+            return;
+        }
+        const bool sent = result.accepted == true && !result.prepared.isEmpty();
+        this->queue_.finish(item.token, this->clock_.elapsed() + 1, sent);
+        this->finishBatch(item, sent);
+        if (sent)
+        {
+            this->limits_.rememberSent(channelKey(*channel), item.text,
+                                       this->clock_.elapsed());
+            this->limits_.rememberSent(channelKey(*channel), result.prepared,
+                                       this->clock_.elapsed());
+            if (!item.batch && this->settings_.showNote.getValue())
+                this->postNote(channel, "auto respond submitted: " + item.text);
+            if (item.rule.sound)
+                QTimer::singleShot(
+                    0, this, [this, sound = item.rule.customSound] {
+                        if (this->running_)
+                            if (auto *player = this->app_.getSound())
+                                player->play(sound.isEmpty()
+                                                 ? QUrl("qrc:/sounds/ping2.wav")
+                                                 : QUrl(sound));
+                    });
+        }
+        if (!valid)
+            return;
+        if (sent)
+        {
+            if (!this->queue_.empty())
+                this->queueTimer_.start(0);
+            return;
+        }
+    }
 }
-
 void AutoRespondController::tick()
 {
     assertInGuiThread();
-    auto &settings = this->settings_;
-    if (!this->running_ || !settings.enabled.getValue() ||
+    if (!this->running_ || !this->settings_.enabled.getValue() ||
         !this->previous_.isValid())
         return;
+    const QPointer<AutoRespondController> self(this);
     const auto now = QDateTime::currentDateTime();
     const auto steady = this->clock_.elapsed();
     const auto zone = QTimeZone::systemTimeZone();
-    auto dates = settings.consumedDates.getValueCopy();
-    for (const auto &stored : settings.rules.getValueCopy())
+    auto dates = this->settings_.consumedDates.getValueCopy();
+    for (const auto &rule : this->settings_.rules.getValueCopy())
     {
-        if (stored.type != AutoRespondType::Timer)
-            continue;
-        const auto rule = stored.timerRule();
-        if (rule.id.isEmpty() || !rule.enabled)
+        if (rule.type != AutoRespondType::Timer || !rule.enabled ||
+            rule.id.isEmpty())
             continue;
         auto &consumed = this->consumed_[rule.id];
         if (const auto found = dates.find(rule.id.toStdString());
@@ -318,62 +489,46 @@ void AutoRespondController::tick()
             if (saved.isValid() && (!consumed.isValid() || saved > consumed))
                 consumed = saved;
         }
+        const auto timerRule = rule.timerRule();
         const auto next =
-            nextAutoRespondFire(rule, this->previous_, consumed, zone);
+            nextAutoRespondFire(timerRule, this->previous_, consumed, zone);
         if (!next || *next > now)
             continue;
-        const bool due =
-            autoRespondTimerDue(rule, this->previous_, now, consumed, zone) &&
-            steady - this->previousSteady_ <= 2500 &&
-            std::abs(this->previous_.msecsTo(now) -
-                     (steady - this->previousSteady_)) < 1000;
-        // Consume even when disconnected, logged out, capped or missed. The
-        // persisted date also prevents a restart/clock rollback duplicating a day.
+        const bool due = autoRespondTimerDue(timerRule, this->previous_, now,
+                                             consumed, zone) &&
+                         steady - this->previousSteady_ <= 2500 &&
+                         std::abs(this->previous_.msecsTo(now) -
+                                  (steady - this->previousSteady_)) < 1000;
         consumed = next->toTimeZone(zone).date();
         dates[rule.id.toStdString()] = consumed.toString(Qt::ISODate);
-        settings.consumedDates.setValue(dates);
+        this->settings_.consumedDates.setValue(
+            dates);  // one occurrence, before queuing the broadcast
+        if (!self || !this->running_)
+            return;
         if (!due)
             continue;
-        for (const auto &channel : timerTargets(rule.channel))
+        const auto targets = timerTargets(rule.channel);
+        std::shared_ptr<AutoRespondBatch> batch;
+        if (rule.channel == "*" && !targets.empty())
         {
-            const auto text = rule.message;
-            // Timers have no sender/match; {channel} is still useful for broadcasts.
+            batch = std::make_shared<AutoRespondBatch>();
+            batch->total = static_cast<int>(targets.size());
+            batch->remaining = batch->total;
+            for (const auto &target : targets)
+                batch->targets.push_back(target);
+        }
+        for (const auto &target : targets)
+        {
             AutoRespondInput input;
-            input.channel = channelKey(*channel);
-            this->submit(
-                channel,
-                expandAutoRespond(text, input, QRegularExpressionMatch()),
-                currentIdentity(*channel).id);
+            input.channel = channelKey(*target);
+            this->enqueue(target, rule,
+                          expandAutoRespond(rule.response, input,
+                                            QRegularExpressionMatch()),
+                          currentIdentity(*target).id, batch);
         }
     }
     this->previous_ = now;
     this->previousSteady_ = steady;
-}
-
-AutoRespondController::~AutoRespondController()
-{
-    this->shutdown();
-}
-void AutoRespondController::start()
-{
-    assertInGuiThread();
-    if (this->running_ || this->app_.isTest() || isAppAboutToQuit())
-        return;
-    activeController = this;
-    this->running_ = true;
-    this->resetSchedule();
-}
-void AutoRespondController::shutdown()
-{
-    assertInGuiThread();
-    observeEnabled.store(false);
-    this->running_ = false;
-    ++this->revision_;
-    this->timer_.stop();
-    this->connections_.clear();
-    this->twitchConnection_.disconnect();
-    if (activeController == this)
-        activeController = nullptr;
 }
 AutoRespondController *tryAutoRespond()
 {
@@ -387,7 +542,6 @@ void observeAutoRespond(Channel &channel, const MessagePtr &message,
                         MessageContext context,
                         std::optional<MessageFlags> overridingFlags)
 {
-    // Cheap non-creating gate: startup, master off, tests, sends and shutdown.
     if (!observeEnabled.load() || isAutoRespondSend())
         return;
     if (!message ||
@@ -400,11 +554,13 @@ void observeAutoRespond(Channel &channel, const MessagePtr &message,
     auto *contextObject = QCoreApplication::instance();
     if (!contextObject || QCoreApplication::closingDown())
         return;
-    // Never run matching inside an upstream signal/mutex-protected insertion.
+    const auto generation = observationGeneration.load();
     QMetaObject::invokeMethod(
         contextObject,
-        [weak = channel.weak_from_this(), message] {
-            if (!observeEnabled.load() || isAutoRespondSend())
+        [weak = channel.weak_from_this(), message, generation] {
+            if (!observeEnabled.load() ||
+                generation != observationGeneration.load() ||
+                isAutoRespondSend())
                 return;
             if (auto *controller = tryAutoRespond())
                 if (auto target = weak.lock())

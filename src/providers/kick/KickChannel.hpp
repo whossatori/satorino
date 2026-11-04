@@ -102,6 +102,8 @@ public:
     const QString &seventvEmoteSetID() const;
 
     bool canSendMessage() const override;
+    // satorino: read-only preflight using the normal channel send limiter.
+    std::chrono::milliseconds autoRespondSendWait() const;
     void sendMessage(const QString &message) override;
     void sendReply(const QString &message, const QString &replyToID);
 

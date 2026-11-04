@@ -6,6 +6,7 @@
 #include "controllers/autorespond/AutoRespondConnectionState.hpp"
 #include "controllers/autorespond/AutoRespondController.hpp"
 #include "controllers/autorespond/AutoRespondModel.hpp"
+#include "controllers/autorespond/AutoRespondQueue.hpp"
 #include "controllers/autorespond/AutoRespondSettings.hpp"
 #include "controllers/autorespond/AutoRespondSend.hpp"
 #include "common/Channel.hpp"
@@ -142,16 +143,6 @@ TEST(AutoRespond, RuleCooldownMinimumAndIndependentRules)
     EXPECT_FALSE(gate.reserveRule("min", 0, 999));
     EXPECT_TRUE(gate.reserveRule("min", 0, 1000));
 }
-TEST(AutoRespond, GlobalCapIsSlidingAcrossRulesAndTimers)
-{
-    AutoRespondLimits gate;
-    for (int i = 0; i < 6; ++i)
-        EXPECT_TRUE(gate.takeGlobal(6, i));
-    EXPECT_FALSE(gate.takeGlobal(6, 59999));
-    EXPECT_TRUE(gate.takeGlobal(6, 60000));
-    EXPECT_FALSE(gate.takeGlobal(6, 60000));
-    EXPECT_FALSE(gate.takeGlobal(0, 120000));
-}
 TEST(AutoRespond, EchoGuardIsChannelScopedAndExpires)
 {
     AutoRespondLimits gate;
@@ -246,7 +237,6 @@ TEST(AutoRespond, SettingsRoundTripAndMissingKeysKeepSafeDefaults)
     // the actual new keys, absent from that existing settings.json schema.
     AutoRespondSettings defaults;
     EXPECT_FALSE(defaults.enabled.getValue());
-    EXPECT_EQ(defaults.perMinute.getValue(), 6);
     EXPECT_TRUE(defaults.showNote.getValue());
     EXPECT_TRUE(defaults.rules.getValueCopy().empty());
 }
@@ -331,8 +321,6 @@ TEST(AutoRespond, ExistingSettingsJsonWithoutNewKeysLoadsAndRoundTrips)
     pajlada::Settings::Setting<bool> enabled("/satorino/autorespond/enabled",
                                              false, Option::CompareBeforeSet,
                                              manager);
-    pajlada::Settings::Setting<int> cap("/satorino/autorespond/perMinute", 6,
-                                        Option::CompareBeforeSet, manager);
     pajlada::Settings::Setting<bool> note("/satorino/autorespond/showNote",
                                           true, Option::CompareBeforeSet,
                                           manager);
@@ -342,7 +330,6 @@ TEST(AutoRespond, ExistingSettingsJsonWithoutNewKeysLoadsAndRoundTrips)
     pajlada::Settings::Setting<std::vector<AutoRespondTimer>> timers(
         "/satorino/autorespond/timers", {}, Option::CompareBeforeSet, manager);
     EXPECT_FALSE(enabled.getValue());
-    EXPECT_EQ(cap.getValue(), 6);
     EXPECT_TRUE(note.getValue());
     EXPECT_TRUE(triggers.getValueCopy().empty());
     EXPECT_TRUE(timers.getValueCopy().empty());
@@ -518,4 +505,65 @@ TEST(AutoRespond, UnifiedModelHasSixColumnsAndRealUncheckedEnabledRole)
     EXPECT_TRUE(model.moveRows({}, 0, 1, {}, 1));
     EXPECT_EQ(settings.rules.getValueCopy()[1].id, id);
     EXPECT_TRUE(model.removeRow(1));
+}
+
+TEST(AutoRespond, SharedQueuePacesBothKindsAndKeepsFifoOnRefusal)
+{
+    AutoRespondQueue queue;
+    AutoRespondQueuedSend timer, reply;
+    timer.token = 1;
+    timer.rule.type = AutoRespondType::Timer;
+    reply.token = 2;
+    queue.push(timer);
+    queue.push(reply);
+    queue.startHead(0);
+    EXPECT_EQ(queue.wait(0, true), 0);
+    queue.refused(0);
+    EXPECT_EQ(queue.front().token, 1);
+    EXPECT_EQ(queue.wait(500, true), 600);
+    EXPECT_FALSE(queue.expired(119999));
+    EXPECT_TRUE(queue.expired(120000));
+    queue.finish(1, 120000, false);
+    queue.startHead(120000);
+    EXPECT_EQ(queue.front().token, 2);
+    EXPECT_FALSE(queue.expired(120000));
+    queue.finish(2, 120000, true);
+    EXPECT_EQ(queue.wait(120500, false), 500);
+    EXPECT_EQ(queue.wait(120500, true), 600);
+    queue.clear();
+    EXPECT_EQ(queue.wait(120500, true),
+              600);  // panic off/on cannot bypass pacing
+}
+TEST(AutoRespond, ProviderPreflightIncludesManualSendsAndBurstWindows)
+{
+    const std::vector<qint64> one{1000};
+    EXPECT_EQ(autoRespondRateWait(one, 19, 1100, 32000, 1500), 600);
+    EXPECT_EQ(autoRespondRateWait(one, 99, 100, 32000, 1500), 0);
+    std::vector<qint64> full;
+    for (int i = 0; i < 19; ++i)
+        full.push_back(i * 1100);
+    EXPECT_EQ(autoRespondRateWait(full, 19, 1100, 32000, 20900), 11101);
+    EXPECT_EQ(autoRespondRateWait(full, 19, 1100, 32000, 32001), 0);
+    EXPECT_EQ(autoRespondRateWait(full, 18, 1100, 32000, 32001), 1100);
+}
+TEST(AutoRespond, BroadcastQueueDrainsFortyItemsInOrder)
+{
+    AutoRespondQueue queue;
+    for (quint64 i = 1; i <= 40; ++i)
+    {
+        AutoRespondQueuedSend item;
+        item.token = i;
+        queue.push(item);
+    }
+    qint64 now = 0;
+    int count = 0;
+    while (!queue.empty())
+    {
+        queue.startHead(now);
+        now += queue.wait(now, true);
+        EXPECT_EQ(queue.front().token, static_cast<quint64>(++count));
+        queue.finish(queue.front().token, now, true);
+    }
+    EXPECT_EQ(count, 40);
+    EXPECT_EQ(now, 39 * 1100);
 }
