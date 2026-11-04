@@ -1158,6 +1158,9 @@ set(SOURCE_FILES
         util/MentionReply.cpp
         util/MentionReply.hpp
         widgets/splits/SplitInputSatorino.cpp
+        util/RedeemData.cpp
+        util/RedeemData.hpp
+        widgets/dialogs/ChannelPointsDialogSatorino.cpp
         # satorino: end additional sources
 
         widgets/splits/ClosedSplits.cpp

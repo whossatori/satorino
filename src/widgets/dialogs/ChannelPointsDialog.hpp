@@ -11,6 +11,7 @@
 #    include <pajlada/signals/signalholder.hpp>
 #    include <QPointer>
 #    include <QString>
+#    include <QStringList>  // satorino: current reward pin presentation
 #    include <QTimer>
 #    include <QVector>
 
@@ -58,6 +59,13 @@ private:
     void refreshHeader();
     void refreshStyle();
     void reloadRewards(bool force);
+    // satorino: presentation/cache/preferences only; redemption stays manual.
+    void loadCachedRedeems();
+    void mergeRedeems(const GqlChannelPointRewards &snapshot);
+    QVector<GqlChannelPointReward> orderRedeems(
+        QVector<GqlChannelPointReward> rewards);
+    void addRedeemPin(QPushButton *card, const GqlChannelPointReward &reward);
+    QString redeemChannelKey() const;
     void rebuildContent();
     void refreshCurrentLayout();
     void refreshRewardsLayout();
@@ -110,6 +118,8 @@ private:
 
     View view_ = View::Rewards;
     QString rewardsChannelId_;
+    // satorino: avoid reparsing settings per card.
+    QStringList pinnedRedeemIds_;
     QVector<GqlChannelPointReward> rewards_;
     QVector<GqlChannelPointEmote> emotes_;
     QVector<GqlChannelPointEmoteModifier> modifiers_;

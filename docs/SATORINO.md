@@ -536,3 +536,43 @@ clang-format 19.1.7 and patch replay are checked for the batch. Compilation,
 gtests and Windows GUI/network behavior: **NOT RUN**; no native C++/Qt
 toolchain or WSL distribution is installed. See the delivered REPORT-F1.md
 for the executed checks and Windows checklist.
+
+## Stage F batch 2
+
+Branch A: the existing Channel Rewards popup already loads the viewer catalog
+through TwitchGql::getChannelPointRewards (persisted ChannelPointsContext) and
+redeems through explicit user actions. Unavailable rewards are now retained,
+greyed, and labeled instead of filtered out. The repository exposes isEnabled,
+isPaused, isInStock and isUserInputRequired; it does not establish a distinct
+stream-only, cooldown deadline or once-per-stream field. Offline labels do not
+promise that a reward will become available when live.
+
+New util/RedeemData.{hpp,cpp} provides pure cache, ordering and JSON logic.
+The registered /satorino/redeems/state setting stores version-1 JSON by numeric
+Twitch room ID (returned community ID fallback, never display name). Up to
+128 rewards per cached channel, 32 cached channels and 30 days of last-seen
+history are retained; eviction preserves pin preferences. Cached rows are
+explicitly marked and cannot redeem. A successful live snapshot with both
+reward arrays reconciles omissions, removing missing cache entries and pins;
+offline, partial and failed fetches do not establish deletion. There is no
+verified reward-deletion event in this path. Never-seen offline rewards cannot
+be reconstructed, and offline deletions may remain cached until refresh/expiry.
+
+Each reward has a separate pin button. Pins sort first in pin order, with the
+existing cost/title ordering retained for other rewards. JSON reads tolerate
+missing/malformed data. The per-channel auto object is reserved for future
+per-reward flags, always empty and ignored; there is no star UI or automation.
+The existing manual redemption requests and auth path are unchanged.
+
+New widgets/dialogs/ChannelPointsDialogSatorino.cpp holds persistence/UI hooks.
+All new app files are in the marked CMake block, and 19 RedeemData gtests are
+registered. Minimal marked hooks remain in ChannelPointsDialog, TwitchGql
+(retained status and snapshot shape only), and the public Settings block.
+No new API calls or dependencies were added. Current viewer GQL availability,
+integrity-token requirements and Twitch access policy are **unverified** from
+this repository; no new integrity-token handling was added.
+
+Formatting and clean-clone patch replay are checked for the batch. Nothing
+was compiled: no native C++/Qt toolchain or WSL distro is installed. C++ tests,
+Windows layout/persistence and live/offline Twitch behavior are **NOT RUN**;
+see the delivered REPORT-F2.md and its Windows checklist.

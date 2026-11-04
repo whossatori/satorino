@@ -247,6 +247,9 @@ struct GqlChannelPointReward {
     QString imageUrl;
     int cost = 0;
     bool isAutomatic = false;
+    // satorino: preserve pause state and distinguish non-actionable cache rows.
+    bool isPaused = false;
+    bool isCached = false;
     bool isEnabled = false;
     bool isInStock = false;
     bool isUserInputRequired = false;
@@ -255,6 +258,8 @@ struct GqlChannelPointReward {
 struct GqlChannelPointRewards {
     QString channelId;
     QString channelDisplayName;
+    // satorino: omissions prune the cache only with both catalog arrays present.
+    bool completeSnapshot = false;
     qint64 balance = -1;
     QVector<GqlChannelPointReward> rewards;
 };

@@ -1345,6 +1345,8 @@ public:
 
     // satorino: single-row scrolling for user-managed horizontal tabs.
     BoolSetting satorinoTabScroll = {"/satorino/tabs/scrollEnabled", true};
+    // satorino: versioned JSON pins/cache by Twitch room ID; auto key reserved only.
+    QStringSetting satorinoRedeemsState = {"/satorino/redeems/state", "{}"};
     // satorino: independent of 7TV/account settings; applied live by the label.
     BoolSetting satorinoAnimatedTitlePaint = {"/satorino/title/animatedPaint",
                                               true};

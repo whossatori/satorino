@@ -1066,6 +1066,8 @@ GqlChannelPointReward channelPointRewardFromObject(const QJsonObject &obj,
     reward.isEnabled = obj.value("isEnabled").toBool(false) &&
                        !obj.value("isPaused").toBool(false);
     reward.isInStock = obj.value("isInStock").toBool(true);
+    // satorino: retain the existing pause field for an accurate availability label.
+    reward.isPaused = obj.value("isPaused").toBool(false);
     reward.isUserInputRequired = obj.value("isUserInputRequired").toBool(false);
     return reward;
 }
@@ -4536,9 +4538,19 @@ void TwitchGql::getChannelPointRewards(
             rewards.channelDisplayName =
                 community.value("displayName").toString();
             rewards.balance = jsonIntegerValue(points.value("balance"));
+            // satorino: a partial/missing list is never evidence of deletion.
+            rewards.completeSnapshot =
+                settings.value("customRewards").isArray() &&
+                settings.value("automaticRewards").isArray();
 
             for (const auto &value : settings.value("customRewards").toArray())
             {
+                // satorino: malformed entries do not establish a full catalog.
+                if (!value.isObject())
+                {
+                    rewards.completeSnapshot = false;
+                    continue;
+                }
                 const auto reward =
                     channelPointRewardFromObject(value.toObject(), false);
                 if (reward.pricingType != "POINTS" || reward.cost <= 0)
@@ -4551,6 +4563,12 @@ void TwitchGql::getChannelPointRewards(
             for (const auto &value :
                  settings.value("automaticRewards").toArray())
             {
+                // satorino: malformed entries do not establish a full catalog.
+                if (!value.isObject())
+                {
+                    rewards.completeSnapshot = false;
+                    continue;
+                }
                 const auto reward =
                     channelPointRewardFromObject(value.toObject(), true);
                 const bool isPointsReward =

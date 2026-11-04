@@ -10,6 +10,7 @@
 #    include "singletons/Settings.hpp"
 #    include "singletons/Theme.hpp"
 #    include "util/Helpers.hpp"
+#    include "util/RedeemData.hpp"  // satorino: availability/cache/pins
 #    include "widgets/buttons/Button.hpp"
 #    include "widgets/buttons/SvgButton.hpp"
 #    include "widgets/dialogs/ChannelPointsChartDialog.hpp"
@@ -366,12 +367,9 @@ bool isSupportedAutomaticReward(const GqlChannelPointReward &reward)
            isGigantifyReward(reward);
 }
 
-bool shouldShowReward(const GqlChannelPointReward &reward)
+// satorino: availability affects actions and labels, never list visibility.
+bool isSupportedReward(const GqlChannelPointReward &reward)
 {
-    if (!reward.isEnabled || !reward.isInStock)
-    {
-        return false;
-    }
     if (isGigantifyReward(reward) && !getSettings()->enableGigantifyEmotes)
     {
         return false;
@@ -580,12 +578,14 @@ void showChannelPointRedeemError(const std::weak_ptr<Channel> &weak,
 class RewardCardButton final : public QPushButton
 {
 public:
+    // satorino: explicit, always-visible row availability.
     RewardCardButton(const GqlChannelPointReward &reward, qint64 balance,
-                     QWidget *parent)
+                     QString availability, QWidget *parent)
         : QPushButton(parent)
         , reward_(reward)
         , image_(rewardImage(reward))
         , balance_(balance)
+        , availability_(std::move(availability))
     {
         this->setCursor(Qt::PointingHandCursor);
         this->setFocusPolicy(Qt::StrongFocus);
@@ -598,6 +598,11 @@ public:
             reward.prompt.isEmpty()
                 ? reward.title
                 : QStringLiteral("%1\n%2").arg(reward.title, reward.prompt));
+        // satorino: make cached/unavailable state accessible as well as visible.
+        this->setToolTip(this->toolTip() + (this->availability_.isEmpty()
+                                                ? QString{}
+                                                : "\n" + this->availability_));
+        this->setAccessibleName(reward.title + " " + this->availability_);
         this->setFlat(true);
     }
 
@@ -622,7 +627,7 @@ public:
 
     int heightForWidth(int width) const override
     {
-        const auto titleHeight = this->titleAreaHeight();
+        const auto titleHeight = this->titleAreaHeight(width);
         return std::max(1, width) + titleHeight;
     }
 
@@ -633,8 +638,10 @@ protected:
         painter.setRenderHint(QPainter::Antialiasing, true);
 
         const auto rect = this->rect();
+        // satorino: cached/unsupported rows use the stock unavailable paint.
         bool unavailable =
-            !this->reward_.isEnabled || !this->reward_.isInStock ||
+            !this->availability_.isEmpty() || !this->reward_.isEnabled ||
+            !this->reward_.isInStock ||
             (!isBitsReward(this->reward_) && this->balance_ >= 0 &&
              this->balance_ < this->reward_.cost);
         if (!this->isEnabled())
@@ -642,7 +649,7 @@ protected:
             unavailable = true;
         }
 
-        const int titleHeight = this->titleAreaHeight();
+        const int titleHeight = this->titleAreaHeight(rect.width());
         const int squareSize = std::max(
             1,
             std::min(rect.width(), std::max(1, rect.height() - titleHeight)));
@@ -713,11 +720,13 @@ protected:
         titleColor.setAlpha(unavailable ? 150 : 245);
         painter.setPen(titleColor);
 
+        // satorino: measure wrapped status text at the actual card width.
+        const int statusHeight = this->availabilityHeight(rect.width());
         const auto titleTop =
             square.bottom() + scaledMetric(this->scale_, 4, 2);
-        const QRect titleRect(rect.left() + 2, titleTop,
-                              std::max(1, rect.width() - 4),
-                              std::max(1, rect.bottom() - titleTop + 1));
+        const QRect titleRect(
+            rect.left() + 2, titleTop, std::max(1, rect.width() - 4),
+            std::max(1, rect.bottom() - titleTop + 1 - statusHeight));
         QFontMetrics titleMetrics(titleFont);
         const auto lines =
             twoLineTitle(this->reward_.title, titleMetrics, titleRect.width());
@@ -733,6 +742,16 @@ protected:
             y += lineHeight;
         }
 
+        // satorino: a text label remains visible without hovering.
+        if (!this->availability_.isEmpty())
+        {
+            painter.setFont(this->font());
+            painter.drawText(
+                QRect(rect.left() + 2, rect.bottom() - statusHeight + 1,
+                      rect.width() - 4, statusHeight),
+                Qt::AlignCenter | Qt::TextWordWrap, this->availability_);
+        }
+
         if (this->hasFocus())
         {
             painter.setPen(QPen(QColor(255, 255, 255, 210), 1));
@@ -742,19 +761,33 @@ protected:
     }
 
 private:
-    int titleAreaHeight() const
+    // satorino: long reasons remain readable at narrow widths and high scaling.
+    int availabilityHeight(int width) const
+    {
+        return this->availability_.isEmpty()
+                   ? 0
+                   : QFontMetrics(this->font())
+                         .boundingRect(
+                             QRect(0, 0, std::max(1, width - 4), 10000),
+                             Qt::TextWordWrap, this->availability_)
+                         .height();
+    }
+
+    int titleAreaHeight(int width) const
     {
         QFont titleFont = this->font();
         titleFont.setBold(true);
         QFontMetrics metrics(titleFont);
-        return std::max(
-            rewardTitleMinimumHeight(this->scale_),
-            metrics.lineSpacing() * 2 + scaledMetric(this->scale_, 5, 3));
+        return std::max(rewardTitleMinimumHeight(this->scale_),
+                        metrics.lineSpacing() * 2 +
+                            scaledMetric(this->scale_, 5, 3)) +
+               this->availabilityHeight(width);  // satorino: status
     }
 
     GqlChannelPointReward reward_;
     ImagePtr image_;
     qint64 balance_ = -1;
+    QString availability_;  // satorino: cached/unavailable reason
     float scale_ = 1.F;
 };
 
@@ -1344,6 +1377,7 @@ void ChannelPointsDialog::reloadRewards(bool force)
         return;
     }
 
+    this->loadCachedRedeems();  // satorino: list known rewards even offline/on failure
     const auto token = this->authTokenOrMessage();
     if (token.isEmpty())
     {
@@ -1367,7 +1401,8 @@ void ChannelPointsDialog::reloadRewards(bool force)
             }
             self->rewardsLoading_ = false;
             self->rewardsChannelId_ = rewards.channelId;
-            self->rewards_ = std::move(rewards.rewards);
+            self->mergeRedeems(
+                rewards);  // satorino: preserve missing offline rewards
             self->rewardImageRefreshAttempts_ = 0;
             self->rewardImageRefreshQueued_ = false;
             self->setStatus({});
@@ -1688,7 +1723,8 @@ void ChannelPointsDialog::rebuildRewards()
     this->contentLayout_->addWidget(this->statusLabel_);
     this->setStatus(this->statusText_, this->statusIsError_);
 
-    if (this->rewardsLoading_)
+    if (this->rewardsLoading_ &&
+        this->rewards_.isEmpty())  // satorino: retain cache rows
     {
         this->setStatus("Loading rewards...");
         this->contentLayout_->addStretch(1);
@@ -1698,21 +1734,21 @@ void ChannelPointsDialog::rebuildRewards()
     auto visibleRewards = QVector<GqlChannelPointReward>();
     for (const auto &reward : this->rewards_)
     {
-        if (!shouldShowReward(reward))
-        {
-            continue;
-        }
+        // satorino: paused/offline/out-of-stock/unsupported rewards remain visible.
         visibleRewards.push_back(reward);
     }
-    std::sort(visibleRewards.begin(), visibleRewards.end(),
-              [](const auto &left, const auto &right) {
-                  if (left.cost != right.cost)
-                  {
-                      return left.cost < right.cost;
-                  }
-                  return left.title.compare(right.title, Qt::CaseInsensitive) <
-                         0;
-              });
+    std::stable_sort(
+        visibleRewards.begin(), visibleRewards.end(),  // satorino: stable ties
+        [](const auto &left, const auto &right) {
+            if (left.cost != right.cost)
+            {
+                return left.cost < right.cost;
+            }
+            return left.title.compare(right.title, Qt::CaseInsensitive) < 0;
+        });
+
+    visibleRewards =
+        this->orderRedeems(std::move(visibleRewards));  // satorino: pins first
 
     if (visibleRewards.isEmpty())
     {
@@ -1755,12 +1791,17 @@ void ChannelPointsDialog::rebuildRewards()
     {
         hasRewardImages = hasRewardImages || !reward.imageUrl.isEmpty();
         auto *card = new RewardCardButton(
-            reward, this->channel_->channelPointBalance(), gridWidget);
+            reward, this->channel_->channelPointBalance(),
+            satorino::redeemAvailability(reward, this->channel_->isLive(),
+                                         isSupportedReward(reward)),
+            gridWidget);  // satorino: explicit availability
         card->setObjectName("ChannelPointsRewardCardButton");
         card->setScale(effectiveScale);
         card->setFont(getApp()->getFonts()->getFont(
             FontStyle::UiMedium, readableFontScale(effectiveScale)));
         card->setEnabled(!this->actionInFlight_);
+        this->addRedeemPin(
+            card, reward);  // satorino: pin button, independent of redeeming
         QObject::connect(card, &QPushButton::clicked, this, [this, reward] {
             this->openRewardDetail(reward);
         });
@@ -1829,7 +1870,11 @@ void ChannelPointsDialog::rebuildRewardDetail()
     const bool enoughPoints =
         bitsReward || balance < 0 || balance >= this->selectedReward_.cost;
     const auto costLabel = rewardCostLabel(this->selectedReward_, false);
-    const bool redeemable = !this->actionInFlight_ &&
+    // satorino: cached and unsupported rows can be inspected, never redeemed.
+    const auto unavailable = satorino::redeemAvailability(
+        this->selectedReward_, this->channel_->isLive(),
+        isSupportedReward(this->selectedReward_));
+    const bool redeemable = unavailable.isEmpty() && !this->actionInFlight_ &&
                             this->selectedReward_.isEnabled &&
                             this->selectedReward_.isInStock && enoughPoints;
 
@@ -1842,6 +1887,11 @@ void ChannelPointsDialog::rebuildRewardDetail()
     if (this->actionInFlight_)
     {
         button->setText("Redeeming...");
+    }
+    // satorino: explain why redemption is blocked.
+    else if (!unavailable.isEmpty())
+    {
+        button->setText(unavailable);
     }
     else if (!this->selectedReward_.isEnabled ||
              !this->selectedReward_.isInStock)
@@ -2942,6 +2992,14 @@ QString ChannelPointsDialog::authTokenOrMessage()
 
 bool ChannelPointsDialog::canRedeem(const GqlChannelPointReward &reward)
 {
+    // satorino: presentation cache never grants permission to spend points.
+    const auto unavailable = satorino::redeemAvailability(
+        reward, this->channel_->isLive(), isSupportedReward(reward));
+    if (!unavailable.isEmpty())
+    {
+        this->setStatus(unavailable, true);
+        return false;
+    }
     if (this->actionInFlight_)
     {
         return false;
