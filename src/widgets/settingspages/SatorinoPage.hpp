@@ -21,6 +21,7 @@ public:
 
 private:
     void initLayout(GeneralPageView &layout);
+    void addLiveStatus(GeneralPageView &layout);
 
     GeneralPageView *view_{};
 };

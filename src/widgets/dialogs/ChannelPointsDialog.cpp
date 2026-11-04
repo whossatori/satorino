@@ -1738,16 +1738,7 @@ void ChannelPointsDialog::rebuildRewards()
         // satorino: filtering is centralized with pin ordering below.
         visibleRewards.push_back(reward);
     }
-    std::stable_sort(
-        visibleRewards.begin(), visibleRewards.end(),  // satorino: stable ties
-        [](const auto &left, const auto &right) {
-            if (left.cost != right.cost)
-            {
-                return left.cost < right.cost;
-            }
-            return left.title.compare(right.title, Qt::CaseInsensitive) < 0;
-        });
-
+    // satorino: final cost/title sort and pin priority are one pure operation.
     visibleRewards =
         this->orderRedeems(std::move(visibleRewards));  // satorino: pins first
 

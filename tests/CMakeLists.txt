@@ -87,6 +87,8 @@ set(test_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/src/MentionReply.cpp # satorino: mention reply target regression tests
     ${CMAKE_CURRENT_LIST_DIR}/src/RedeemData.cpp # satorino: reward pins/cache/persistence
     ${CMAKE_CURRENT_LIST_DIR}/src/RedeemVisibility.cpp # satorino: filter defaults/toggles and pin enablement
+    ${CMAKE_CURRENT_LIST_DIR}/src/SatorinoLive.cpp # satorino: live transitions, games, webhook privacy
+    ${CMAKE_CURRENT_LIST_DIR}/src/RedeemPinFix.cpp # satorino: final pin order and persistence
     # Add your new file above this line!
 
     ${CMAKE_CURRENT_LIST_DIR}/src/lib/Snapshot.cpp

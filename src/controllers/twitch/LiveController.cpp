@@ -4,6 +4,9 @@
 
 #include "controllers/twitch/LiveController.hpp"
 
+#include "Application.hpp"  // satorino: consumers of the existing poll
+#include "controllers/notifications/NotificationController.hpp"
+
 #include "common/QLogging.hpp"
 #include "providers/twitch/api/Helix.hpp"
 #include "providers/twitch/TwitchChannel.hpp"
@@ -124,6 +127,12 @@ void TwitchLiveController::request(std::optional<QStringList> optChannelIDs)
                         {
                             if (auto channel = it->second.ptr.lock(); channel)
                             {
+                                // satorino: observe real poll results, not synthetic channel state changes.
+                                getApp()
+                                    ->getNotifications()
+                                    ->observeSatorinoLive(
+                                        channel->getName(), result.second,
+                                        !it->second.wasChecked);
                                 channel->updateStreamStatus(
                                     result.second, !it->second.wasChecked);
                                 it->second.wasChecked = true;

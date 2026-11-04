@@ -14,9 +14,11 @@
 namespace chatterino {
 
 NetworkResult::NetworkResult(NetworkError error, const QVariant &httpStatusCode,
-                             QByteArray data, QByteArray etag)
+                             QByteArray data, QByteArray etag,
+                             QByteArray retryAfter)
     : data_(std::move(data))
     , etag_(std::move(etag))
+    , retryAfter_(std::move(retryAfter))  // satorino: optional retry metadata
     , error_(error)
 {
     if (httpStatusCode.isValid())

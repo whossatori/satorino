@@ -66,7 +66,7 @@ void loadCached(std::shared_ptr<NetworkData> &&data)
     if (isAppAboutToQuit())
     {
         qCDebug(chatterinoHTTP)
-            << "Skipping cached network load " << data->request.url()
+            << "Skipping cached network load " << data->logUrl()
             << "because app is about to quit";
         return;
     }
@@ -75,7 +75,7 @@ void loadCached(std::shared_ptr<NetworkData> &&data)
     if (!app)
     {
         qCDebug(chatterinoHTTP)
-            << "Skipping cached network load " << data->request.url()
+            << "Skipping cached network load " << data->logUrl()
             << "because app is about to quit";
         return;
     }
@@ -90,8 +90,8 @@ void loadCached(std::shared_ptr<NetworkData> &&data)
 
     QByteArray bytes = cachedFile.readAll();
 
-    qCDebug(chatterinoHTTP).noquote() << data->typeString() << "[CACHED] 200"
-                                      << data->request.url().toString();
+    qCDebug(chatterinoHTTP).noquote()
+        << data->typeString() << "[CACHED] 200" << data->logUrl().toString();
 
     data->emitSuccess(
         {NetworkResult::NetworkError::NoError, QVariant(200), bytes});
@@ -134,6 +134,7 @@ QString NetworkData::getHash()
     return this->hash_;
 }
 
+// satorino: every URL captured for logs goes through logUrl(), never raw secrets.
 void NetworkData::emitSuccess(NetworkResult &&result)
 {
     if (!this->onSuccess)
@@ -143,7 +144,7 @@ void NetworkData::emitSuccess(NetworkResult &&result)
 
     runCallback(this->executeConcurrently,
                 [cb = std::move(this->onSuccess), result = std::move(result),
-                 url = this->request.url(), hasCaller = this->hasCaller,
+                 url = this->logUrl(), hasCaller = this->hasCaller,
                  caller = this->caller]() {
                     if (hasCaller && caller.isNull())
                     {
@@ -180,7 +181,7 @@ void NetworkData::emitError(NetworkResult &&result)
 
     runCallback(this->executeConcurrently,
                 [cb = std::move(this->onError), result = std::move(result),
-                 url = this->request.url(), hasCaller = this->hasCaller,
+                 url = this->logUrl(), hasCaller = this->hasCaller,
                  caller = this->caller]() {
                     if (hasCaller && caller.isNull())
                     {
@@ -208,7 +209,7 @@ void NetworkData::emitFinally()
 
     runCallback(this->executeConcurrently,
                 [cb = std::move(this->finally), hasCaller = this->hasCaller,
-                 url = this->request.url(), caller = this->caller]() {
+                 url = this->logUrl(), caller = this->caller]() {
                     if (hasCaller && caller.isNull())
                     {
                         return;

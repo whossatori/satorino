@@ -72,6 +72,27 @@ GqlChannelPointReward readReward(const QJsonObject &obj)
 
 }  // namespace
 
+QString redeemChannelKey(const QString &roomId, const QString &catalogId)
+{
+    const auto room = roomId.trimmed();
+    const auto catalog = catalogId.trimmed();
+    return validChannel(room) ? room
+                              : (validChannel(catalog) ? catalog : QString{});
+}
+
+QString redeemPinId(const GqlChannelPointReward &reward)
+{
+    if (!reward.id.isEmpty())
+    {
+        return reward.id;
+    }
+    // Automatic rewards can omit a platform ID; this key is local only.
+    return reward.isAutomatic && !reward.rewardType.isEmpty()
+               ? "auto:" + reward.rewardType.trimmed().toUpper() + ":" +
+                     reward.pricingType.trimmed().toUpper()
+               : QString{};
+}
+
 RedeemData RedeemData::fromJson(const QString &json, const QDateTime &now)
 {
     RedeemData data;
@@ -248,9 +269,22 @@ QVector<GqlChannelPointReward> RedeemData::ordered(
     };
     std::stable_sort(rewards.begin(), rewards.end(),
                      [&](const auto &a, const auto &b) {
-                         return rank(a.id) < rank(b.id);
+                         return rank(redeemPinId(a)) < rank(redeemPinId(b));
                      });
     return rewards;
+}
+
+QVector<GqlChannelPointReward> RedeemData::displayOrder(
+    const QString &channelId, QVector<GqlChannelPointReward> rewards,
+    bool enablePinning) const
+{
+    std::stable_sort(
+        rewards.begin(), rewards.end(), [](const auto &a, const auto &b) {
+            return a.cost != b.cost
+                       ? a.cost < b.cost
+                       : a.title.compare(b.title, Qt::CaseInsensitive) < 0;
+        });
+    return this->ordered(channelId, std::move(rewards), enablePinning);
 }
 
 QVector<GqlChannelPointReward> RedeemData::cached(
@@ -279,6 +313,7 @@ QVector<GqlChannelPointReward> RedeemData::merge(
     channel.lastUsed = now;
     QVector<GqlChannelPointReward> result;
     QSet<QString> ids;
+    QSet<QString> pinIds;
     for (auto reward : fresh)
     {
         if (!reward.id.isEmpty() && ids.contains(reward.id))
@@ -286,6 +321,7 @@ QVector<GqlChannelPointReward> RedeemData::merge(
             continue;
         }
         ids.insert(reward.id);
+        pinIds.insert(redeemPinId(reward));
         reward.isCached = false;
         result.push_back(reward);
         if (!validId(reward.id))
@@ -318,7 +354,7 @@ QVector<GqlChannelPointReward> RedeemData::merge(
         channel.pins.erase(
             std::remove_if(channel.pins.begin(), channel.pins.end(),
                            [&](const auto &id) {
-                               return !ids.contains(id);
+                               return !pinIds.contains(id);
                            }),
             channel.pins.end());
     }

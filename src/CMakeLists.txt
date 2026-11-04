@@ -1161,6 +1161,13 @@ set(SOURCE_FILES
         util/RedeemData.cpp
         util/RedeemData.hpp
         widgets/dialogs/ChannelPointsDialogSatorino.cpp
+        util/SatorinoLive.cpp
+        util/SatorinoLive.hpp
+        controllers/notifications/SatorinoLiveNotifications.cpp
+        controllers/notifications/SatorinoLiveNotifications.hpp
+        controllers/notifications/NotificationControllerSatorino.cpp
+        widgets/helper/NotebookTabLiveSatorino.cpp
+        widgets/settingspages/SatorinoLivePage.cpp
         # satorino: end additional sources
 
         widgets/splits/ClosedSplits.cpp

@@ -1356,6 +1356,13 @@ public:
                                                false};
     BoolSetting satorinoRedeemsEnablePinning = {
         "/satorino/redeems/enablePinning", true};
+    // satorino: opt-in live presentation/delivery; stock watched-channel list is reused.
+    QStringSetting satorinoLiveGames = {"/satorino/live/games", ""};
+    BoolSetting satorinoLiveDesktop = {"/satorino/live/desktop", false};
+    BoolSetting satorinoLiveDiscordEnabled = {"/satorino/live/discordEnabled",
+                                              false};
+    QStringSetting satorinoLiveDiscordUrl = {"/satorino/live/discordWebhook",
+                                             ""};
     // satorino: versioned JSON pins/cache by Twitch room ID; auto key reserved only.
     QStringSetting satorinoRedeemsState = {"/satorino/redeems/state", "{}"};
     // satorino: independent of 7TV/account settings; applied live by the label.

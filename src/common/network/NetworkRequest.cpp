@@ -81,6 +81,14 @@ NetworkRequest NetworkRequest::finally(NetworkFinallyCallback cb) &&
     return std::move(*this);
 }
 
+// satorino: opt-in privacy for secret-bearing webhook endpoints.
+NetworkRequest NetworkRequest::sensitive() &&
+{
+    this->data->sensitive = true;
+    this->data->hideRequestBody = true;
+    return std::move(*this);
+}
+
 NetworkRequest NetworkRequest::hideRequestBody() &&
 {
     this->data->hideRequestBody = true;
@@ -190,6 +198,11 @@ NetworkRequest NetworkRequest::cache() &&
 void NetworkRequest::execute()
 {
     this->executed_ = true;
+    // satorino: secret endpoints never reach disk cache.
+    if (this->data->sensitive)
+    {
+        this->data->cache = false;
+    }
 
     if (this->data->cache && this->data->requestType != NetworkRequestType::Get)
     {

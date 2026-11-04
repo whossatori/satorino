@@ -144,6 +144,8 @@ private:
     void addPinAction();
     void updateTabManagementActions();
     void paintPin(QPainter &painter) const;
+    bool paintGameIndicator(QPainter &painter,
+                            const QRect &dot) const;  // satorino
     bool pinned_ = false;
     QAction *pinTabAction_{};
     QAction *closeTabAction_{};

@@ -192,6 +192,12 @@ NotebookTab::NotebookTab(Notebook *notebook)
             this->tabSizeChanged();
         },
         this->managedConnections_);
+    // satorino: game-list edits repaint only; they do not change tab geometry.
+    getSettings()->satorinoLiveGames.connect(
+        [this] {
+            this->update();
+        },
+        this->managedConnections_);
     getSettings()->showTabLive.connect(
         [this](auto, auto) {
             this->update();
@@ -1254,7 +1260,11 @@ void NotebookTab::paintEvent(QPaintEvent *)
         QRect liveIndicatorRect(x, y, diameter, diameter);
         translateRectForLocation(liveIndicatorRect, this->tabLocation_,
                                  this->selected_ ? 0 : -1);
-        painter.drawEllipse(liveIndicatorRect);
+        // satorino: keep the same indicator slot and stock dot fallback.
+        if (!this->paintGameIndicator(painter, liveIndicatorRect))
+        {
+            painter.drawEllipse(liveIndicatorRect);
+        }
     }
 
     // set the pen color

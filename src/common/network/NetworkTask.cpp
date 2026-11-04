@@ -174,14 +174,20 @@ QNetworkReply *NetworkTask::createReply()
 
 void NetworkTask::logReply()
 {
+    // satorino: never expose private bodies, even with verbose debug overrides.
+    if (this->data_->sensitive)
+    {
+        qCDebug(chatterinoHTTP)
+            << this->data_->typeString() << "[private request]";
+        return;
+    }
     auto status =
         this->reply_->attribute(QNetworkRequest::HttpStatusCodeAttribute)
             .toInt();
     if (this->data_->requestType == NetworkRequestType::Get)
     {
-        qCDebug(chatterinoHTTP).noquote()
-            << this->data_->typeString() << status
-            << this->data_->request.url().toString();
+        qCDebug(chatterinoHTTP).noquote() << this->data_->typeString() << status
+                                          << this->data_->logUrl().toString();
     }
     else
     {
@@ -198,8 +204,8 @@ void NetworkTask::logReply()
             payload = "(redacted)";
         }
         qCDebug(chatterinoHTTP).noquote()
-            << this->data_->typeString()
-            << this->data_->request.url().toString() << status << payload;
+            << this->data_->typeString() << this->data_->logUrl().toString()
+            << status << payload;
     }
 }
 
@@ -209,7 +215,7 @@ void NetworkTask::writeToCache(const QByteArray &bytes) const
         if (isAppAboutToQuit())
         {
             qCDebug(chatterinoHTTP)
-                << "Skipping cache write for" << data->request.url()
+                << "Skipping cache write for" << data->logUrl()
                 << "because app is about to quit";
             return;
         }
@@ -217,9 +223,8 @@ void NetworkTask::writeToCache(const QByteArray &bytes) const
         auto *app = tryGetApp();
         if (!app)
         {
-            qCDebug(chatterinoHTTP)
-                << "Skipping cache write for" << data->request.url()
-                << "because app is null";
+            qCDebug(chatterinoHTTP) << "Skipping cache write for"
+                                    << data->logUrl() << "because app is null";
             return;
         }
 
@@ -243,7 +248,7 @@ void NetworkTask::timeout()
 
     qCDebug(chatterinoHTTP).noquote()
         << this->data_->typeString() << "[timed out]"
-        << this->data_->request.url().toString();
+        << this->data_->logUrl().toString();
 
     this->data_->emitError({NetworkResult::NetworkError::TimeoutError, {}, {}});
     this->data_->emitFinally();
@@ -266,15 +271,16 @@ void NetworkTask::finished()
     {
         qCDebug(chatterinoHTTP).noquote()
             << this->data_->typeString() << "[cancelled]"
-            << this->data_->request.url().toString();
+            << this->data_->logUrl().toString();
         return;
     }
 
     if (reply->error() != QNetworkReply::NoError)
     {
         this->logReply();
-        this->data_->emitError(
-            {reply->error(), status, reply->readAll(), std::move(etag)});
+        this->data_->emitError({reply->error(), status, reply->readAll(),
+                                std::move(etag),
+                                reply->rawHeader("Retry-After")});
         this->data_->emitFinally();
 
         return;
@@ -289,7 +295,8 @@ void NetworkTask::finished()
 
     DebugCount::increase(DebugObject::HTTPRequestSuccess);
     this->logReply();
-    this->data_->emitSuccess({reply->error(), status, bytes, std::move(etag)});
+    this->data_->emitSuccess({reply->error(), status, bytes, std::move(etag),
+                              reply->rawHeader("Retry-After")});
     this->data_->emitFinally();
 }
 

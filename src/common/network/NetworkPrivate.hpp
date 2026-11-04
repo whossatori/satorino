@@ -12,6 +12,7 @@
 #include <QNetworkRequest>
 #include <QPointer>
 #include <QTimer>
+#include <QUrl>  // satorino: log URL redaction
 
 #include <memory>
 #include <optional>
@@ -47,6 +48,13 @@ public:
     bool executeConcurrently{};
     /// Hide the request body in logs
     bool hideRequestBody = false;
+    // satorino: all log paths use a redacted URL for private requests.
+    bool sensitive = false;
+    QUrl logUrl() const
+    {
+        return this->sensitive ? QUrl("redacted:private-request")
+                               : this->request.url();
+    }
 
     NetworkSuccessCallback onSuccess;
     NetworkErrorCallback onError;

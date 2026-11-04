@@ -611,3 +611,59 @@ toggle effects, cooldown visibility and pinning-off persistence; Batch 2's
 clang-format 19.1.7 and full-stack patch replay are checked for this batch.
 Nothing was compiled; C++ tests and Windows/Twitch behavior are **NOT RUN**
 because no native C++/Qt toolchain or WSL distro is available. See REPORT-F3.md.
+
+## Stage F batch 4
+
+BATCH3_HEAD: af7a7240aa3ab679d1767164b4978de57e2095eb (merged upstream).
+Redeem pins now explicitly show/raise the selected-preview overlay, consume
+its clicks, validate the room-ID/catalog-ID fallback, and explain missing IDs.
+Pin edits are local and no longer depend on a pending redeem request. They
+read the latest registered JSON state, verify the saved value, show Pinned /
+Unpinned feedback, and refresh the detail and list. ID-less automatic rewards
+have a local type/pricing pin key; this never replaces an API reward ID.
+Final cost/title sorting followed by stable pin priority is centralized in
+RedeemData::displayOrder. Cache merges retain effective pin keys. The actual
+manual redeem/send methods are unchanged. Windows pinning remains unverified
+until the next test build.
+
+Settings -> satorino -> Live status reuses the stock Notifications -> Selected
+Channels list (/notifications/twitch). Empty games, desktop alerts off and
+Discord off are the defaults. /satorino/live/games holds one trimmed exact
+game name or ID per line; matching normalizes Unicode and folds case.
+A matching live Twitch channel in any split/aggregate paints an original
+controller glyph in the existing live-indicator corner, using its theme color
+and DPI scale. Other channels retain stock dots. No tab size hints change.
+The pure priority enum reserves train > game > dot; no train/star feature is
+implemented. Existing stream-status signals and setting changes repaint tabs.
+
+Existing TwitchLiveController polling (30 seconds, batches of 100, initial
+checks coalesced at one second) supplies open-channel metadata. The existing
+NotificationController closed-channel watcher polls its selected list every
+60 seconds with Helix Get Streams. Both now feed the same bounded transition
+tracker, with first observations/initial reconnects and repeated stream IDs
+suppressed, plus a ten-minute per-login cooldown. There is no second polling
+system or new Twitch API endpoint. Stock desktop notifications remain in
+charge when the new desktop option is off; enabling it uses transition-only
+toasts and suppresses the duplicate stock toast. Existing sound/flash settings
+are unchanged. Notifications work only while satorino is running.
+
+Discord uses the existing async networking classes: HTTPS Discord hosts and
+webhook paths only, masked URL with show toggle, local-settings secret warning,
+and an explicit test button. There is no posted test during development.
+The queue holds at most 16 jobs, one active, with at most two retries for
+429/5xx and bounded Retry-After waits. Content is capped at 2000 UTF-16 units
+and disables mentions. Opt-in NetworkRequest::sensitive redacts all HTTP URL/
+body logging even under verbose body logging, disables caching, and redirects
+are disabled. NetworkResult exposes optional Retry-After metadata. No secret
+URL is written to reports, fixtures or error text.
+
+New sources are registered in the marked CMake block: util/SatorinoLive,
+controllers/notifications/{SatorinoLiveNotifications,NotificationControllerSatorino},
+widgets/helper/NotebookTabLiveSatorino and widgets/settingspages/SatorinoLivePage.
+20 new gtests are registered (16 live/webhook, 4 pin fix); existing redeem tests
+remain. Upstream hooks are marked in network classes, NotificationController,
+TwitchLiveController, NotebookTab, SplitContainer and Settings. No workflows,
+sync script, badges, dependencies, automatic chat or channel-point actions
+were added. Nothing was compiled: no native toolchain/WSL distro is available.
+C++ tests and Windows/Twitch/Discord runtime checks are **NOT RUN**. See
+REPORT-F4.md for every pin suspect, verification and the Windows checklist.

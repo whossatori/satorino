@@ -10,6 +10,10 @@
 
 #include <QTimer>
 
+#include <functional>
+#include <memory>
+#include <optional>
+
 namespace chatterino {
 
 class Settings;
@@ -17,6 +21,9 @@ class Paths;
 struct HelixStream;
 
 class NotificationModel;
+namespace satorino {
+class LiveNotifications;
+}  // namespace satorino
 
 enum class Platform : uint8_t {
     Twitch,
@@ -28,6 +35,12 @@ public:
     NotificationController();
 
     void initialize();
+    // satorino: observe existing open/closed-channel polls; never poll a second time.
+    void observeSatorinoLive(const QString &login,
+                             const std::optional<HelixStream> &stream,
+                             bool initial);
+    void syncSatorinoWatchList();
+    void testSatorinoWebhook(std::function<void(QString)> result);
 
     bool isChannelNotified(const QString &channelName, Platform p) const;
     void updateChannelNotification(const QString &channelName, Platform p);
@@ -55,6 +68,8 @@ public:
     NotificationModel *createModel(QObject *parent, Platform p);
 
 private:
+    std::shared_ptr<satorino::LiveNotifications>
+        satorinoLive_;  // satorino: owned service
     void fetchFakeChannels();
     void removeFakeChannel(const QString &channelName);
     void updateFakeChannel(const QString &channelName,

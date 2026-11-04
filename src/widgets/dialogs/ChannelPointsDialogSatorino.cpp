@@ -72,6 +72,8 @@ private:
         }
         this->overlay_->move(std::max(0, this->tile_->width() - size - 2), 2);
         this->overlay_->raise();
+        this->overlay_
+            ->show();  // Child added to an already-visible preview needs this.
     }
 
     QPointer<QWidget> tile_;
@@ -96,8 +98,8 @@ void saveRedeemData(const satorino::RedeemData &data)
 QString ChannelPointsDialog::redeemChannelKey() const
 {
     // Never use a display name: rooms retain preferences across renames.
-    const auto roomId = this->channel_->roomId().trimmed();
-    return roomId.isEmpty() ? this->rewardsChannelId_.trimmed() : roomId;
+    return satorino::redeemChannelKey(this->channel_->roomId(),
+                                      this->rewardsChannelId_);
 }
 
 void ChannelPointsDialog::loadCachedRedeems()
@@ -119,11 +121,12 @@ void ChannelPointsDialog::mergeRedeems(const GqlChannelPointRewards &snapshot)
     saveRedeemData(data);
     if (this->selectedRewardValid_)
     {
-        const auto it =
-            std::find_if(this->rewards_.begin(), this->rewards_.end(),
-                         [this](const auto &r) {
-                             return r.id == this->selectedReward_.id;
-                         });
+        const auto it = std::find_if(
+            this->rewards_.begin(), this->rewards_.end(),
+            [this](const auto &r) {
+                return satorino::redeemPinId(r) ==
+                       satorino::redeemPinId(this->selectedReward_);
+            });
         if (it == this->rewards_.end())
         {
             this->selectedRewardValid_ = false;
@@ -186,14 +189,15 @@ QVector<GqlChannelPointReward> ChannelPointsDialog::orderRedeems(
     {
         for (const auto &reward : rewards)
         {
-            if (data.isPinned(this->redeemChannelKey(), reward.id))
+            if (data.isPinned(this->redeemChannelKey(),
+                              satorino::redeemPinId(reward)))
             {
-                this->pinnedRedeemIds_.push_back(reward.id);
+                this->pinnedRedeemIds_.push_back(satorino::redeemPinId(reward));
             }
         }
     }
-    return data.ordered(this->redeemChannelKey(), std::move(rewards),
-                        options.enablePinning);
+    return data.displayOrder(this->redeemChannelKey(), std::move(rewards),
+                             options.enablePinning);
 }
 
 void ChannelPointsDialog::addRedeemPin(QWidget *tile,
@@ -205,8 +209,9 @@ void ChannelPointsDialog::addRedeemPin(QWidget *tile,
         return;
     }
     const auto key = this->redeemChannelKey();
-    const bool pinned = selected ? redeemData().isPinned(key, reward.id)
-                                 : this->pinnedRedeemIds_.contains(reward.id);
+    const auto id = satorino::redeemPinId(reward);
+    const bool pinned = selected ? redeemData().isPinned(key, id)
+                                 : this->pinnedRedeemIds_.contains(id);
     if (!selected)
     {
         if (pinned)
@@ -232,22 +237,45 @@ void ChannelPointsDialog::addRedeemPin(QWidget *tile,
     pin->setToolTip(pinned ? "Unpin reward" : "Pin reward to top");
     pin->setAccessibleName(pin->toolTip());
     pin->setCursor(Qt::PointingHandCursor);
-    pin->setEnabled(!key.isEmpty() && !reward.id.isEmpty() &&
-                    !this->actionInFlight_);
+    const auto unavailable =
+        key.isEmpty() ? QString("Channel ID is not available yet; reopen "
+                                "rewards after connecting.")
+        : id.isEmpty()
+            ? QString("This reward has no stable ID for pinning.")
+            : QString{};  // Local pin edits do not depend on a pending redemption.
+    pin->setEnabled(unavailable.isEmpty());
+    if (!unavailable.isEmpty())
+    {
+        pin->setToolTip(unavailable);
+        tile->setToolTip(unavailable);
+    }
+    // Parent preview has no click/redeem action; consume clicks in this child.
+    pin->setAttribute(Qt::WA_NoMousePropagation);
     pin->setStyleSheet("QToolButton { background: rgba(0,0,0,160); border: 0; "
                        "border-radius: 3px; }");
     new RedeemPinAnchor(tile, pin, true);
     // Pinning only changes a registered setting; it cannot spend points.
-    QObject::connect(pin, &QToolButton::clicked, this,
-                     [this, key, id = reward.id](bool checked) {
-                         auto data = redeemData();
-                         data.setPinned(key, id, checked,
-                                        QDateTime::currentDateTime());
-                         saveRedeemData(data);
-                         QTimer::singleShot(0, this, [this] {
-                             this->rebuildContent();
-                         });
-                     });
+    QObject::connect(
+        pin, &QToolButton::clicked, this, [this, key, id](bool checked) {
+            if (key != this->redeemChannelKey())
+            {
+                this->setStatus(
+                    "Channel ID changed; reopen rewards before pinning.", true);
+                return;
+            }
+            auto data = redeemData();
+            data.setPinned(key, id, checked, QDateTime::currentDateTime());
+            saveRedeemData(data);
+            const bool saved = redeemData().isPinned(key, id);
+            this->setStatus(
+                saved     ? "Pinned"
+                : checked ? "Could not save this pin (check the pin limit)."
+                          : "Unpinned",
+                checked && !saved);
+            QTimer::singleShot(0, this, [this] {
+                this->rebuildContent();
+            });
+        });
 }
 
 }  // namespace chatterino

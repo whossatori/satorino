@@ -48,6 +48,8 @@ public:
 
     /// Hide the request body in logs
     NetworkRequest hideRequestBody() &&;
+    // satorino: redact URL/body even in verbose debug logs; never cache secrets.
+    NetworkRequest sensitive() &&;
 
     NetworkRequest payload(const QByteArray &payload) &&;
     NetworkRequest cache() &&;

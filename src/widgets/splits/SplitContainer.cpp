@@ -1028,6 +1028,8 @@ void SplitContainer::refreshTabLiveStatus()
         }
     }
 
+    this->tab_
+        ->update();  // satorino: game changes can leave the live bool unchanged
     if (this->tab_->setLive(liveStatus) || this->tab_->setRerun(rerunStatus))
     {
         auto *notebook = dynamic_cast<Notebook *>(this->parentWidget());

@@ -27,6 +27,9 @@ struct RedeemOptions {
 bool redeemVisible(const GqlChannelPointReward &reward, bool live,
                    const RedeemOptions &options = {});
 
+QString redeemChannelKey(const QString &roomId, const QString &catalogId);
+QString redeemPinId(const GqlChannelPointReward &reward);
+
 struct CachedRedeem {
     GqlChannelPointReward reward;
     QDateTime lastSeen;
@@ -52,6 +55,9 @@ public:
     void setPinned(const QString &channelId, const QString &rewardId,
                    bool pinned, const QDateTime &now);
     QVector<GqlChannelPointReward> ordered(
+        const QString &channelId, QVector<GqlChannelPointReward> rewards,
+        bool enablePinning = true) const;
+    QVector<GqlChannelPointReward> displayOrder(
         const QString &channelId, QVector<GqlChannelPointReward> rewards,
         bool enablePinning = true) const;
     QVector<GqlChannelPointReward> cached(const QString &channelId) const;

@@ -89,6 +89,7 @@ void SatorinoPage::initLayout(GeneralPageView &layout)
         ->addKeywords(keywords)
         ->addKeywords({"pin", "pinning"})
         ->addTo(layout);
+    this->addLiveStatus(layout);
     layout.addStretch();
 }
 

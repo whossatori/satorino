@@ -38,6 +38,7 @@ NotificationController::NotificationController()
         this->channelMap[Platform::Twitch].delayedItemsChanged.connect([this] {
             this->twitchSetting_.setValue(
                 this->channelMap[Platform::Twitch].raw());
+            this->syncSatorinoWatchList();  // satorino: reset removed watchers
         });
 
     QObject::connect(&this->liveStatusTimer_, &QTimer::timeout, [this] {
@@ -139,7 +140,8 @@ void NotificationController::notifyTwitchChannelLive(
     if (showNotification &&
         this->isChannelNotified(payload.channelName, Platform::Twitch))
     {
-        if (Toasts::isEnabled())
+        // satorino: the transition consumer owns toasts when explicitly enabled.
+        if (Toasts::isEnabled() && !getSettings()->satorinoLiveDesktop)
         {
             getApp()->getToasts()->sendChannelNotification(payload.channelName,
                                                            payload.title);
@@ -252,6 +254,8 @@ void NotificationController::fetchFakeChannels()
 void NotificationController::updateFakeChannel(
     const QString &channelName, const std::optional<HelixStream> &stream)
 {
+    // satorino: observe every existing closed-tab poll, including offline baselines.
+    this->observeSatorinoLive(channelName, stream, false);
     bool live = stream.has_value();
     qCDebug(chatterinoNotification).nospace().noquote()
         << "[FakeTwitchChannel " << channelName
