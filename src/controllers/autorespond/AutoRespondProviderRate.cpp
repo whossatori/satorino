@@ -19,6 +19,12 @@ std::chrono::milliseconds TwitchIrcServer::autoRespondSendWait(
     assertInGuiThread();
     if (!channel)
         return std::chrono::milliseconds(120000);
+    if (!getSettings()->shouldSendHelixChat())
+    {
+        std::lock_guard<std::mutex> connectionLock(this->connectionMutex_);
+        if (!this->writeConnection_ || !this->writeConnection_->isConnected())
+            return std::chrono::milliseconds(120000);
+    }
     // Read the SAME histories used by prepareToSend. No send, logging, signal or
     // system-message insertion happens under this mutex during this query.
     std::lock_guard<std::mutex> lock(this->lastMessageMutex_);

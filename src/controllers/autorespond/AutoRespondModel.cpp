@@ -198,7 +198,10 @@ bool AutoRespondModel::updateRule(const AutoRespondRule &rule)
         return true;
     *found = rule;
     this->rows_[row] = rule;
+    const QPointer<AutoRespondModel> self(this);
     this->settings_->rules.setValue(latest);
+    if (!self)
+        return false;
     Q_EMIT this->dataChanged(this->index(row, 0), this->index(row, Count - 1),
                              {});
     return true;

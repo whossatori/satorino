@@ -30,7 +30,7 @@
 namespace chatterino::satorino {
 namespace {
 std::atomic_bool observeEnabled{false};
-std::atomic_uint64_t observationGeneration{0};
+std::atomic<quint64> observationGeneration{0};
 AutoRespondController *activeController = nullptr;
 
 QString channelKey(const Channel &channel)
@@ -87,7 +87,8 @@ bool ready(const Channel &channel)
         if (!typed || !server)
             return false;
         const auto &twitch = *typed;
-        return !twitch.isAnonymous() && twitch.isAutoRespondConnected() &&
+        return !twitch.isAnonymous() && !twitch.roomId().isEmpty() &&
+               twitch.isAutoRespondConnected() &&
                server->getChannelOrEmpty(channel.getName()).get() == &channel;
     }
     if (channel.getType() == Channel::Type::Kick)
@@ -129,6 +130,11 @@ std::vector<ChannelPtr> timerTargets(const QString &key)
     std::ranges::sort(candidates, {}, [](const auto &channel) {
         return channelKey(*channel);
     });
+    candidates.erase(std::unique(candidates.begin(), candidates.end(),
+                                 [](const auto &a, const auto &b) {
+                                     return channelKey(*a) == channelKey(*b);
+                                 }),
+                     candidates.end());
     return candidates;
 }
 
@@ -445,7 +451,7 @@ void AutoRespondController::processQueue()
                                        this->clock_.elapsed());
             if (!item.batch && this->settings_.showNote.getValue())
                 this->postNote(channel, "auto respond submitted: " + item.text);
-            if (item.rule.sound)
+            if (item.rule.type == AutoRespondType::Trigger && item.rule.sound)
                 QTimer::singleShot(
                     0, this, [this, sound = item.rule.customSound] {
                         if (this->running_)

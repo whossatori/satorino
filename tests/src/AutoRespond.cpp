@@ -567,3 +567,58 @@ TEST(AutoRespond, BroadcastQueueDrainsFortyItemsInOrder)
     EXPECT_EQ(count, 40);
     EXPECT_EQ(now, 39 * 1100);
 }
+
+TEST(AutoRespond, BroadcastUsesExistingBurstHistoryWithoutDroppingLaterReplies)
+{
+    AutoRespondQueue queue;
+    for (quint64 i = 1; i <= 40; ++i)
+    {
+        AutoRespondQueuedSend item;
+        item.token = i;
+        queue.push(item);
+    }
+    std::vector<qint64> history;
+    qint64 now = 0;
+    int sent = 0;
+    while (!queue.empty())
+    {
+        queue.startHead(now);
+        now += queue.wait(now, true,
+                          autoRespondRateWait(history, 19, 1100, 32000, now));
+        EXPECT_FALSE(queue.expired(now));
+        EXPECT_EQ(queue.front().token, static_cast<quint64>(sent + 1));
+        if (sent == 2)
+        {
+            AutoRespondQueuedSend reply;
+            reply.token = 41;
+            queue.push(reply);
+        }
+        const auto token = queue.front().token;
+        history.push_back(now);
+        queue.finish(token, now, true);
+        ++sent;
+    }
+    EXPECT_EQ(sent, 41);
+    EXPECT_GE(now, 65000);
+}
+TEST(AutoRespond, OuterSendFeedbackSurvivesNestedNormalPreparation)
+{
+    class NestedChannel : public chatterino::Channel
+    {
+    public:
+        NestedChannel()
+            : Channel("test", Type::Misc)
+        {
+        }
+        void sendMessage(const QString &message) override
+        {
+            const auto outer = limitAutoRespondSend(message, this);
+            limitAutoRespondSend(QString("nested"), this);
+            recordAutoRespondSend(this, false, QString("nested"));
+            recordAutoRespondSend(this, true, outer);
+        }
+    } channel;
+    const auto result = sendAutoRespond(channel, "outer");
+    EXPECT_EQ(result.prepared, "outer");
+    EXPECT_EQ(result.accepted, true);
+}
