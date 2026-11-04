@@ -9,6 +9,10 @@
 
 #include "Test.hpp"
 
+#include <QFile>
+#include <QTemporaryDir>
+#include <filesystem>
+
 using namespace chatterino::satorino;
 namespace {
 AutoRespondInput live(QString text = "raffle")
@@ -303,4 +307,91 @@ TEST(AutoRespond, DisconnectedOccurrenceIsConsumedRatherThanRetried)
         nextAutoRespondFire(r, utc(2, 12, 0, 1), consumed, QTimeZone::UTC);
     ASSERT_TRUE(next);
     EXPECT_EQ(*next, utc(3, 12, 0));
+}
+
+TEST(AutoRespond, ExistingSettingsJsonWithoutNewKeysLoadsAndRoundTrips)
+{
+    using Manager = pajlada::Settings::SettingManager;
+    using Option = pajlada::Settings::SettingOption;
+    QTemporaryDir directory;
+    ASSERT_TRUE(directory.isValid());
+    const auto name = directory.filePath("settings.json");
+    const auto path = std::filesystem::path(name.toStdU16String());
+    QFile file(name);
+    ASSERT_TRUE(file.open(QIODevice::WriteOnly));
+    const QByteArray oldSettings =
+        R"({"appearance":{"theme":{"name":"Dark"}}})";
+    ASSERT_EQ(file.write(oldSettings), oldSettings.size());
+    file.close();
+    auto manager = std::make_shared<Manager>();
+    manager->saveMethod = Manager::SaveMethod::SaveManually;
+    ASSERT_EQ(manager->load(path), Manager::LoadError::NoError);
+    pajlada::Settings::Setting<bool> enabled("/satorino/autorespond/enabled",
+                                             false, Option::CompareBeforeSet,
+                                             manager);
+    pajlada::Settings::Setting<int> cap("/satorino/autorespond/perMinute", 6,
+                                        Option::CompareBeforeSet, manager);
+    pajlada::Settings::Setting<bool> note("/satorino/autorespond/showNote",
+                                          true, Option::CompareBeforeSet,
+                                          manager);
+    pajlada::Settings::Setting<std::vector<AutoRespondTrigger>> triggers(
+        "/satorino/autorespond/triggers", {}, Option::CompareBeforeSet,
+        manager);
+    pajlada::Settings::Setting<std::vector<AutoRespondTimer>> timers(
+        "/satorino/autorespond/timers", {}, Option::CompareBeforeSet, manager);
+    EXPECT_FALSE(enabled.getValue());
+    EXPECT_EQ(cap.getValue(), 6);
+    EXPECT_TRUE(note.getValue());
+    EXPECT_TRUE(triggers.getValueCopy().empty());
+    EXPECT_TRUE(timers.getValueCopy().empty());
+    auto r = trigger();
+    r.label = "raffle";
+    r.channel = "twitch:closed";
+    r.regex = true;
+    r.caseSensitive = true;
+    r.sound = true;
+    r.customSound = "file:///C:/sound.wav";
+    r.cooldownSeconds = 45;
+    r.delayMs = 750;
+    AutoRespondTimer t;
+    t.id = "t";
+    t.enabled = true;
+    t.label = "evening";
+    t.channel = "kick:closed";
+    t.message = "hello";
+    t.time = "19:45";
+    t.days = 65;
+    triggers.setValue({r});
+    timers.setValue({t});
+    ASSERT_EQ(manager->save(), Manager::SaveResult::Success);
+    auto reloaded = std::make_shared<Manager>();
+    reloaded->saveMethod = Manager::SaveMethod::SaveManually;
+    ASSERT_EQ(reloaded->load(path), Manager::LoadError::NoError);
+    pajlada::Settings::Setting<std::vector<AutoRespondTrigger>> savedTriggers(
+        "/satorino/autorespond/triggers", {}, Option::CompareBeforeSet,
+        reloaded);
+    pajlada::Settings::Setting<std::vector<AutoRespondTimer>> savedTimers(
+        "/satorino/autorespond/timers", {}, Option::CompareBeforeSet, reloaded);
+    EXPECT_EQ(savedTriggers.getValueCopy(), std::vector<AutoRespondTrigger>{r});
+    EXPECT_EQ(savedTimers.getValueCopy(), std::vector<AutoRespondTimer>{t});
+    pajlada::Settings::Setting<QString> theme(
+        "/appearance/theme/name", QString(), Option::CompareBeforeSet,
+        reloaded);
+    EXPECT_EQ(theme.getValue(), "Dark");
+}
+
+TEST(AutoRespond, InvalidAndDisabledTimerSchedulesHaveNoDeadline)
+{
+    AutoRespondTimer r;
+    EXPECT_EQ(r.days, 127);
+    EXPECT_FALSE(nextAutoRespondFire(r, utc(2, 11, 0), {}, QTimeZone::UTC));
+    r.enabled = true;
+    r.time = "25:15";
+    EXPECT_FALSE(nextAutoRespondFire(r, utc(2, 11, 0), {}, QTimeZone::UTC));
+    r.time = "12:00";
+    // A backward clock change must not reopen any already-consumed date.
+    const auto next = nextAutoRespondFire(r, utc(2, 11, 0), QDate(2026, 11, 4),
+                                          QTimeZone::UTC);
+    ASSERT_TRUE(next);
+    EXPECT_EQ(*next, utc(5, 12, 0));
 }
