@@ -41,8 +41,10 @@ protected:
     void hideEvent(QHideEvent *event) override;
     bool eventFilter(QObject *watched, QEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
+    void updateSize() override;
 
 private:
+    QFont titleFont() const;
     void loadIfNeeded();
     bool canAnimate() const;
     void syncTimer();

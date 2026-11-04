@@ -60,7 +60,7 @@ void seedThemesDirectory(const QString &directory)
                 "loaded - this README is ignored.\n"
                 "- The theme format is described by "
                 "docs/ChatterinoTheme.schema.json in the source repository:\n"
-                "  https://github.com/satorino/satorino\n"
+                "  https://github.com/whossatori/satorino\n"
                 "- satorino-example.json is a copy of the built-in Dark theme "
                 "- edit it as a starting point.\n"
                 "- Colors missing from a custom theme fall back to the "

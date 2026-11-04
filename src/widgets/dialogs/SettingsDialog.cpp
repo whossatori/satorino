@@ -256,7 +256,7 @@ void SettingsDialog::addTabs()
 
     // clang-format off
     this->addTab([]{return new GeneralPage;},          "General",        ":/settings/about.svg", SettingsTabId::General);
-    this->addTab([]{return new SatorinoPage;},         "Satorino",       ":/settings/satorino.png", SettingsTabId::Satorino); // satorino: fork settings
+    this->addTab([]{return new SatorinoPage;},         "satorino",       ":/settings/satorino.png", SettingsTabId::Satorino); // satorino: fork settings
     this->addTab([]{return new LeafyrinoPage;},        "Leafyrino",      ":/settings/leafyrino.png", SettingsTabId::Leafyrino);
     this->addTab([]{return new MoltorinoPage;},        "Moltorino",      ":/settings/moltorino.svg", SettingsTabId::Moltorino);
     this->addTab([]{return new TechnorinoPage;},       "Technorino",     technorinoIconPath, SettingsTabId::Technorino);

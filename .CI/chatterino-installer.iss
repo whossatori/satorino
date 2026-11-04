@@ -5,7 +5,7 @@
 #define MyAppName "Satorino"
 #define MyAppVersion "2.5.6"
 #define MyAppPublisher "Satorino"
-#define MyAppURL "https://github.com/satorino/satorino"
+#define MyAppURL "https://github.com/whossatori/satorino"
 #define MyAppExeName "satorino.exe"
 #define MyAppProductName "Satorino"
 #define MyAppDescription "Satorino Installer"

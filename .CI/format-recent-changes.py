@@ -7,7 +7,7 @@ import argparse
 
 # satorino: placeholder - point at your own releases when they exist
 ROOT_DOWNLOAD_URL = (
-    "https://github.com/satorino/satorino/releases/download/nightly-build"
+    "https://github.com/whossatori/satorino/releases/download/nightly-build"
 )
 WIN_X64_INSTALLERS = ["satorino.Nightly.Installer.exe"]
 WIN_ARM64_INSTALLERS = ["Experimental-ARM64-satorino.Nightly.Installer.exe"]
@@ -131,7 +131,7 @@ print("> [!WARNING]")
 print(
     "> This is an experimental version that may break. "
     "If you're looking for the latest stable release, see "
-    f"https://github.com/satorino/satorino/releases/tag/{get_current_stable()}.\n"
+    f"https://github.com/whossatori/satorino/releases/tag/{get_current_stable()}.\n"
 )
 
 print("### Downloads\n")

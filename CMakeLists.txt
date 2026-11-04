@@ -82,7 +82,7 @@ endif()
 project(satorino
     VERSION 2.5.6
     DESCRIPTION "Chat client for Twitch"
-    HOMEPAGE_URL "https://github.com/satorino/satorino"
+    HOMEPAGE_URL "https://github.com/whossatori/satorino"
 )
 
 if(APPLE AND CHATTERINO_SPELLCHECK)
