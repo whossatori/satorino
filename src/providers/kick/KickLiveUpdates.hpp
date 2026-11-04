@@ -17,6 +17,8 @@ public:
 
     void joinRoom(uint64_t roomID, uint64_t channelID);
     void leaveRoom(uint64_t roomID, uint64_t channelID);
+    // satorino: skip disconnected auto respond timer targets.
+    bool isRoomConnected(uint64_t roomID) const;
 
 private:
     std::shared_ptr<KickLiveUpdatesPrivate> private_;

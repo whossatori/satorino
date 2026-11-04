@@ -18,6 +18,8 @@ public:
 
     void joinChannel(const QString &channelName) override;
     void partChannel(const QString &channelName) override;
+    // satorino: read-only auto respond connectivity query.
+    bool isChannelConnected(const QString &channelName) const override;
 
 private:
     std::unique_ptr<KickCentrifugoManagerPrivate> private_;

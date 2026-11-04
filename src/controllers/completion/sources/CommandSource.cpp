@@ -105,6 +105,7 @@ QString commandUsage(const QString &command)
         {"/setgame", "<game>"},
         // satorino: /settheme (docs/SATORINO.md)
         {"/settheme", "<theme name>"},
+        {"/autorespond", "on|off|status"},  // satorino: panic switch
         {"/settitle", "<stream title>"},
         {"/shield", ""},
         {"/shieldoff", ""},

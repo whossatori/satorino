@@ -243,4 +243,12 @@ void KickLiveUpdates::leaveRoom(uint64_t roomID, uint64_t channelID)
     this->private_->partImpl(roomID, channelID);
 }
 
+// satorino: do not create a manager or join a room while checking a timer.
+bool KickLiveUpdates::isRoomConnected(uint64_t roomID) const
+{
+    return this->private_->manager &&
+           this->private_->manager->isChannelConnected(
+               u"chatrooms." % QString::number(roomID) % u".v2");
+}
+
 }  // namespace chatterino

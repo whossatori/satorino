@@ -18,6 +18,8 @@ public:
 
     virtual void joinChannel(const QString &channelName) = 0;
     virtual void partChannel(const QString &channelName) = 0;
+    // satorino: distinguish live subscriptions from queued/offline rooms.
+    virtual bool isChannelConnected(const QString &channelName) const = 0;
 };
 
 }  // namespace chatterino

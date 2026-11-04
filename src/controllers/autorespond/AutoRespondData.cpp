@@ -10,6 +10,16 @@
 
 namespace chatterino::satorino {
 
+bool isAutoRespondLiveMessage(MessageContext context, MessageFlags flags)
+{
+    return context == MessageContext::Original &&
+           !flags.hasAny(
+               {MessageFlag::System, MessageFlag::RecentMessage,
+                MessageFlag::Whisper, MessageFlag::Disabled,
+                MessageFlag::AutoMod, MessageFlag::AutoModOffendingMessage,
+                MessageFlag::SharedMessage, MessageFlag::ModerationAction});
+}
+
 bool canAutoRespond(const AutoRespondInput &input)
 {
     return input.live && input.loggedIn && !input.anonymous && !input.own &&
@@ -37,12 +47,18 @@ QRegularExpression autoRespondExpression(const AutoRespondTrigger &rule)
 std::optional<QRegularExpressionMatch> matchAutoRespond(
     const AutoRespondTrigger &rule, const AutoRespondInput &input)
 {
+    return matchAutoRespond(rule, input, autoRespondExpression(rule));
+}
+
+std::optional<QRegularExpressionMatch> matchAutoRespond(
+    const AutoRespondTrigger &rule, const AutoRespondInput &input,
+    const QRegularExpression &expression)
+{
     if (!rule.enabled || rule.pattern.isEmpty() || !canAutoRespond(input) ||
         (rule.channel != "*" && rule.channel != input.channel))
     {
         return std::nullopt;
     }
-    const auto expression = autoRespondExpression(rule);
     if (!expression.isValid())
     {
         return std::nullopt;

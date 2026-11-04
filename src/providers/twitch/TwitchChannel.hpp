@@ -285,6 +285,11 @@ public:
     bool isEmpty() const override;
     bool canSendMessage() const override;
     bool isAnonymous() const;
+    // satorino: timer targets must already have a healthy read connection.
+    bool isAutoRespondConnected() const
+    {
+        return this->lastConnectedAt_.has_value() && !this->disconnected_;
+    }
     void sendMessage(const QString &message) override;
     bool sendMessageViaIrc(const QString &message, int duplicateNonce = 0);
     bool sendSpamMessageViaHelix(

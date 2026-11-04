@@ -7,6 +7,7 @@
 #include "util/StandardItemHelper.hpp"
 
 #include <algorithm>
+#include <QStringList>
 
 namespace chatterino::satorino {
 namespace {

@@ -5,10 +5,13 @@
 #pragma once
 
 #include "util/RapidjsonHelpers.hpp"
+#include "common/enums/MessageContext.hpp"
+#include "messages/MessageFlag.hpp"
 
 #include <QDateTime>
 #include <QRegularExpression>
 #include <QTimeZone>
+#include <QStringView>
 
 #include <deque>
 #include <map>
@@ -55,10 +58,15 @@ struct AutoRespondInput {
     bool autoSent = false;
 };
 
+bool isAutoRespondLiveMessage(MessageContext context, MessageFlags flags);
 bool canAutoRespond(const AutoRespondInput &input);
 QRegularExpression autoRespondExpression(const AutoRespondTrigger &rule);
 std::optional<QRegularExpressionMatch> matchAutoRespond(
     const AutoRespondTrigger &rule, const AutoRespondInput &input);
+// Accepts a cached expression compiled when rules change.
+std::optional<QRegularExpressionMatch> matchAutoRespond(
+    const AutoRespondTrigger &rule, const AutoRespondInput &input,
+    const QRegularExpression &expression);
 // Replaces controls/line separators, preserves surrogate pairs and caps UTF-16
 // units AND UTF-8 bytes. The conservative bound fits either platform's limit.
 QString sanitizeAutoRespond(QStringView text, int maxLength = 500);

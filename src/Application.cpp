@@ -1,4 +1,5 @@
 #include "Application.hpp"
+#include "controllers/autorespond/AutoRespondController.hpp"  // satorino: timers start without opening settings
 
 #include "common/Args.hpp"
 #include "common/Channel.hpp"
@@ -283,6 +284,8 @@ void Application::initialize(Settings &settings, const Paths &paths)
     this->emotes->initialize();
 
     this->accounts->load();
+    // satorino: own the GUI-thread auto respond scheduler for the app lifetime.
+    satorino::autoRespond();
 
     this->windows->initialize();
 

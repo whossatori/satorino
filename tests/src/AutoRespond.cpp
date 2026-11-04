@@ -4,8 +4,10 @@
 
 #include "controllers/autorespond/AutoRespondData.hpp"
 #include "controllers/autorespond/AutoRespondSettings.hpp"
+#include "controllers/autorespond/AutoRespondSend.hpp"
+#include "common/Channel.hpp"
 
-#include <gtest/gtest.h>
+#include "Test.hpp"
 
 using namespace chatterino::satorino;
 namespace {
@@ -98,7 +100,7 @@ TEST(AutoRespond, PlaceholderExpansionIsSinglePass)
     const auto match = matchAutoRespond(r, input);
     ASSERT_TRUE(match);
     EXPECT_EQ(
-        expandAutoRespond("{user}|{channel}|{match}|{1}|{2}|{9}|{unknown}",
+        expandAutoRespond(u"{user}|{channel}|{match}|{1}|{2}|{9}|{unknown}",
                           input, *match),
         "{channel}|foo|raffle 42|raffle|42||{unknown}");
 }
@@ -108,7 +110,7 @@ TEST(AutoRespond, ResponsesAreOneLineAndBoundedWithoutSplittingUnicode)
                                                     "c")),
               "a b c");
     EXPECT_EQ(sanitizeAutoRespond(QString(1000, u'x')).size(), 500);
-    EXPECT_TRUE(sanitizeAutoRespond("hello", 0).isEmpty());
+    EXPECT_TRUE(sanitizeAutoRespond(u"hello", 0).isEmpty());
     const auto emoji = QString::fromUtf8("\xf0\x9f\x98\x80");
     EXPECT_TRUE(sanitizeAutoRespond(emoji, 3).isEmpty());
     EXPECT_EQ(sanitizeAutoRespond(emoji, 4), emoji);
@@ -232,10 +234,72 @@ TEST(AutoRespond, SettingsRoundTripAndMissingKeysKeepSafeDefaults)
     EXPECT_FALSE(missing.enabled);
     EXPECT_EQ(missing.cooldownSeconds, 30);
     EXPECT_EQ(missing.delayMs, 0);
-    // Isolated paths: emulate settings.json without any auto respond keys.
-    // Uses Setting's actual default path; no GUI or account/send mocks needed.
-    chatterino::BoolSetting enabled("/tests/stage-e/missing/enabled", false);
-    chatterino::IntSetting cap("/tests/stage-e/missing/perMinute", 6);
-    EXPECT_FALSE(enabled.getValue());
-    EXPECT_EQ(cap.getValue(), 6);
+    // The test harness loads settings from a fresh temporary directory. Read
+    // the actual new keys, absent from that existing settings.json schema.
+    AutoRespondSettings defaults;
+    EXPECT_FALSE(defaults.enabled.getValue());
+    EXPECT_EQ(defaults.perMinute.getValue(), 6);
+    EXPECT_TRUE(defaults.showNote.getValue());
+    EXPECT_TRUE(defaults.triggers.getValueCopy().empty());
+    EXPECT_TRUE(defaults.timers.getValueCopy().empty());
+}
+
+TEST(AutoRespond, HistoryRepostsAndSpecialMessageFlagsAreNeverLive)
+{
+    using namespace chatterino;
+    EXPECT_TRUE(isAutoRespondLiveMessage(MessageContext::Original, {}));
+    EXPECT_FALSE(isAutoRespondLiveMessage(MessageContext::Repost, {}));
+    for (const auto flag :
+         {MessageFlag::RecentMessage, MessageFlag::System, MessageFlag::Whisper,
+          MessageFlag::Disabled, MessageFlag::AutoMod,
+          MessageFlag::AutoModOffendingMessage, MessageFlag::SharedMessage,
+          MessageFlag::ModerationAction})
+    {
+        EXPECT_FALSE(
+            isAutoRespondLiveMessage(MessageContext::Original, {flag}));
+    }
+}
+
+TEST(AutoRespond, FinalExpansionGuardIsScopedToAutoSends)
+{
+    class ExpandingChannel : public chatterino::Channel
+    {
+    public:
+        ExpandingChannel()
+            : Channel("test", Type::Misc)
+        {
+        }
+        void sendMessage(const QString &message) override
+        {
+            this->wire =
+                limitAutoRespondSend(message + "\n" + QString(600, u'x'));
+        }
+        QString wire;
+    } channel;
+    channel.sendMessage("normal");
+    EXPECT_GT(channel.wire.size(), 500);
+    EXPECT_TRUE(channel.wire.contains(u'\n'));
+    const auto result = sendAutoRespond(channel, "auto");
+    EXPECT_LE(result.prepared.toUtf8().size(), 500);
+    EXPECT_FALSE(result.prepared.contains(u'\n'));
+    EXPECT_FALSE(isAutoRespondSend());
+    channel.sendMessage("normal again");
+    EXPECT_GT(channel.wire.size(), 500);
+}
+
+TEST(AutoRespond, DisconnectedOccurrenceIsConsumedRatherThanRetried)
+{
+    AutoRespondTimer r;
+    r.enabled = true;
+    r.time = "12:00";
+    ASSERT_TRUE(autoRespondTimerDue(r, utc(2, 11, 59, 59), utc(2, 12, 0), {},
+                                    QTimeZone::UTC));
+    // The scheduler records this local date even if no connected target exists.
+    const QDate consumed(2026, 11, 2);
+    EXPECT_FALSE(autoRespondTimerDue(r, utc(2, 11, 59, 59), utc(2, 12, 0),
+                                     consumed, QTimeZone::UTC));
+    const auto next =
+        nextAutoRespondFire(r, utc(2, 12, 0, 1), consumed, QTimeZone::UTC);
+    ASSERT_TRUE(next);
+    EXPECT_EQ(*next, utc(3, 12, 0));
 }

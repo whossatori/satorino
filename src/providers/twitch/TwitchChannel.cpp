@@ -5,6 +5,7 @@
 #include "providers/twitch/TwitchChannel.hpp"
 
 #include "Application.hpp"
+#include "controllers/autorespond/AutoRespondSend.hpp"  // satorino: final payload guard
 #include "common/Common.hpp"
 #include "common/network/NetworkRequest.hpp"
 #include "common/network/NetworkResult.hpp"  // IWYU pragma: keep
@@ -1903,6 +1904,8 @@ void TwitchChannel::sendMessage(const QString &message)
 
     // Do last message processing
     QString parsedMessage = this->prepareMessage(message);
+    // satorino: constrain auto replies after all normal message expansion.
+    parsedMessage = satorino::limitAutoRespondSend(std::move(parsedMessage));
     if (parsedMessage.isEmpty())
     {
         return;
@@ -1927,6 +1930,13 @@ void TwitchChannel::sendMessage(const QString &message)
             this->lastSentMessage_ = parsedMessage;
         }
     };
+
+    // satorino: auto replies use the ordinary channel send handler and limiter.
+    if (satorino::isAutoRespondSend())
+    {
+        sendNormally();
+        return;
+    }
 
     // Intercept for Bot Badge mode
     if (shouldUseBotBadgeForSelectedAccount())

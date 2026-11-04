@@ -5,6 +5,7 @@
 #include "common/Channel.hpp"
 
 #include "Application.hpp"
+#include "controllers/autorespond/AutoRespondController.hpp"  // satorino: live-only auto respond
 #include "messages/Emote.hpp"
 #include "messages/Message.hpp"
 #include "messages/MessageBuilder.hpp"
@@ -201,6 +202,8 @@ void Channel::addMessage(MessagePtr message, MessageContext context,
     }
 
     this->messageAppended.invoke(message, overridingFlags);
+    // satorino: one common hook; history insertion and reposts are excluded.
+    satorino::observeAutoRespond(*this, message, context, overridingFlags);
 }
 
 void Channel::addSystemMessage(const QString &contents)

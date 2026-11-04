@@ -507,4 +507,15 @@ void KickCentrifugoManager::partChannel(const QString &name)
     this->private_->unsubscribe(name);
 }
 
+// satorino: an open websocket and an assigned subscription are both required.
+bool KickCentrifugoManager::isChannelConnected(const QString &name) const
+{
+    for (const auto &[id, client] : this->private_->clients())
+    {
+        if (client->isOpen() && client->isSubscribed(name))
+            return true;
+    }
+    return false;
+}
+
 }  // namespace chatterino

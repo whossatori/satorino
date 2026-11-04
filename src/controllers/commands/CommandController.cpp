@@ -45,6 +45,7 @@
 #include "controllers/commands/builtin/twitch/Warn.hpp"
 // satorino: /settheme (see docs/SATORINO.md)
 #include "controllers/commands/builtin/SetTheme.hpp"
+#include "controllers/commands/builtin/AutoRespond.hpp"  // satorino: panic switch
 #include "controllers/commands/Command.hpp"
 #include "controllers/commands/CommandContext.hpp"
 #include "controllers/commands/CommandModel.hpp"
@@ -419,6 +420,8 @@ CommandController::CommandController(const Paths &paths)
 
     // satorino: /settheme (see docs/SATORINO.md)
     this->registerCommand("/settheme", &commands::setTheme);
+    // satorino: live master switch, with a local status response.
+    this->registerCommand("/autorespond", &commands::autoRespond);
 
     this->registerCommand("/settitle", &commands::setTitle);
 

@@ -1,6 +1,7 @@
 #include "providers/kick/KickChannel.hpp"
 
 #include "Application.hpp"
+#include "controllers/autorespond/AutoRespondSend.hpp"  // satorino: final payload guard
 #include "common/network/NetworkResult.hpp"
 #include "common/QLogging.hpp"
 #include "controllers/accounts/AccountController.hpp"
@@ -269,6 +270,8 @@ void KickChannel::sendReply(const QString &message, const QString &replyToId)
     }
 
     auto prepared = this->prepareMessage(message);
+    // satorino: constrain auto replies after normal emoji/emote expansion.
+    prepared = satorino::limitAutoRespondSend(std::move(prepared));
     if (prepared.isEmpty())
     {
         return;
