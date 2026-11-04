@@ -234,8 +234,13 @@ void RedeemData::setPinned(const QString &channelId, const QString &rewardId,
 }
 
 QVector<GqlChannelPointReward> RedeemData::ordered(
-    const QString &channelId, QVector<GqlChannelPointReward> rewards) const
+    const QString &channelId, QVector<GqlChannelPointReward> rewards,
+    bool enablePinning) const
 {
+    if (!enablePinning)
+    {
+        return rewards;
+    }
     const auto pins = this->channels_.value(channelId).pins;
     const auto rank = [&](const QString &id) {
         const auto index = pins.indexOf(id);
@@ -340,6 +345,29 @@ QVector<GqlChannelPointReward> RedeemData::merge(
                                 }),
                  result.end());
     return result;
+}
+
+bool redeemVisible(const GqlChannelPointReward &reward, bool live,
+                   const RedeemOptions &options)
+{
+    // The existing parser folds paused into !isEnabled, so pause takes
+    // precedence over disabled; showing a paused row needs only its own toggle.
+    if (reward.isPaused ? !options.showPaused
+                        : (!reward.isEnabled && !options.showDisabled))
+    {
+        return false;
+    }
+    if (reward.isCached)
+    {
+        return !live && options.showOfflineStream;
+    }
+    if (!reward.isInStock)
+    {
+        // No distinct stream-only flag, cooldown reason or timer is retained.
+        // Approximate offline unavailability separately from live cooldown/stock.
+        return live ? !options.hideCooldown : options.showOfflineStream;
+    }
+    return true;
 }
 
 QString redeemAvailability(const GqlChannelPointReward &reward, bool live,

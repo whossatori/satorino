@@ -1345,6 +1345,17 @@ public:
 
     // satorino: single-row scrolling for user-managed horizontal tabs.
     BoolSetting satorinoTabScroll = {"/satorino/tabs/scrollEnabled", true};
+    // satorino: per-user redeem presentation options; no automatic actions.
+    BoolSetting satorinoRedeemsShowDisabled = {"/satorino/redeems/showDisabled",
+                                               false};
+    BoolSetting satorinoRedeemsShowPaused = {"/satorino/redeems/showPaused",
+                                             false};
+    BoolSetting satorinoRedeemsShowOfflineStream = {
+        "/satorino/redeems/showOfflineStream", false};
+    BoolSetting satorinoRedeemsHideCooldown = {"/satorino/redeems/hideCooldown",
+                                               false};
+    BoolSetting satorinoRedeemsEnablePinning = {
+        "/satorino/redeems/enablePinning", true};
     // satorino: versioned JSON pins/cache by Twitch room ID; auto key reserved only.
     QStringSetting satorinoRedeemsState = {"/satorino/redeems/state", "{}"};
     // satorino: independent of 7TV/account settings; applied live by the label.

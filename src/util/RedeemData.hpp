@@ -14,6 +14,19 @@
 
 namespace chatterino::satorino {
 
+// Per-user display preferences; no platform permissions are granted here.
+struct RedeemOptions {
+    bool showDisabled = false;
+    bool showPaused = false;
+    bool showOfflineStream = false;
+    bool hideCooldown = false;
+    bool enablePinning = true;
+};
+
+// Closest rule using the existing catalog fields, not a website/API guarantee.
+bool redeemVisible(const GqlChannelPointReward &reward, bool live,
+                   const RedeemOptions &options = {});
+
 struct CachedRedeem {
     GqlChannelPointReward reward;
     QDateTime lastSeen;
@@ -39,7 +52,8 @@ public:
     void setPinned(const QString &channelId, const QString &rewardId,
                    bool pinned, const QDateTime &now);
     QVector<GqlChannelPointReward> ordered(
-        const QString &channelId, QVector<GqlChannelPointReward> rewards) const;
+        const QString &channelId, QVector<GqlChannelPointReward> rewards,
+        bool enablePinning = true) const;
     QVector<GqlChannelPointReward> cached(const QString &channelId) const;
     QVector<GqlChannelPointReward> merge(
         const QString &channelId, const QVector<GqlChannelPointReward> &fresh,

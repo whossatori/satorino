@@ -576,3 +576,38 @@ Formatting and clean-clone patch replay are checked for the batch. Nothing
 was compiled: no native C++/Qt toolchain or WSL distro is installed. C++ tests,
 Windows layout/persistence and live/offline Twitch behavior are **NOT RUN**;
 see the delivered REPORT-F2.md and its Windows checklist.
+
+## Stage F batch 3
+
+Follow-up on Batch 2 commit f764a67aa (preserved). This section supersedes
+Batch 2's always-visible default, per-row pin buttons and status-driven height.
+Settings -> satorino -> Channel point redeems now has ordinary searchable
+checkboxes under /satorino/redeems/: showDisabled, showPaused,
+showOfflineStream, hideCooldown (all false), and enablePinning (true).
+Open reward popups update on setting changes without a restart or API request.
+
+The pure redeemVisible rule approximates the website from the existing fields:
+by default hide disabled, paused, cached and offline out-of-stock rows; live
+out-of-stock rows remain visible and greyed. Show disabled/paused controls the
+corresponding category. The existing parser folds pause into disabled, so the
+paused category takes precedence and needs only Show paused. Offline cached
+or unavailable rows additionally need the offline-stream option. Hide cooldown
+removes live out-of-stock rows. Stream-only identity, exact cooldown reason/time
+and exact website parity remain unverified; no new API fields/calls were added.
+Cache bounds, expiry, live-snapshot deletion reconciliation, manual redemption
+and the empty reserved auto object remain as documented in Batch 2.
+
+Turning pinning off skips ordering and removes reward pin controls/marks while
+retaining preferences. List tiles show only a tiny passive mark when pinned.
+Selecting a tile still opens its existing detail view, where a small pin button
+is overlaid inside the preview. Neither control adds a layout item or row.
+Tile size hints and title geometry no longer depend on availability; a short
+elided status is painted inside the existing image square. There is no guessed
+countdown. Pinning, selection and option changes cannot initiate redemption.
+
+12 new gtests in tests/src/RedeemVisibility.cpp cover the default field matrix,
+toggle effects, cooldown visibility and pinning-off persistence; Batch 2's
+19 tests still cover cache/order/JSON behavior. No new app sources were needed.
+clang-format 19.1.7 and full-stack patch replay are checked for this batch.
+Nothing was compiled; C++ tests and Windows/Twitch behavior are **NOT RUN**
+because no native C++/Qt toolchain or WSL distro is available. See REPORT-F3.md.

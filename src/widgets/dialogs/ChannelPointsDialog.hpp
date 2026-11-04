@@ -61,10 +61,12 @@ private:
     void reloadRewards(bool force);
     // satorino: presentation/cache/preferences only; redemption stays manual.
     void loadCachedRedeems();
+    void bindRedeemOptions();
     void mergeRedeems(const GqlChannelPointRewards &snapshot);
     QVector<GqlChannelPointReward> orderRedeems(
         QVector<GqlChannelPointReward> rewards);
-    void addRedeemPin(QPushButton *card, const GqlChannelPointReward &reward);
+    void addRedeemPin(QWidget *tile, const GqlChannelPointReward &reward,
+                      bool selected = false);
     QString redeemChannelKey() const;
     void rebuildContent();
     void refreshCurrentLayout();

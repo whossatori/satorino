@@ -627,7 +627,7 @@ public:
 
     int heightForWidth(int width) const override
     {
-        const auto titleHeight = this->titleAreaHeight(width);
+        const auto titleHeight = this->titleAreaHeight();
         return std::max(1, width) + titleHeight;
     }
 
@@ -649,7 +649,7 @@ protected:
             unavailable = true;
         }
 
-        const int titleHeight = this->titleAreaHeight(rect.width());
+        const int titleHeight = this->titleAreaHeight();
         const int squareSize = std::max(
             1,
             std::min(rect.width(), std::max(1, rect.height() - titleHeight)));
@@ -720,13 +720,11 @@ protected:
         titleColor.setAlpha(unavailable ? 150 : 245);
         painter.setPen(titleColor);
 
-        // satorino: measure wrapped status text at the actual card width.
-        const int statusHeight = this->availabilityHeight(rect.width());
         const auto titleTop =
             square.bottom() + scaledMetric(this->scale_, 4, 2);
-        const QRect titleRect(
-            rect.left() + 2, titleTop, std::max(1, rect.width() - 4),
-            std::max(1, rect.bottom() - titleTop + 1 - statusHeight));
+        const QRect titleRect(rect.left() + 2, titleTop,
+                              std::max(1, rect.width() - 4),
+                              std::max(1, rect.bottom() - titleTop + 1));
         QFontMetrics titleMetrics(titleFont);
         const auto lines =
             twoLineTitle(this->reward_.title, titleMetrics, titleRect.width());
@@ -742,14 +740,28 @@ protected:
             y += lineHeight;
         }
 
-        // satorino: a text label remains visible without hovering.
+        // satorino: status uses existing image space, never geometry/title space.
         if (!this->availability_.isEmpty())
         {
-            painter.setFont(this->font());
-            painter.drawText(
-                QRect(rect.left() + 2, rect.bottom() - statusHeight + 1,
-                      rect.width() - 4, statusHeight),
-                Qt::AlignCenter | Qt::TextWordWrap, this->availability_);
+            auto statusFont = this->font();
+            statusFont.setPointSizeF(
+                std::max(6.5, statusFont.pointSizeF() * 0.72));
+            painter.setFont(statusFont);
+            const QFontMetrics statusMetrics(statusFont);
+            const int pad = scaledMetric(this->scale_, 3, 2);
+            const int top = square.top() + scaledMetric(this->scale_, 14, 10);
+            const auto statusLines =
+                twoLineTitle(this->availability_, statusMetrics,
+                             std::max(1, square.width() - pad * 2));
+            const QRect statusRect(square.left() + pad, top,
+                                   std::max(1, square.width() - pad * 2),
+                                   statusMetrics.lineSpacing() * 2);
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(QColor(0, 0, 0, 180));
+            painter.drawRoundedRect(statusRect, 2, 2);
+            painter.setPen(QColor(235, 235, 235));
+            painter.drawText(statusRect, Qt::AlignCenter,
+                             statusLines.join('\n'));
         }
 
         if (this->hasFocus())
@@ -761,27 +773,15 @@ protected:
     }
 
 private:
-    // satorino: long reasons remain readable at narrow widths and high scaling.
-    int availabilityHeight(int width) const
-    {
-        return this->availability_.isEmpty()
-                   ? 0
-                   : QFontMetrics(this->font())
-                         .boundingRect(
-                             QRect(0, 0, std::max(1, width - 4), 10000),
-                             Qt::TextWordWrap, this->availability_)
-                         .height();
-    }
-
-    int titleAreaHeight(int width) const
+    // satorino: available and cooldown states share the same stock tile geometry.
+    int titleAreaHeight() const
     {
         QFont titleFont = this->font();
         titleFont.setBold(true);
         QFontMetrics metrics(titleFont);
-        return std::max(rewardTitleMinimumHeight(this->scale_),
-                        metrics.lineSpacing() * 2 +
-                            scaledMetric(this->scale_, 5, 3)) +
-               this->availabilityHeight(width);  // satorino: status
+        return std::max(
+            rewardTitleMinimumHeight(this->scale_),
+            metrics.lineSpacing() * 2 + scaledMetric(this->scale_, 5, 3));
     }
 
     GqlChannelPointReward reward_;
@@ -1106,6 +1106,7 @@ ChannelPointsDialog::ChannelPointsDialog(TwitchChannel *channel,
 
     this->refreshHeader();
     this->refreshStyle();
+    this->bindRedeemOptions();  // satorino: refresh open popups when checkboxes change
     this->rebuildContent();
 }
 
@@ -1734,7 +1735,7 @@ void ChannelPointsDialog::rebuildRewards()
     auto visibleRewards = QVector<GqlChannelPointReward>();
     for (const auto &reward : this->rewards_)
     {
-        // satorino: paused/offline/out-of-stock/unsupported rewards remain visible.
+        // satorino: filtering is centralized with pin ordering below.
         visibleRewards.push_back(reward);
     }
     std::stable_sort(
@@ -1757,7 +1758,8 @@ void ChannelPointsDialog::rebuildRewards()
             this->setStatus(
                 this->rewards_.isEmpty()
                     ? QStringLiteral("No rewards loaded yet.")
-                    : QStringLiteral("No supported rewards found."));
+                    : QStringLiteral("No rewards match these "
+                                     "filters."));  // satorino: filtered list
         }
         auto *refresh = new QPushButton("Refresh", this->contentWidget_);
         refresh->setObjectName("ChannelPointsUtilityButton");
@@ -1858,6 +1860,8 @@ void ChannelPointsDialog::rebuildRewardDetail()
         new RewardIconPreview(this->selectedReward_, this->contentWidget_);
     preview->setScale(effectiveScale);
     this->contentLayout_->addWidget(preview, 0, Qt::AlignCenter);
+    this->addRedeemPin(preview, this->selectedReward_,
+                       true);  // satorino: selected only
     if (!this->selectedReward_.imageUrl.isEmpty())
     {
         this->queueRewardImageRefresh();

@@ -53,6 +53,42 @@ void SatorinoPage::initLayout(GeneralPageView &layout)
         ->setTooltip("Fill the main window title with the animated satorino "
                      "paint. Turning this off stops its animation timer.")
         ->addTo(layout);
+    layout.addTitle("Channel point redeems");
+    const QStringList keywords{"channel points", "rewards", "redeems",
+                               "Twitch"};
+    SettingWidget::checkbox("Show disabled redeems",
+                            getSettings()->satorinoRedeemsShowDisabled)
+        ->addKeywords(keywords)
+        ->addTo(layout);
+    SettingWidget::checkbox("Show paused redeems",
+                            getSettings()->satorinoRedeemsShowPaused)
+        ->addKeywords(keywords)
+        ->addTo(layout);
+    SettingWidget::checkbox("Show redeems only available during a stream when "
+                            "the channel is offline",
+                            getSettings()->satorinoRedeemsShowOfflineStream)
+        ->setTooltip(
+            "Include unavailable or cached rewards while offline. The existing "
+            "Twitch data does not distinguish stream-only rewards from other "
+            "offline unavailability. Cached rewards cannot be redeemed.")
+        ->addKeywords(keywords)
+        ->addKeywords({"live", "offline", "stream"})
+        ->addTo(layout);
+    SettingWidget::checkbox("Hide redeems on cooldown",
+                            getSettings()->satorinoRedeemsHideCooldown)
+        ->setTooltip("Hide live rewards reported as out of stock. The existing "
+                     "Twitch data does not distinguish cooldown from other "
+                     "stock limits or provide a remaining time.")
+        ->addKeywords(keywords)
+        ->addKeywords({"cooldown", "stock"})
+        ->addTo(layout);
+    SettingWidget::checkbox("Enable pinning redeems",
+                            getSettings()->satorinoRedeemsEnablePinning)
+        ->setTooltip("Select a reward to pin it using the small button inside "
+                     "its preview. Turning pinning off keeps your saved pins.")
+        ->addKeywords(keywords)
+        ->addKeywords({"pin", "pinning"})
+        ->addTo(layout);
     layout.addStretch();
 }
 
