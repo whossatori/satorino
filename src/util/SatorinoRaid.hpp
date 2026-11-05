@@ -11,25 +11,73 @@
 #include <QtGlobal>
 
 #include <deque>
+#include <map>
 #include <optional>
+#include <set>
+#include <utility>
 
 namespace chatterino::satorino {
 inline constexpr qint64 RAID_DEDUPE_MS = 180000;
 inline constexpr qint64 RAID_NEW_TAB_GAP_MS = 15000;
 inline constexpr qint64 RAID_CAP_WINDOW_MS = 600000;
-inline constexpr int RAID_WATCH_LIMIT = 10;
 struct RaidEvent {
     QString sourceId;
     QString targetId;
     QString targetLogin;
     QString targetName;
-    qint64 timestampMs = 0;  // EventSub notification metadata, UTC.
+    qint64 timestampMs = 0;  // Local feed receipt / synthetic-go time, UTC.
+    qint64 viewerCount = 0;
 };
 bool validRaidId(const QString &id);
 bool validRaidLogin(const QString &login);
+bool raidListeningEnabled(bool showBar, bool openTab);
+std::optional<QJsonObject> normaliseRaidFeed(const QString &topic,
+                                             const QJsonObject &message);
+QString raidFeedId(const QJsonObject &payload);
+enum class RaidFeedKind { Update, Go, Cancel };
+struct RaidFeedMessage {
+    RaidFeedKind kind = RaidFeedKind::Update;
+    QString sourceId;
+    QString raidId;
+    QString targetIdHint;
+    QString targetLoginHint;
+    std::optional<RaidEvent> event;
+    qint64 deadlineMs = 0;
+    bool absoluteDeadline = false;
+};
+std::optional<RaidFeedMessage> parseRaidFeed(const QJsonObject &payload,
+                                             qint64 receivedAtMs,
+                                             QString *error = nullptr);
 std::optional<RaidEvent> parseRaidEvent(const QJsonObject &payload,
-                                        qint64 timestampMs,
+                                        qint64 receivedAtMs,
                                         QString *error = nullptr);
+enum class RaidFeedAction { Wait, Fire, Cancelled, Ignore };
+struct RaidFeedResult {
+    RaidFeedAction action = RaidFeedAction::Ignore;
+    QString sourceId;
+    QString raidId;
+    std::optional<RaidEvent> event;
+    QString reason;
+};
+class RaidFeedTracker
+{
+public:
+    RaidFeedResult observe(const QJsonObject &payload, qint64 receivedAtMs);
+    QVector<RaidFeedResult> expire(qint64 nowMs);
+    std::optional<qint64> nextDeadline() const;
+    void retain(const std::set<QString> &sources);
+
+private:
+    struct Pending {
+        QString id;
+        std::optional<RaidEvent> event;
+        qint64 deadline = 0;
+        RaidFeedAction state = RaidFeedAction::Wait;
+    };
+    std::map<QString, Pending> pending_;
+    std::map<std::pair<QString, QString>, qint64>
+        cancelled_;  // Short tombstones for reordered cancels
+};
 struct RaidContext {
     bool enabled = false;
     bool switchToTab = true;
@@ -40,11 +88,10 @@ struct RaidContext {
     bool sourceOpen = false;
     bool mainActive = false;
     bool hasDraft = false;
-    qint64 nowMs = 0;  // Monotonic time for caps/dedupe.
+    qint64 nowMs = 0;
     qint64 nowUtcMs = 0;
     qint64 enabledAtUtcMs = 0;
-    qint64 receivedAtUtcMs =
-        0;  // Local arrival clock avoids server skew at the enable boundary.
+    qint64 receivedAtUtcMs = 0;
 };
 enum class RaidAction { Ignore, OpenAndJoin, SelectExisting };
 struct RaidDecision {
@@ -52,42 +99,35 @@ struct RaidDecision {
     bool switchToTab = false;
     QString reason;
 };
-enum class RaidWatchState {
-    Inactive,
-    Waiting,
-    Subscribing,
-    Subscribed,
-    Failed
-};
-struct RaidSubscriptionStatus {
-    RaidWatchState state = RaidWatchState::Inactive;
-    QString detail;
-};
-struct RaidWatchStatus {
-    QString login;
-    RaidSubscriptionStatus subscription;
-    int retrySeconds = 0;
-};
 struct RaidStatusContext {
     bool enabled = false;
     bool loggedIn = false;
-    bool hasToken = false;
-    bool eventSubAvailable = false;
-    bool eventSubSetting = false;
-    bool waitingForIds = false;
-    QVector<RaidWatchStatus> watches;
+    int listening = 0;
+    int waitingForIds = 0;
     QString lastEvent;
 };
-QString raidSafeReason(QString reason, const QStringList &secrets = {});
-QString raidWatchStateText(const RaidSubscriptionStatus &status);
 QString raidStatusText(const RaidStatusContext &context);
 QString raidStatusDetails(const RaidStatusContext &context);
-int raidRetrySeconds(int failures);
+struct RaidTestCommand {
+    QString login;
+    QString id;
+};
+std::optional<RaidTestCommand> parseRaidTestCommand(const QStringList &words,
+                                                    QString *error = nullptr);
+QString raidTestKnownId(const RaidTestCommand &command, const QString &localId);
+enum class RaidLookupStatus { Found, NotFound, Error, Timeout };
+struct RaidLookupResult {
+    bool usable = false;
+    QString id;
+    QString reason;
+};
+RaidLookupResult raidLookupResult(const QString &login, RaidLookupStatus status,
+                                  const QString &returnedId = {},
+                                  const QString &returnedLogin = {});
 class RaidPolicy
 {
 public:
     RaidDecision decide(const RaidEvent &event, const RaidContext &context);
-
 private:
     struct Seen {
         QString source;

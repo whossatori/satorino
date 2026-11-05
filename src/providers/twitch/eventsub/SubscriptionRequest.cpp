@@ -36,10 +36,6 @@ QDebug operator<<(QDebug dbg, const SubscriptionRequest &v)
 
 bool operator==(const SubscriptionRequest &lhs, const SubscriptionRequest &rhs)
 {
-    // satorino: raid ownership stays distinct during an account-change unsubscribe.
-    if (lhs.subscriptionType == "channel.raid" &&
-        lhs.ownerTwitchUserID != rhs.ownerTwitchUserID)
-        return false;
     return std::tie(lhs.subscriptionType, lhs.subscriptionVersion,
                     lhs.conditions) == std::tie(rhs.subscriptionType,
                                                 rhs.subscriptionVersion,

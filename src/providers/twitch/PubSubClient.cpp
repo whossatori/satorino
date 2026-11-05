@@ -7,6 +7,7 @@
 #include "common/QLogging.hpp"
 #include "providers/twitch/PubSubManager.hpp"
 #include "providers/twitch/PubSubMessages.hpp"
+#include "util/SatorinoRaid.hpp"  // satorino: shared go/cancel/countdown payload adapter
 
 namespace chatterino {
 
@@ -324,33 +325,17 @@ void PubSubClient::handleMessageResponse(const PubSubMessageMessage &message)
             return;
         }
 
-        const auto type = message.messageObject.value("type").toString();
-        if (type != "raid_update_v2")
+        // satorino: keep update payloads intact; accept terminal go/cancel even without a raid object.
+        const auto payload =
+            satorino::normaliseRaidFeed(message.topic, message.messageObject);
+        if (!payload)
         {
-            qCDebug(chatterinoPubSub) << "Invalid raid event type:" << type;
+            qCDebug(chatterinoPubSub)
+                << "Invalid raid event type/payload:"
+                << message.messageObject.value("type").toString();
             return;
         }
-
-        auto raid = message.messageObject.value("raid").toObject();
-        if (raid.isEmpty())
-        {
-            raid = message.messageObject.value("data")
-                       .toObject()
-                       .value("raid")
-                       .toObject();
-        }
-        if (raid.isEmpty())
-        {
-            qCDebug(chatterinoPubSub) << "Raid event missing raid payload";
-            return;
-        }
-
-        QJsonObject payload;
-        payload["type"] = type;
-        payload["topic"] = message.topic;
-        payload["raid"] = raid;
-
-        this->manager_.raid.updated.invoke(payload);
+        this->manager_.raid.updated.invoke(*payload);
     }
     else if (message.topic.startsWith("community-points-user-v1."))
     {

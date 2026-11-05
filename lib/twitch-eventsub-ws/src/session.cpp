@@ -521,11 +521,7 @@ boost::system::error_code Session::handleMessage(
         EVENTSUB_BAIL_HERE(error::Kind::FieldMissing);
     }
 
-    // satorino: expose raid revocations to the same raw listener for retry/status.
-    if (metadata.messageType == "notification" ||
-        (metadata.messageType == "revocation" &&
-         metadata.subscriptionType == "channel.raid" &&
-         metadata.subscriptionVersion == "1"))
+    if (metadata.messageType == "notification")
     {
         return this->onNotification(metadata, *payloadV);
     }
@@ -587,10 +583,6 @@ boost::system::error_code Session::onNotification(
     const messages::Metadata &metadata, const boost::json::value &jv)
 {
     listener->onNotification(metadata, jv);
-    // satorino: channel.raid v1 is consumed by the raw listener; no generated handler needed.
-    if (metadata.subscriptionType == "channel.raid" &&
-        metadata.subscriptionVersion == "1")
-        return {};
 
     if (!metadata.subscriptionType || !metadata.subscriptionVersion)
     {

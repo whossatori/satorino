@@ -90,8 +90,7 @@ set(test_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/src/SatorinoLive.cpp # satorino: live transitions, games, webhook privacy
     ${CMAKE_CURRENT_LIST_DIR}/src/RedeemPinFix.cpp # satorino: final pin order and persistence
     ${CMAKE_CURRENT_LIST_DIR}/src/SatorinoGames.cpp # satorino: game picker data, migration, colours and stale search tests
-    ${CMAKE_CURRENT_LIST_DIR}/src/SatorinoRaidDispatch.cpp # satorino: offline raw library dispatch and metadata
-    ${CMAKE_CURRENT_LIST_DIR}/src/SatorinoRaid.cpp # satorino: raid policy, parsing and account identity
+    ${CMAKE_CURRENT_LIST_DIR}/src/SatorinoRaid.cpp # satorino: shared raid feed, policy, cancellation, status and command lookup
     ${CMAKE_CURRENT_LIST_DIR}/src/SatorinoIndicator.cpp # satorino: shared geometry, full fill, star shape and colour regression
     ${CMAKE_CURRENT_LIST_DIR}/src/RedeemPin.cpp # satorino: pin tooltip, broadcaster identity and passive star geometry
     # Add your new file above this line!

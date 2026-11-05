@@ -47,6 +47,7 @@
 #include "providers/twitch/TwitchIrcServer.hpp"
 #include "providers/twitch/TwitchUsers.hpp"
 #include "singletons/Settings.hpp"
+#include "util/SatorinoRaid.hpp"  // satorino: shared raid-feed listening and terminal messages
 #include "singletons/WindowManager.hpp"
 #include "util/FormatTime.hpp"
 #include "util/Helpers.hpp"
@@ -68,6 +69,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <optional>  // satorino: copy terminal raid state outside its lock
 
 using namespace Qt::StringLiterals;
 
@@ -751,10 +753,15 @@ TwitchChannel::TwitchChannel(const QString &name, bool anonymous)
         },
         this->signalHolder_);
     getSettings()->showRaidStatusAboveInput.connect(
-        [this](const auto &, auto) {
+        [this](bool) {
             this->refreshPubSub();
         },
-        this->signalHolder_);
+        this->signalHolder_);  // satorino: explicit callback
+    getSettings()->satorinoRaidsOpenTab.connect(
+        [this](bool) {
+            this->refreshPubSub();
+        },
+        this->signalHolder_);  // satorino: already-open rooms
     getSettings()->showFollowEventsInChat.connect(
         [this](const auto &, auto) {
             this->refreshPubSub();
@@ -3417,7 +3424,10 @@ void TwitchChannel::refreshPubSub()
     {
         getApp()->getTwitchPubSub()->listenToPolls(roomId);
     }
-    if (getSettings()->showRaidStatusAboveInput)
+    // satorino: raid tabs share this feed even when the bar is hidden.
+    if (satorino::raidListeningEnabled(
+            getSettings()->showRaidStatusAboveInput.getValue(),
+            getSettings()->satorinoRaidsOpenTab.getValue()))
     {
         getApp()->getTwitchPubSub()->listenToRaids(roomId);
     }
@@ -4578,6 +4588,30 @@ void TwitchChannel::tryEmitPollCreatedSystemMessage(const PollEvent &poll)
 void TwitchChannel::setActiveRaid(std::optional<RaidEvent> raid)
 {
     assertInGuiThread();
+    // satorino: an early active-state clear cancels the fallback; expiry itself does not.
+    if (!raid && getSettings()->satorinoRaidsOpenTab.getValue())
+    {
+        bool early = false;
+        {
+            const auto active = this->accessRaid();
+            if (active->has_value())
+            {
+                const auto &current = **active;
+                const auto start = current.raidCreatedAt.isValid()
+                                       ? current.raidCreatedAt
+                                       : current.receivedAt;
+                early =
+                    start.isValid() &&
+                    start.addSecs(std::max(1, current.forceRaidNowSeconds)) >
+                        QDateTime::currentDateTimeUtc();
+            }
+        }
+        if (early)
+        {
+            this->clearActiveRaid();
+            return;
+        }
+    }
 
     if (raid && raid->id != this->locallyClearedRaidId_)
     {
@@ -4592,12 +4626,18 @@ void TwitchChannel::setActiveRaid(std::optional<RaidEvent> raid)
     this->raidChanged.invoke();
 }
 
-void TwitchChannel::clearActiveRaid()
+void TwitchChannel::clearActiveRaid(bool raidSent)
 {
     assertInGuiThread();
+    const auto raidRoomId =
+        this->roomId();  // satorino: stable before raidChanged callbacks
 
+    std::optional<RaidEvent>
+        cleared;  // satorino: preserve the terminal target before clearing
     {
         auto locked = this->activeRaid_.access();
+        if (locked->has_value())
+            cleared = **locked;
         if (locked->has_value() && !(**locked).id.isEmpty())
         {
             this->locallyClearedRaidId_ = (**locked).id;
@@ -4606,6 +4646,24 @@ void TwitchChannel::clearActiveRaid()
         *locked = std::nullopt;
     }
     this->raidChanged.invoke();
+    // satorino: existing IRC/unraid clears cancel the fallback; a confirmed send is a go.
+    // No raid operation is initiated here. Both enter the same shared-feed consumer.
+    if (cleared && getSettings()->satorinoRaidsOpenTab.getValue() &&
+        !isAppAboutToQuit())
+    {
+        const QJsonObject payload{
+            {"type", raidSent ? "raid_go_v2" : "raid_cancel_v2"},
+            {"topic", "raid." + raidRoomId},
+            {"raid",
+             QJsonObject{{"id", cleared->id},
+                         {"source_id", raidRoomId},
+                         {"target_id", cleared->targetId},
+                         {"target_login", cleared->targetLogin},
+                         {"target_display_name", cleared->targetDisplayName},
+                         {"viewer_count", cleared->viewerCount}}}};
+        getApp()->getWindows()->handleSatorinoRaid(
+            payload, QDateTime::currentMSecsSinceEpoch());
+    }
 }
 
 void TwitchChannel::handlePredictionUpdate(const QJsonObject &payload)
@@ -5039,6 +5097,28 @@ void TwitchChannel::handleRaidUpdate(const QJsonObject &payload)
     const auto topic = payload.value("topic").toString();
     if (topic != QStringLiteral("raid.%1").arg(this->roomId()))
     {
+        return;
+    }
+
+    // satorino: go must not restart the bar countdown; cancel clears the matching raid.
+    const auto type = payload.value("type").toString();
+    if (type == "raid_go_v2")
+        return;
+    if (type == "raid_cancel_v2")
+    {
+        const auto terminal = satorino::parseRaidFeed(
+            payload, QDateTime::currentMSecsSinceEpoch());
+        if (!terminal)
+            return;
+        bool matches = false;
+        {
+            const auto active = this->accessRaid();
+            matches =
+                active->has_value() && (terminal->raidId.isEmpty() ||
+                                        (**active).id == terminal->raidId);
+        }
+        if (matches)
+            this->clearActiveRaid();
         return;
     }
 

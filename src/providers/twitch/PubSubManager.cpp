@@ -176,6 +176,14 @@ void PubSub::listenToRaids(const QString &channelID)
 
     qCDebug(chatterinoPubSub) << "Listen to topic" << topic;
     this->private_->subscribe(TopicData{.topic = std::move(topic)});
+    this->raidTopicRequests_.insert(
+        channelID);  // satorino: count actual LISTEN requests
+}
+
+// satorino: the existing PubSub manager owns connection/reconnect/acknowledgement behavior.
+bool PubSub::isListeningToRaids(const QString &channelID) const
+{
+    return this->raidTopicRequests_.contains(channelID);
 }
 
 void PubSub::listenToUserPredictions(const QString &userID,

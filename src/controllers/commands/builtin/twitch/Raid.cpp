@@ -411,7 +411,8 @@ QString sendRaidNow(const CommandContext &ctx)
                     std::dynamic_pointer_cast<TwitchChannel>(weak.lock());
                 if (shared)
                 {
-                    shared->clearActiveRaid();
+                    shared->clearActiveRaid(
+                        true);  // satorino: confirmed go, not a cancelled countdown
                 }
                 channel->addSystemMessage("Raid sent");
             });

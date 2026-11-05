@@ -3661,23 +3661,10 @@ void Helix::createEventSubSubscription(
 
             successCallback(response);
         })
-        .onError([failureCallback,
-                  raid = request.subscriptionType ==
-                         "channel.raid"](const NetworkResult &result) {
-            // satorino: expose the exact status through the existing raid error callback only.
-            const auto reportFailure = [&](Error error,
-                                           const QString &message) {
-                failureCallback(
-                    error, raid
-                               ? (result.status() ? QString("HTTP %1: %2")
-                                                        .arg(*result.status())
-                                                        .arg(message)
-                                                  : "Network error: " + message)
-                               : message);
-            };
+        .onError([failureCallback](const NetworkResult &result) {
             if (!result.status())
             {
-                reportFailure(Error::Forwarded, result.formatError());
+                failureCallback(Error::Forwarded, result.formatError());
                 return;
             }
 
@@ -3691,54 +3678,53 @@ void Helix::createEventSubSubscription(
                             "websocket transport session does not exist",
                             Qt::CaseInsensitive))
                     {
-                        reportFailure(Error::NoSession, message);
+                        failureCallback(Error::NoSession, message);
                     }
                     else
                     {
-                        reportFailure(Error::BadRequest, message);
+                        failureCallback(Error::BadRequest, message);
                     }
                 }
                 break;
 
                 case 401: {
-                    reportFailure(Error::Unauthorized, message);
+                    failureCallback(Error::Unauthorized, message);
                 }
                 break;
 
                 case 403: {
-                    reportFailure(Error::Forbidden, message);
+                    failureCallback(Error::Forbidden, message);
                 }
                 break;
                 case 409: {
-                    reportFailure(Error::Conflict, message);
+                    failureCallback(Error::Conflict, message);
                 }
                 break;
 
                 case 429: {
-                    reportFailure(Error::Ratelimited, message);
+                    failureCallback(Error::Ratelimited, message);
                 }
                 break;
 
                 case 500: {
                     if (message.isEmpty())
                     {
-                        reportFailure(Error::Forwarded,
-                                      "Twitch internal server error");
+                        failureCallback(Error::Forwarded,
+                                        "Twitch internal server error");
                     }
                     else
                     {
-                        reportFailure(Error::Forwarded, message);
+                        failureCallback(Error::Forwarded, message);
                     }
                 }
                 break;
 
                 default: {
-                    if (!raid)  // satorino: raid errors go through sanitized diagnostics
-                        qCWarning(chatterinoTwitchEventSub)
-                            << "Helix Create EventSub Subscription, unhandled "
-                               "error data:"
-                            << result.formatError() << result.getData() << obj;
-                    reportFailure(Error::Forwarded, message);
+                    qCWarning(chatterinoTwitchEventSub)
+                        << "Helix Create EventSub Subscription, unhandled "
+                           "error data:"
+                        << result.formatError() << result.getData() << obj;
+                    failureCallback(Error::Forwarded, message);
                 }
             }
         })

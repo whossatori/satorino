@@ -45,9 +45,6 @@ struct hash<chatterino::eventsub::SubscriptionRequest> {
 
         boost::hash_combine(seed, qHash(v.subscriptionType));
         boost::hash_combine(seed, qHash(v.subscriptionVersion));
-        // satorino: match the raid-only account identity check in operator==.
-        if (v.subscriptionType == "channel.raid")
-            boost::hash_combine(seed, qHash(v.ownerTwitchUserID));
 
         for (const auto &[conditionKey, conditionValue] : v.conditions)
         {

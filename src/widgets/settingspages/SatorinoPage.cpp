@@ -104,9 +104,9 @@ void SatorinoPage::initLayout(GeneralPageView &layout)
     layout.addTitle("Raids");
     SettingWidget::checkbox("Open a tab for the channel being raided",
                             getSettings()->satorinoRaidsOpenTab)
-        ->setTooltip("Follow outgoing raids from up to ten open Twitch "
-                     "channels. Twitch's shared EventSub budget may allow "
-                     "fewer. Only opens chat; never sends a message.")
+        ->setTooltip("Follow outgoing raids from open Twitch channels using "
+                     "the shared raid status feed, even when the raid bar is "
+                     "hidden. Only opens chat; never sends a message.")
         ->addKeywords({"raid", "Twitch", "tab"})
         ->addTo(layout);
     SettingWidget::checkbox("Switch to the new tab",

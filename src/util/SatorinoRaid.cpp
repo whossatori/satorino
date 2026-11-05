@@ -6,13 +6,41 @@
 
 #include <QChar>
 #include <QJsonValue>
-#include <QJsonObject>
-#include <QRegularExpression>
-#include <QStringList>
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
+#include <utility>
 
 namespace chatterino::satorino {
+namespace {
+qint64 integer(const QJsonValue &value, qint64 fallback = 0)
+{
+    if (value.isString())
+    {
+        bool ok = false;
+        const auto number = value.toString().toLongLong(&ok);
+        return ok ? number : fallback;
+    }
+    const auto number =
+        value.toDouble(std::numeric_limits<double>::quiet_NaN());
+    if (!std::isfinite(number) || std::trunc(number) != number ||
+        number < -9007199254740991.0 || number > 9007199254740991.0)
+        return fallback;
+    return static_cast<qint64>(number);
+}
+QJsonObject raidObject(const QJsonObject &payload)
+{
+    const auto raid = payload.value("raid").toObject();
+    return raid.isEmpty()
+               ? payload.value("data").toObject().value("raid").toObject()
+               : raid;
+}
+QString field(const QJsonObject &object, const char *snake, const char *camel)
+{
+    return object.value(snake).toString(object.value(camel).toString());
+}
+}  // namespace
 bool validRaidId(const QString &id)
 {
     return !id.isEmpty() && id.size() <= 32 && id.front() != '0' &&
@@ -28,49 +56,271 @@ bool validRaidLogin(const QString &login)
                       c == '_';
            });
 }
-std::optional<RaidEvent> parseRaidEvent(const QJsonObject &input,
-                                        qint64 timestampMs, QString *error)
+bool raidListeningEnabled(bool showBar, bool openTab)
+{
+    return showBar || openTab;
+}
+std::optional<QJsonObject> normaliseRaidFeed(const QString &topic,
+                                             const QJsonObject &message)
+{
+    const auto type = message.value("type").toString();
+    if (type != "raid_update_v2" && type != "raid_go_v2" &&
+        type != "raid_cancel_v2")
+        return std::nullopt;
+    QJsonObject payload = message;
+    payload.insert("topic", topic);
+    const auto raid = raidObject(message);
+    if (type == "raid_update_v2" && raid.isEmpty())
+        return std::nullopt;
+    payload.insert("raid", raid);
+    return payload;
+}
+QString raidFeedId(const QJsonObject &payload)
+{
+    const auto raid = raidObject(payload);
+    const auto data = payload.value("data").toObject();
+    return raid.value("id").toString(
+        payload.value("raid_id").toString(payload.value("raidId").toString(
+            data.value("raid_id").toString(data.value("raidId").toString()))));
+}
+std::optional<RaidFeedMessage> parseRaidFeed(const QJsonObject &payload,
+                                             qint64 receivedAtMs,
+                                             QString *error)
 {
     const auto reject =
-        [error](const QString &reason) -> std::optional<RaidEvent> {
+        [error](const QString &reason) -> std::optional<RaidFeedMessage> {
         if (error)
             *error = reason;
         return std::nullopt;
     };
     if (error)
         error->clear();
-    QJsonObject payload = input;
-    if (input.contains("payload"))
+    const auto topic = payload.value("topic").toString();
+    const auto type = payload.value("type").toString();
+    if (!topic.startsWith("raid.") || !validRaidId(topic.mid(5)))
+        return reject("invalid raid topic/source");
+    RaidFeedMessage message;
+    message.sourceId = topic.mid(5);
+    message.raidId = raidFeedId(payload);
+    if (message.raidId.size() > 128)
+        return reject("invalid raid ID");
+    if (type == "raid_go_v2")
+        message.kind = RaidFeedKind::Go;
+    else if (type == "raid_cancel_v2")
+        message.kind = RaidFeedKind::Cancel;
+    else if (type != "raid_update_v2")
+        return reject("unsupported raid feed type");
+    const auto raid = raidObject(payload);
+    const auto source = field(raid, "source_id", "sourceID");
+    if (!source.isEmpty() && source != message.sourceId)
+        return reject("source does not match raid topic");
+    if (receivedAtMs <= 0)
+        return reject("invalid feed receipt time");
+    if (message.kind == RaidFeedKind::Cancel)
+        return message;
+    if (message.raidId.isEmpty() && message.kind == RaidFeedKind::Update)
+        return reject("missing raid ID");
+    message.targetIdHint = field(raid, "target_id", "targetID");
+    message.targetLoginHint =
+        field(raid, "target_login", "targetLogin").toLower();
+    if ((!message.targetIdHint.isEmpty() &&
+         !validRaidId(message.targetIdHint)) ||
+        (!message.targetLoginHint.isEmpty() &&
+         !validRaidLogin(message.targetLoginHint)))
+        return reject("invalid raid target");
+    if (!message.targetIdHint.isEmpty() && !message.targetLoginHint.isEmpty())
+        message.event = RaidEvent{
+            message.sourceId,
+            message.targetIdHint,
+            message.targetLoginHint,
+            field(raid, "target_display_name", "targetDisplayName"),
+            receivedAtMs,
+            std::max(qint64(0), integer(raid.value("viewer_count").isUndefined()
+                                            ? raid.value("viewerCount")
+                                            : raid.value("viewer_count")))};
+    if (message.kind == RaidFeedKind::Update && !message.event)
+        return reject("countdown has no usable target");
+    auto seconds = integer(raid.value("force_raid_now_seconds").isUndefined()
+                               ? raid.value("forceRaidNowSeconds")
+                               : raid.value("force_raid_now_seconds"),
+                           90);
+    if (seconds <= 0)
+        seconds = 90;
+    const bool safeDuration = seconds <= 3600;
+    const auto created = integer(raid.value("raid_created_at").isUndefined()
+                                     ? raid.value("raidCreatedAt")
+                                     : raid.value("raid_created_at"));
+    const auto nowSeconds = receivedAtMs / 1000;
+    message.absoluteDeadline = created > 0 && created >= nowSeconds - 3600 &&
+                               created <= nowSeconds + 30;
+    message.deadlineMs =
+        safeDuration
+            ? (message.absoluteDeadline ? created * 1000 : receivedAtMs) +
+                  seconds * 1000
+            : 0;
+    return message;
+}
+std::optional<RaidEvent> parseRaidEvent(const QJsonObject &payload,
+                                        qint64 receivedAtMs, QString *error)
+{
+    const auto message = parseRaidFeed(payload, receivedAtMs, error);
+    return message ? message->event : std::nullopt;
+}
+RaidFeedResult RaidFeedTracker::observe(const QJsonObject &payload,
+                                        qint64 receivedAtMs)
+{
+    QString error;
+    const auto message = parseRaidFeed(payload, receivedAtMs, &error);
+    if (!message)
+        return {RaidFeedAction::Ignore, {}, {}, {}, error};
+    std::erase_if(this->cancelled_, [receivedAtMs](const auto &entry) {
+        return receivedAtMs - entry.second >= RAID_DEDUPE_MS;
+    });
+    auto it = this->pending_.find(message->sourceId);
+    if (message->kind == RaidFeedKind::Cancel)
     {
-        const auto metadata = input.value("metadata").toObject();
-        if (metadata.value("message_type").toString() != "notification" ||
-            metadata.value("subscription_type").toString() != "channel.raid" ||
-            metadata.value("subscription_version").toString() != "1")
-            return reject("invalid notification metadata");
-        payload = input.value("payload").toObject();
+        const auto cancelledId =
+            message->raidId.isEmpty() && it != this->pending_.end()
+                ? it->second.id
+                : message->raidId;
+        if (!cancelledId.isEmpty())
+        {
+            if (this->cancelled_.size() >= 128)
+            {
+                const auto oldest = std::min_element(
+                    this->cancelled_.begin(), this->cancelled_.end(),
+                    [](const auto &a, const auto &b) {
+                        return a.second < b.second;
+                    });
+                this->cancelled_.erase(oldest);
+            }
+            this->cancelled_[{message->sourceId, cancelledId}] = receivedAtMs;
+        }
+        if (it != this->pending_.end() && !message->raidId.isEmpty() &&
+            it->second.id != message->raidId)
+            return {RaidFeedAction::Ignore,
+                    message->sourceId,
+                    message->raidId,
+                    {},
+                    "cancel belongs to an older raid"};
+        if (it != this->pending_.end() &&
+            it->second.state == RaidFeedAction::Fire)
+            return {RaidFeedAction::Ignore,
+                    message->sourceId,
+                    message->raidId,
+                    {},
+                    "raid already fired"};
+        if (it == this->pending_.end() && message->raidId.isEmpty())
+            return {RaidFeedAction::Ignore,
+                    message->sourceId,
+                    {},
+                    {},
+                    "no active raid to cancel"};
+        auto &pending = this->pending_[message->sourceId];
+        if (!message->raidId.isEmpty())
+            pending.id = message->raidId;
+        pending.state = RaidFeedAction::Cancelled;
+        pending.deadline = 0;
+        return {RaidFeedAction::Cancelled, message->sourceId, pending.id,
+                pending.event, "cancelled"};
     }
-    const auto subscription = payload.value("subscription").toObject();
-    const auto event = payload.value("event").toObject();
-    RaidEvent raid{
-        event.value("from_broadcaster_user_id").toString(),
-        event.value("to_broadcaster_user_id").toString(),
-        event.value("to_broadcaster_user_login").toString().toLower(),
-        event.value("to_broadcaster_user_name").toString(), timestampMs};
-    const auto condition = subscription.value("condition").toObject();
-    if (subscription.value("type").toString() != "channel.raid" ||
-        subscription.value("version").toString() != "1")
-        return reject("unsupported raid subscription type/version");
-    if (condition.value("from_broadcaster_user_id").toString() !=
-            raid.sourceId ||
-        condition.contains("to_broadcaster_user_id"))
-        return reject("incoming or mismatched source condition");
-    if (!validRaidId(raid.sourceId) || !validRaidId(raid.targetId))
-        return reject("invalid source/target ID");
-    if (!validRaidLogin(raid.targetLogin))
-        return reject("invalid target login");
-    if (timestampMs <= 0)
-        return reject("invalid notification timestamp");
-    return raid;
+    const auto id = message->raidId.isEmpty() && it != this->pending_.end()
+                        ? it->second.id
+                        : message->raidId;
+    if (id.isEmpty())
+        return {RaidFeedAction::Ignore,
+                message->sourceId,
+                {},
+                {},
+                "missing raid ID"};
+    if (this->cancelled_.contains({message->sourceId, id}))
+        return {RaidFeedAction::Ignore,
+                message->sourceId,
+                id,
+                {},
+                "raid was cancelled"};
+    const bool same = it != this->pending_.end() && it->second.id == id;
+    if (same && (it->second.state == RaidFeedAction::Cancelled ||
+                 it->second.state == RaidFeedAction::Fire))
+        return {RaidFeedAction::Ignore, message->sourceId, id,
+                message->event ? message->event : it->second.event,
+                it->second.state == RaidFeedAction::Cancelled
+                    ? "raid was cancelled"
+                    : "duplicate completed raid"};
+    auto event = message->event;
+    if (!event && same && it->second.event)
+    {
+        event = it->second.event;
+        if ((!message->targetIdHint.isEmpty() &&
+             message->targetIdHint != event->targetId) ||
+            (!message->targetLoginHint.isEmpty() &&
+             message->targetLoginHint != event->targetLogin))
+        {
+            it->second.deadline = 0;
+            it->second.state = RaidFeedAction::Ignore;
+            return {RaidFeedAction::Ignore,
+                    message->sourceId,
+                    id,
+                    {},
+                    "go target does not match countdown"};
+        }
+        event->timestampMs = receivedAtMs;
+    }
+    if (!event)
+        return {RaidFeedAction::Ignore,
+                message->sourceId,
+                id,
+                {},
+                "go has no usable target/countdown"};
+    auto &pending = this->pending_[message->sourceId];
+    const auto previousDeadline = same ? pending.deadline : 0;
+    pending.id = id;
+    pending.event = event;
+    if (message->kind == RaidFeedKind::Go)
+    {
+        pending.state = RaidFeedAction::Fire;
+        pending.deadline = 0;
+        return {RaidFeedAction::Fire, message->sourceId, id, event, "go"};
+    }
+    pending.state = RaidFeedAction::Wait;
+    pending.deadline =
+        same && !message->absoluteDeadline && previousDeadline > 0
+            ? previousDeadline
+            : message->deadlineMs;
+    return {RaidFeedAction::Wait, message->sourceId, id, event, "countdown"};
+}
+QVector<RaidFeedResult> RaidFeedTracker::expire(qint64 nowMs)
+{
+    QVector<RaidFeedResult> results;
+    for (auto &[source, pending] : this->pending_)
+        if (pending.state == RaidFeedAction::Wait && pending.event &&
+            pending.deadline > 0 && pending.deadline <= nowMs)
+        {
+            pending.state = RaidFeedAction::Fire;
+            pending.deadline = 0;
+            pending.event->timestampMs = nowMs;
+            results.push_back({RaidFeedAction::Fire, source, pending.id,
+                               pending.event, "countdown end"});
+        }
+    return results;
+}
+std::optional<qint64> RaidFeedTracker::nextDeadline() const
+{
+    std::optional<qint64> next;
+    for (const auto &[source, pending] : this->pending_)
+        if (pending.state == RaidFeedAction::Wait && pending.deadline > 0 &&
+            (!next || pending.deadline < *next))
+            next = pending.deadline;
+    return next;
+}
+void RaidFeedTracker::retain(const std::set<QString> &sources)
+{
+    std::erase_if(this->pending_, [&sources](const auto &entry) {
+        return !sources.contains(entry.first);
+    });
+    std::erase_if(this->cancelled_, [&sources](const auto &entry) {
+        return !sources.contains(entry.first.first);
+    });
 }
 RaidDecision RaidPolicy::decide(const RaidEvent &event,
                                 const RaidContext &context)
@@ -134,113 +384,76 @@ RaidDecision RaidPolicy::decide(const RaidEvent &event,
             : context.hasDraft    ? "current input has a draft"
                                   : QString{}};
 }
-QString raidSafeReason(QString reason, const QStringList &secrets)
-{
-    for (const auto &secret : secrets)
-        if (!secret.isEmpty())
-            reason.replace(secret, "[redacted]");
-    reason.replace(
-        QRegularExpression("(Bearer|OAuth)\\s+[^\\s]+",
-                           QRegularExpression::CaseInsensitiveOption),
-        "[redacted]");
-    reason.replace(QRegularExpression("https?://[^\\s]+"), "[URL]");
-    const auto brace = reason.indexOf('{');
-    if (brace >= 0)
-        reason = reason.left(brace) + "request rejected";
-    return reason.simplified().left(160);
-}
-QString raidWatchStateText(const RaidSubscriptionStatus &status)
-{
-    switch (status.state)
-    {
-        case RaidWatchState::Inactive:
-            return "not requested";
-        case RaidWatchState::Waiting:
-            return status.detail.isEmpty()
-                       ? "waiting for connection"
-                       : "retrying: " + raidSafeReason(status.detail);
-        case RaidWatchState::Subscribing:
-            return "subscribing";
-        case RaidWatchState::Subscribed:
-            return "subscribed";
-        case RaidWatchState::Failed:
-            return "failed: " + (status.detail.isEmpty()
-                                     ? QString("request failed")
-                                     : raidSafeReason(status.detail));
-    }
-    return "unknown";
-}
-QString raidStatusDetails(const RaidStatusContext &context)
-{
-    QStringList lines;
-    for (const auto &watch : context.watches)
-        lines.push_back(watch.login + ": " +
-                        raidWatchStateText(watch.subscription) +
-                        (watch.retrySeconds > 0
-                             ? QString("; retry in %1s").arg(watch.retrySeconds)
-                             : QString{}));
-    if (!context.lastEvent.isEmpty())
-        lines.push_back(context.lastEvent);
-    return lines.join('\n');
-}
 QString raidStatusText(const RaidStatusContext &context)
 {
     if (!context.enabled)
         return "Raid watch: off";
     if (!context.loggedIn)
         return "Raid watch: not logged in";
-    if (!context.hasToken)
-        return "Raid watch: account has no OAuth token";
-    QString text;
-    if (!context.eventSubAvailable)
-        text = context.eventSubSetting
-                   ? "Raid watch: EventSub disabled at startup; restart needed"
-                   : "Raid watch: EventSub disabled in General > Advanced; "
-                     "enable it and restart";
-    else if (context.watches.isEmpty())
-        text = context.waitingForIds ? "Raid watch: waiting for channel room ID"
-                                     : "Raid watch: no open Twitch channels";
-    else
-    {
-        QStringList names;
-        int subscribed = 0;
-        const RaidWatchStatus *failed = nullptr;
-        for (const auto &watch : context.watches)
-        {
-            subscribed +=
-                watch.subscription.state == RaidWatchState::Subscribed ? 1 : 0;
-            if (!failed && watch.subscription.state == RaidWatchState::Failed)
-                failed = &watch;
-            if (names.size() < 3)
-                names.push_back(watch.login + ": " +
-                                raidWatchStateText(watch.subscription));
-        }
-        if (failed)
-            text = "Raid watch: could not watch " + failed->login + ": " +
-                   raidWatchStateText(failed->subscription) +
-                   (failed->retrySeconds > 0
-                        ? QString("; retry in %1s").arg(failed->retrySeconds)
-                        : QString{});
-        else if (subscribed == 0)
-            text =
-                "Raid watch: waiting for connection (" + names.join(", ") + ")";
-        else
-            text = QString("Raid watch: watching %1/%2 channels (%3%4)")
-                       .arg(subscribed)
-                       .arg(context.watches.size())
-                       .arg(names.join(", "),
-                            context.watches.size() > 3 ? ", ..." : "");
-        if (!context.eventSubSetting)
-            text += "; EventSub setting off, restart pending";
-    }
-    if (!context.lastEvent.isEmpty())
-        text += " | " + context.lastEvent;
-    else if (context.eventSubAvailable && !context.watches.isEmpty())
-        text += "; no raid event received";
+    QString text = QString("Raid watch: listening on %1 open channels")
+                       .arg(context.listening);
+    if (context.waitingForIds > 0)
+        text += QString("; waiting for room ID/feed on %1")
+                    .arg(context.waitingForIds);
+    text += context.lastEvent.isEmpty() ? "; no raid seen yet"
+                                        : " | " + context.lastEvent;
     return text;
 }
-int raidRetrySeconds(int failures)
+QString raidStatusDetails(const RaidStatusContext &context)
 {
-    return std::min(60, 5 * (1 << std::clamp(failures, 0, 4)));
+    return QString("Shared raid status feed (raid bar): %1 open channels "
+                   "requested; %2 waiting for a room ID. Trigger: raid_go_v2; "
+                   "cancellable one-shot countdown end fallback. Existing "
+                   "PubSub connection/acknowledgement handling applies; this "
+                   "count is not a live delivery guarantee.")
+        .arg(context.listening)
+        .arg(context.waitingForIds);
+}
+std::optional<RaidTestCommand> parseRaidTestCommand(const QStringList &words,
+                                                    QString *error)
+{
+    if (error)
+        error->clear();
+    const auto reject =
+        [error](const QString &reason) -> std::optional<RaidTestCommand> {
+        if (error)
+            *error = reason;
+        return std::nullopt;
+    };
+    if (words.size() < 2 || words.size() > 3)
+        return reject("Usage: /satorino-testraid <targetLogin> [targetId]");
+    RaidTestCommand command{words[1].toLower(),
+                            words.size() == 3 ? words[2] : QString{}};
+    if (!validRaidLogin(command.login))
+        return reject("Raid test: invalid target login");
+    if (!command.id.isEmpty() && !validRaidId(command.id))
+        return reject("Raid test: invalid target ID");
+    return command;
+}
+QString raidTestKnownId(const RaidTestCommand &command, const QString &localId)
+{
+    return !command.id.isEmpty()  ? command.id
+           : validRaidId(localId) ? localId
+                                  : QString{};
+}
+RaidLookupResult raidLookupResult(const QString &login, RaidLookupStatus status,
+                                  const QString &returnedId,
+                                  const QString &returnedLogin)
+{
+    switch (status)
+    {
+        case RaidLookupStatus::NotFound:
+            return {false, {}, "target not found"};
+        case RaidLookupStatus::Error:
+            return {false, {}, "users lookup failed"};
+        case RaidLookupStatus::Timeout:
+            return {false, {}, "users lookup timed out"};
+        case RaidLookupStatus::Found:
+            if (!validRaidId(returnedId) ||
+                returnedLogin.compare(login, Qt::CaseInsensitive) != 0)
+                return {false, {}, "invalid/mismatched users lookup result"};
+            return {true, returnedId, {}};
+    }
+    return {false, {}, "invalid lookup result"};
 }
 }  // namespace chatterino::satorino

@@ -3,19 +3,15 @@
 // SPDX-License-Identifier: MIT
 
 #include "util/SatorinoRaid.hpp"
-
-#include "providers/twitch/eventsub/SubscriptionRequest.hpp"
-#include "providers/twitch/eventsub/Controller.hpp"
-#include <QDateTime>
 #include "Test.hpp"
 
-#include <QJsonDocument>
+#include <QDateTime>
 #include <QJsonObject>
 #include <QString>
+#include <QStringList>
 
-#include <functional>
 #include <initializer_list>
-#include <unordered_set>
+#include <set>
 
 using namespace chatterino::satorino;
 namespace {
@@ -25,27 +21,27 @@ RaidEvent event(const QString &target = "200", qint64 at = 1000000)
 }
 RaidContext context(qint64 now = 0)
 {
-    RaidContext result;
-    result.enabled = true;
-    result.loggedIn = true;
-    result.sourceOpen = true;
-    result.mainActive = true;
-    result.nowMs = now;
-    result.nowUtcMs = 1000000 + now;
-    result.enabledAtUtcMs = 1000000;
-    return result;
+    RaidContext input;
+    input.enabled = input.loggedIn = input.sourceOpen = input.mainActive = true;
+    input.nowMs = now;
+    input.nowUtcMs = 1000000 + now;
+    input.enabledAtUtcMs = 1000000;
+    return input;
 }
-QJsonObject payload()
+QJsonObject payload(const QString &type = "raid_go_v2",
+                    const QString &id = "raid-first",
+                    const QString &target = "200")
 {
-    return QJsonDocument::fromJson(R"({
-        "subscription": {"type":"channel.raid", "version":"1",
-            "condition":{"from_broadcaster_user_id":"100"}},
-        "event": {"from_broadcaster_user_id":"100", "from_broadcaster_user_login":"source",
-            "from_broadcaster_user_name":"Source", "to_broadcaster_user_id":"200",
-            "to_broadcaster_user_login":"Target_Channel", "to_broadcaster_user_name":"Target Channel",
-            "viewers":42}
-    })")
-        .object();
+    return QJsonObject{
+        {"type", type},
+        {"topic", "raid.100"},
+        {"raid", QJsonObject{{"id", id},
+                             {"source_id", "100"},
+                             {"target_id", target},
+                             {"target_login", "Target_Channel"},
+                             {"target_display_name", "Target Channel"},
+                             {"force_raid_now_seconds", 90},
+                             {"viewer_count", 275}}}};
 }
 }  // namespace
 TEST(SatorinoRaid,
@@ -191,197 +187,7 @@ TEST(SatorinoRaid, RejectsStaleFutureAndPriorEnableEpochNotifications)
     auto input = context(RAID_DEDUPE_MS + 1);
     EXPECT_EQ(policy.decide(event(), input).action, RaidAction::Ignore);
 }
-TEST(SatorinoRaid, ParsesOutgoingSampleAndPreservesMetadataTimestamp)
-{
-    const auto result = parseRaidEvent(payload(), 1234567);
-    ASSERT_TRUE(result);
-    EXPECT_EQ(result->sourceId, "100");
-    EXPECT_EQ(result->targetId, "200");
-    EXPECT_EQ(result->targetLogin, "target_channel");
-    EXPECT_EQ(result->targetName, "Target Channel");
-    EXPECT_EQ(result->timestampMs, 1234567);
-}
-TEST(SatorinoRaid, ParserRejectsIncomingWrongVersionAndMalformedPayloads)
-{
-    EXPECT_FALSE(parseRaidEvent({}, 1234567));
-    EXPECT_FALSE(parseRaidEvent(payload(), 0));
-    for (const auto &subscription :
-         {QJsonObject{
-              {"type", "channel.raid"},
-              {"version", "2"},
-              {"condition", QJsonObject{{"from_broadcaster_user_id", "100"}}}},
-          QJsonObject{
-              {"type", "channel.raid"},
-              {"version", "1"},
-              {"condition", QJsonObject{{"to_broadcaster_user_id", "200"}}}},
-          QJsonObject{
-              {"type", "channel.raid"},
-              {"version", "1"},
-              {"condition", QJsonObject{{"from_broadcaster_user_id", "999"}}}},
-          QJsonObject{
-              {"type", "channel.raid"},
-              {"version", "1"},
-              {"condition", QJsonObject{{"from_broadcaster_user_id", "100"},
-                                        {"to_broadcaster_user_id", "200"}}}},
-          QJsonObject{
-              {"type", "channel.update"},
-              {"version", "1"},
-              {"condition", QJsonObject{{"from_broadcaster_user_id", "100"}}}}})
-    {
-        auto sample = payload();
-        sample.insert("subscription", subscription);
-        EXPECT_FALSE(parseRaidEvent(sample, 1234567));
-    }
-    auto sample = payload();
-    sample.insert("event",
-                  QJsonObject{{"from_broadcaster_user_id", 100},
-                              {"to_broadcaster_user_id", "200"},
-                              {"to_broadcaster_user_login", "target"}});
-    EXPECT_FALSE(parseRaidEvent(sample, 1234567));
-}
-TEST(SatorinoRaid,
-     RaidSubscriptionIdentityIncludesOwnerAndRetainsOtherTopicIdentity)
-{
-    chatterino::eventsub::SubscriptionRequest a;
-    a.subscriptionType = "channel.raid";
-    a.subscriptionVersion = "1";
-    a.ownerTwitchUserID = "1";
-    a.conditions.emplace_back("from_broadcaster_user_id", "100");
-    auto b = a;
-    b.ownerTwitchUserID = "2";
-    EXPECT_NE(a, b);
-    std::unordered_set<chatterino::eventsub::SubscriptionRequest> requests{a,
-                                                                           b};
-    EXPECT_EQ(requests.size(), 2U);
-    b = a;
-    EXPECT_EQ(a, b);
-    EXPECT_EQ(std::hash<chatterino::eventsub::SubscriptionRequest>{}(a),
-              std::hash<chatterino::eventsub::SubscriptionRequest>{}(b));
-    a.subscriptionType = "channel.update";
-    b = a;
-    b.ownerTwitchUserID = "2";
-    EXPECT_EQ(a, b);
-}
-
-TEST(SatorinoRaid, StatusChooserReportsEveryPipelineGate)
-{
-    RaidStatusContext status;
-    EXPECT_EQ(raidStatusText(status), "Raid watch: off");
-    status.enabled = true;
-    EXPECT_EQ(raidStatusText(status), "Raid watch: not logged in");
-    status.loggedIn = true;
-    EXPECT_TRUE(raidStatusText(status).contains("no OAuth token"));
-    status.hasToken = true;
-    EXPECT_TRUE(raidStatusText(status).contains("enable it and restart"));
-    status.eventSubSetting = true;
-    EXPECT_TRUE(raidStatusText(status).contains("restart needed"));
-    status.eventSubAvailable = true;
-    EXPECT_TRUE(raidStatusText(status).contains("no open Twitch"));
-    status.waitingForIds = true;
-    EXPECT_TRUE(raidStatusText(status).contains("room ID"));
-    status.watches.push_back({"own", {RaidWatchState::Waiting, {}}, 0});
-    EXPECT_TRUE(raidStatusText(status).contains("waiting for connection"));
-    status.watches.front().subscription.state = RaidWatchState::Subscribing;
-    EXPECT_TRUE(raidStatusText(status).contains("own: subscribing"));
-    status.watches.front().subscription = {RaidWatchState::Subscribed, {}};
-    EXPECT_TRUE(raidStatusText(status).contains("watching 1/1"));
-    status.watches.front().subscription = {
-        RaidWatchState::Failed,
-        "HTTP 403: subscription missing proper authorization"};
-    status.watches.front().retrySeconds = 5;
-    EXPECT_TRUE(raidStatusText(status).contains("could not watch own"));
-    EXPECT_TRUE(raidStatusText(status).contains("HTTP 403"));
-    EXPECT_TRUE(raidStatusText(status).contains("retry in 5s"));
-    status.lastEvent =
-        "Last raid event: own -> alt at 12:00, ignored (target is blocked)";
-    EXPECT_TRUE(raidStatusText(status).contains(status.lastEvent));
-}
-TEST(SatorinoRaid, PerWatchStatesAndDetailsIncludePendingSubscribedAndFailure)
-{
-    EXPECT_EQ(raidWatchStateText({RaidWatchState::Inactive, {}}),
-              "not requested");
-    EXPECT_EQ(raidWatchStateText({RaidWatchState::Waiting, {}}),
-              "waiting for connection");
-    EXPECT_TRUE(raidWatchStateText({RaidWatchState::Waiting, "HTTP 500: busy"})
-                    .contains("retrying: HTTP 500"));
-    EXPECT_EQ(raidWatchStateText({RaidWatchState::Subscribing, {}}),
-              "subscribing");
-    EXPECT_EQ(raidWatchStateText({RaidWatchState::Subscribed, {}}),
-              "subscribed");
-    EXPECT_TRUE(raidWatchStateText({RaidWatchState::Failed, {}})
-                    .contains("request failed"));
-    RaidStatusContext status;
-    status.enabled = status.loggedIn = status.hasToken =
-        status.eventSubAvailable = status.eventSubSetting = true;
-    for (int i = 0; i < 10; ++i)
-        status.watches.push_back(
-            {QString("channel%1").arg(i), {RaidWatchState::Subscribed, {}}, 0});
-    EXPECT_TRUE(raidStatusText(status).contains("watching 10/10"));
-    EXPECT_TRUE(raidStatusDetails(status).contains("channel9: subscribed"));
-    status.eventSubSetting = false;
-    EXPECT_TRUE(raidStatusText(status).contains("restart pending"));
-}
-TEST(SatorinoRaid, DummyControllerCannotPretendToWatch)
-{
-    chatterino::eventsub::DummyController controller;
-    chatterino::eventsub::SubscriptionRequest request;
-    request.subscriptionType = "channel.raid";
-    EXPECT_FALSE(controller.raidsAvailable());
-    EXPECT_EQ(controller.raidSubscriptionStatus(request).state,
-              RaidWatchState::Inactive);
-    EXPECT_FALSE(controller.subscribe(request));
-}
-TEST(SatorinoRaid, FailureBackoffIsBounded)
-{
-    EXPECT_EQ(raidRetrySeconds(0), 5);
-    EXPECT_EQ(raidRetrySeconds(1), 10);
-    EXPECT_EQ(raidRetrySeconds(2), 20);
-    EXPECT_EQ(raidRetrySeconds(3), 40);
-    EXPECT_EQ(raidRetrySeconds(4), 60);
-    EXPECT_EQ(raidRetrySeconds(100), 60);
-    EXPECT_EQ(raidRetrySeconds(-1), 5);
-}
-TEST(SatorinoRaid, ReasonsAreRedactedAndBoundedBeforeUiOrLogs)
-{
-    const auto reason = raidSafeReason(
-        "HTTP 401: Bearer my_secret https://example.invalid/?token=my_secret",
-        {"my_secret"});
-    EXPECT_TRUE(reason.contains("HTTP 401"));
-    EXPECT_FALSE(reason.contains("my_secret"));
-    EXPECT_FALSE(reason.contains("example.invalid"));
-    EXPECT_FALSE(raidSafeReason("HTTP 400: {raw_payload: true}")
-                     .contains("raw_payload"));
-    EXPECT_LE(raidSafeReason(QString(500, 'x')).size(), 160);
-}
-TEST(SatorinoRaid, FullMessageAndPayloadOnlyProduceTheSameEvent)
-{
-    const auto now =
-        QDateTime::fromString("2026-11-05T13:45:12.123Z", Qt::ISODateWithMs)
-            .toMSecsSinceEpoch();
-    ASSERT_GT(now, 0);
-    const QJsonObject full{
-        {"metadata",
-         QJsonObject{{"message_id", "f8d8b9e9-4255-4f31-a404-6c8dbf0ff343"},
-                     {"message_type", "notification"},
-                     {"message_timestamp", "2026-11-05T13:45:12.123456789Z"},
-                     {"subscription_type", "channel.raid"},
-                     {"subscription_version", "1"}}},
-        {"payload", payload()}};
-    QString error;
-    const auto bare = parseRaidEvent(payload(), now, &error);
-    EXPECT_TRUE(error.isEmpty());
-    const auto wrapped = parseRaidEvent(full, now, &error);
-    ASSERT_TRUE(bare);
-    ASSERT_TRUE(wrapped);
-    EXPECT_EQ(wrapped->sourceId, bare->sourceId);
-    EXPECT_EQ(wrapped->targetId, bare->targetId);
-    EXPECT_EQ(wrapped->timestampMs, now);
-    auto malformed = full;
-    malformed.insert("metadata", QJsonObject{{"message_type", "revocation"}});
-    EXPECT_FALSE(parseRaidEvent(malformed, now, &error));
-    EXPECT_EQ(error, "invalid notification metadata");
-}
-TEST(SatorinoRaid, RealisticUtcMetadataAgeAndLocalArrivalEpoch)
+TEST(SatorinoRaid, FeedReceiptAgeAndLocalArrivalEpoch)
 {
     const auto now =
         QDateTime::fromString("2026-11-05T13:45:12.123Z", Qt::ISODateWithMs)
@@ -420,4 +226,288 @@ TEST(SatorinoRaid, DecisionReasonsExplainIgnoredAndUnswitchedActions)
     input.nowMs = 1000;
     EXPECT_TRUE(
         policy.decide(event("201"), input).reason.contains("rate limit"));
+}
+
+TEST(SatorinoRaid, ExistingFeedUpdateAndGoPayloadShapesMapTargetAndViewers)
+{
+    for (const auto &type : {QString("raid_update_v2"), QString("raid_go_v2")})
+    {
+        const auto raw = payload(type);
+        const auto wrapped = QJsonObject{
+            {"type", type}, {"data", QJsonObject{{"raid", raw.value("raid")}}}};
+        for (const auto &shape : {raw, wrapped})
+        {
+            const auto normalized = normaliseRaidFeed("raid.100", shape);
+            ASSERT_TRUE(normalized);
+            const auto feed = parseRaidFeed(*normalized, 1000000);
+            ASSERT_TRUE(feed);
+            ASSERT_TRUE(feed->event);
+            EXPECT_EQ(feed->kind, type == "raid_go_v2" ? RaidFeedKind::Go
+                                                       : RaidFeedKind::Update);
+            EXPECT_EQ(feed->sourceId, "100");
+            EXPECT_EQ(feed->event->targetId, "200");
+            EXPECT_EQ(feed->event->targetLogin, "target_channel");
+            EXPECT_EQ(feed->event->targetName, "Target Channel");
+            EXPECT_EQ(feed->event->viewerCount, 275);
+            EXPECT_EQ(feed->event->timestampMs, 1000000);
+        }
+    }
+}
+TEST(SatorinoRaid, ExistingCamelCaseAliasesAndStringCountsAreAccepted)
+{
+    auto input = payload();
+    input.insert("raid", QJsonObject{{"id", "raid-first"},
+                                     {"sourceID", "100"},
+                                     {"targetID", "200"},
+                                     {"targetLogin", "target_channel"},
+                                     {"targetDisplayName", "Target"},
+                                     {"viewerCount", "42"},
+                                     {"forceRaidNowSeconds", 90}});
+    const auto parsed = parseRaidEvent(input, 1000000);
+    ASSERT_TRUE(parsed);
+    EXPECT_EQ(parsed->viewerCount, 42);
+    EXPECT_EQ(parsed->targetName, "Target");
+}
+TEST(SatorinoRaid,
+     BareGoUsesMatchingCountdownTargetAndCancelCanHaveNoRaidObject)
+{
+    RaidFeedTracker feed;
+    EXPECT_EQ(feed.observe(payload("raid_update_v2"), 1000000).action,
+              RaidFeedAction::Wait);
+    const QJsonObject go{{"type", "raid_go_v2"},
+                         {"data", QJsonObject{{"raid_id", "raid-first"}}}};
+    const auto normalized = normaliseRaidFeed("raid.100", go);
+    ASSERT_TRUE(normalized);
+    const auto result = feed.observe(*normalized, 1001000);
+    EXPECT_EQ(result.action, RaidFeedAction::Fire);
+    ASSERT_TRUE(result.event);
+    EXPECT_EQ(result.event->targetLogin, "target_channel");
+    EXPECT_EQ(result.event->viewerCount, 275);
+    EXPECT_EQ(result.event->timestampMs, 1001000);
+    const auto cancel =
+        normaliseRaidFeed("raid.100", QJsonObject{{"type", "raid_cancel_v2"}});
+    ASSERT_TRUE(cancel);
+    const auto cancelled = parseRaidFeed(*cancel, 1002000);
+    ASSERT_TRUE(cancelled);
+    EXPECT_EQ(cancelled->kind, RaidFeedKind::Cancel);
+}
+TEST(SatorinoRaid, OnlyGoFiresDuringCountdownAndDuplicateGoCannotFireAgain)
+{
+    RaidFeedTracker feed;
+    EXPECT_EQ(feed.observe(payload("raid_update_v2"), 1000000).action,
+              RaidFeedAction::Wait);
+    EXPECT_EQ(feed.observe(payload("raid_update_v2"), 1001000).action,
+              RaidFeedAction::Wait);
+    EXPECT_EQ(feed.observe(payload(), 1005000).action, RaidFeedAction::Fire);
+    EXPECT_EQ(feed.observe(payload(), 1005001).action, RaidFeedAction::Ignore);
+    EXPECT_EQ(feed.observe(payload("raid_update_v2"), 1006000).action,
+              RaidFeedAction::Ignore);
+    EXPECT_TRUE(feed.expire(1200000).isEmpty());
+}
+TEST(SatorinoRaid, CancelNeverOpensEvenWithLateGoOrLateUpdates)
+{
+    RaidFeedTracker feed;
+    feed.observe(payload("raid_update_v2"), 1000000);
+    EXPECT_EQ(feed.observe(payload("raid_cancel_v2"), 1001000).action,
+              RaidFeedAction::Cancelled);
+    EXPECT_FALSE(feed.nextDeadline());
+    EXPECT_EQ(feed.observe(payload(), 1002000).action, RaidFeedAction::Ignore);
+    EXPECT_EQ(feed.observe(payload("raid_update_v2"), 1003000).action,
+              RaidFeedAction::Ignore);
+    EXPECT_TRUE(feed.expire(1200000).isEmpty());
+}
+TEST(SatorinoRaid,
+     ReorderedCancelBeforeUpdateIsRememberedAndOldCancelDoesNotStopNewRaid)
+{
+    RaidFeedTracker feed;
+    feed.observe(payload("raid_cancel_v2", "raid-first"), 1000000);
+    EXPECT_EQ(
+        feed.observe(payload("raid_update_v2", "raid-first"), 1001000).action,
+        RaidFeedAction::Ignore);
+    EXPECT_EQ(
+        feed.observe(payload("raid_update_v2", "raid-second"), 1002000).action,
+        RaidFeedAction::Wait);
+    feed.observe(payload("raid_cancel_v2", "raid-first"), 1003000);
+    EXPECT_EQ(
+        feed.observe(payload("raid_go_v2", "raid-second"), 1004000).action,
+        RaidFeedAction::Fire);
+    RaidFeedTracker previous;
+    previous.observe(payload("raid_go_v2", "old"), 1000000);
+    previous.observe(payload("raid_cancel_v2", "new"), 1001000);
+    EXPECT_EQ(previous.observe(payload("raid_go_v2", "new"), 1002000).action,
+              RaidFeedAction::Ignore);
+}
+TEST(SatorinoRaid,
+     CountdownFallbackExpiresOnceAndRepeatedUpdatesDoNotSlideDeadline)
+{
+    RaidFeedTracker feed;
+    feed.observe(payload("raid_update_v2"), 1000000);
+    ASSERT_TRUE(feed.nextDeadline());
+    EXPECT_EQ(*feed.nextDeadline(), 1090000);
+    feed.observe(payload("raid_update_v2"), 1020000);
+    EXPECT_EQ(*feed.nextDeadline(), 1090000);
+    EXPECT_TRUE(feed.expire(1089999).isEmpty());
+    const auto result = feed.expire(1090000);
+    ASSERT_EQ(result.size(), 1);
+    EXPECT_EQ(result.front().reason, "countdown end");
+    EXPECT_EQ(result.front().event->timestampMs, 1090000);
+    EXPECT_TRUE(feed.expire(1100000).isEmpty());
+    EXPECT_EQ(feed.observe(payload(), 1091000).action, RaidFeedAction::Ignore);
+}
+TEST(SatorinoRaid,
+     AbsoluteCountdownUsesTheSameCreatedAtAndForceDurationAsTheBar)
+{
+    const auto now = QDateTime::fromString("2026-11-05T12:00:00Z", Qt::ISODate)
+                         .toMSecsSinceEpoch();
+    auto input = payload("raid_update_v2");
+    auto raid = input.value("raid").toObject();
+    raid.insert("raid_created_at", QString::number(now / 1000 - 30));
+    input.insert("raid", raid);
+    RaidFeedTracker feed;
+    feed.observe(input, now);
+    ASSERT_TRUE(feed.nextDeadline());
+    EXPECT_EQ(*feed.nextDeadline(), now + 60000);
+}
+TEST(SatorinoRaid,
+     ClosedSourcesArePrunedAndMismatchedGoCannotOpenTheCachedTarget)
+{
+    RaidFeedTracker feed;
+    feed.observe(payload("raid_update_v2"), 1000000);
+    feed.retain(std::set<QString>{"101"});
+    EXPECT_FALSE(feed.nextDeadline());
+    EXPECT_TRUE(feed.expire(1200000).isEmpty());
+    feed.observe(payload("raid_update_v2"), 1000000);
+    const QJsonObject mismatch{
+        {"type", "raid_go_v2"},
+        {"topic", "raid.100"},
+        {"raid", QJsonObject{{"id", "raid-first"}, {"target_id", "201"}}}};
+    const auto result = feed.observe(mismatch, 1001000);
+    EXPECT_EQ(result.action, RaidFeedAction::Ignore);
+    EXPECT_TRUE(result.reason.contains("does not match"));
+    EXPECT_FALSE(feed.nextDeadline());
+}
+TEST(SatorinoRaid, MalformedFeedAndSourceMismatchAreRejected)
+{
+    EXPECT_FALSE(
+        normaliseRaidFeed("raid.100", QJsonObject{{"type", "raid_unknown"}}));
+    EXPECT_FALSE(
+        normaliseRaidFeed("raid.100", QJsonObject{{"type", "raid_update_v2"}}));
+    QString error;
+    EXPECT_FALSE(parseRaidFeed({}, 1000000, &error));
+    EXPECT_FALSE(error.isEmpty());
+    auto input = payload();
+    input.insert("topic", "raid.bad");
+    EXPECT_FALSE(parseRaidFeed(input, 1000000));
+    input = payload();
+    auto raid = input.value("raid").toObject();
+    raid.insert("source_id", "101");
+    input.insert("raid", raid);
+    EXPECT_FALSE(parseRaidFeed(input, 1000000));
+    input = payload();
+    raid = input.value("raid").toObject();
+    raid.insert("target_login", "bad/login");
+    input.insert("raid", raid);
+    EXPECT_FALSE(parseRaidFeed(input, 1000000));
+}
+TEST(SatorinoRaid, SharedListeningConditionUsesEitherOption)
+{
+    EXPECT_FALSE(raidListeningEnabled(false, false));
+    EXPECT_TRUE(raidListeningEnabled(true, false));
+    EXPECT_TRUE(raidListeningEnabled(false, true));
+    EXPECT_TRUE(raidListeningEnabled(true, true));
+}
+TEST(SatorinoRaid, SharedFeedStatusHasNoTenChannelLimitOrEventSubDependency)
+{
+    RaidStatusContext status;
+    EXPECT_EQ(raidStatusText(status), "Raid watch: off");
+    status.enabled = true;
+    EXPECT_EQ(raidStatusText(status), "Raid watch: not logged in");
+    status.loggedIn = true;
+    status.listening = 37;
+    status.waitingForIds = 2;
+    EXPECT_TRUE(raidStatusText(status).contains("listening on 37"));
+    EXPECT_TRUE(raidStatusText(status).contains("room ID"));
+    EXPECT_TRUE(raidStatusText(status).contains("no raid seen yet"));
+    EXPECT_FALSE(raidStatusText(status).contains("EventSub"));
+    status.lastEvent = "Last raid: own -> alt at 12:00, cancelled";
+    EXPECT_TRUE(raidStatusText(status).contains(status.lastEvent));
+    EXPECT_TRUE(raidStatusDetails(status).contains("raid_go_v2"));
+    EXPECT_TRUE(raidStatusDetails(status).contains("countdown end"));
+    EXPECT_TRUE(raidStatusDetails(status).contains("raid bar"));
+}
+TEST(SatorinoRaid, TestCommandParsingAndExplicitIdOverride)
+{
+    QString error;
+    const auto plain =
+        parseRaidTestCommand({"/satorino-testraid", "Alt_Login"}, &error);
+    ASSERT_TRUE(plain);
+    EXPECT_EQ(plain->login, "alt_login");
+    EXPECT_TRUE(plain->id.isEmpty());
+    EXPECT_TRUE(raidTestKnownId(*plain, {}).isEmpty());
+    EXPECT_EQ(raidTestKnownId(*plain, "200"), "200");
+    const auto explicitId =
+        parseRaidTestCommand({"/satorino-testraid", "alt", "201"});
+    ASSERT_TRUE(explicitId);
+    EXPECT_EQ(raidTestKnownId(*explicitId, "200"), "201");
+    EXPECT_FALSE(parseRaidTestCommand({"/satorino-testraid"}));
+    EXPECT_FALSE(
+        parseRaidTestCommand({"/satorino-testraid", "https://twitch.tv/alt"}));
+    EXPECT_FALSE(
+        parseRaidTestCommand({"/satorino-testraid", "alt", "invalid"}));
+    EXPECT_FALSE(
+        parseRaidTestCommand({"/satorino-testraid", "alt", "200", "extra"}));
+}
+TEST(SatorinoRaid, ExplicitCommandLookupHandlesFoundNotFoundErrorAndTimeout)
+{
+    const auto found =
+        raidLookupResult("alt", RaidLookupStatus::Found, "200", "ALT");
+    EXPECT_TRUE(found.usable);
+    EXPECT_EQ(found.id, "200");
+    EXPECT_FALSE(
+        raidLookupResult("alt", RaidLookupStatus::Found, "0", "alt").usable);
+    EXPECT_FALSE(
+        raidLookupResult("alt", RaidLookupStatus::Found, "200", "other")
+            .usable);
+    EXPECT_EQ(raidLookupResult("alt", RaidLookupStatus::NotFound).reason,
+              "target not found");
+    EXPECT_EQ(raidLookupResult("alt", RaidLookupStatus::Error).reason,
+              "users lookup failed");
+    EXPECT_EQ(raidLookupResult("alt", RaidLookupStatus::Timeout).reason,
+              "users lookup timed out");
+}
+TEST(SatorinoRaid, GoAndCountdownOutputsStillUseTheExistingRateCaps)
+{
+    RaidFeedTracker feed;
+    RaidPolicy policy;
+    auto first = feed.observe(payload(), 1000000);
+    ASSERT_TRUE(first.event);
+    EXPECT_EQ(policy.decide(*first.event, context()).action,
+              RaidAction::OpenAndJoin);
+    auto burst =
+        feed.observe(payload("raid_go_v2", "raid-next", "201"), 1001000);
+    ASSERT_TRUE(burst.event);
+    EXPECT_EQ(policy.decide(*burst.event, context(1000)).action,
+              RaidAction::Ignore);
+}
+
+TEST(SatorinoRaid, BareCancelRemainsCancelledAfterAnotherRaidStarts)
+{
+    RaidFeedTracker feed;
+    feed.observe(payload("raid_update_v2"), 1000000);
+    feed.observe(QJsonObject{{"type", "raid_cancel_v2"}, {"topic", "raid.100"}},
+                 1001000);
+    feed.observe(payload("raid_update_v2", "new"), 1002000);
+    EXPECT_EQ(feed.observe(payload(), 1003000).action, RaidFeedAction::Ignore);
+}
+TEST(SatorinoRaid, UnreasonableCountdownCannotCauseAnEarlyFallback)
+{
+    RaidFeedTracker feed;
+    auto input = payload("raid_update_v2");
+    auto raid = input.value("raid").toObject();
+    raid.insert("force_raid_now_seconds", 5000000);
+    input.insert("raid", raid);
+    EXPECT_EQ(feed.observe(input, 1000000).action, RaidFeedAction::Wait);
+    EXPECT_FALSE(feed.nextDeadline());
+    EXPECT_TRUE(feed.expire(2000000).isEmpty());
+    EXPECT_EQ(feed.observe(payload(), 1001000).action, RaidFeedAction::Fire);
 }

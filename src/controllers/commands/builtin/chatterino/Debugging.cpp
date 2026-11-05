@@ -26,6 +26,7 @@
 #include "singletons/Toasts.hpp"
 #include "singletons/Updates.hpp"
 #include "singletons/WindowManager.hpp"
+#include "util/SatorinoRaid.hpp"  // satorino: pure test-command validation
 #include "util/PostToThread.hpp"
 
 #include <QApplication>
@@ -234,22 +235,21 @@ QString satorinoTestRaid(const CommandContext &ctx)
 {
     if (!ctx.channel)
         return {};
-    if (ctx.words.size() < 2 || ctx.words.size() > 3)
-        ctx.channel->addSystemMessage(
-            "Usage: /satorino-testraid <targetLogin> [targetId]. Local "
-            "simulation only; opens chat, never sends a raid or message.");
+    QString error;
+    const auto command = satorino::parseRaidTestCommand(ctx.words, &error);
+    if (!command)
+        ctx.channel->addSystemMessage(error);
     else
     {
-        // A submitted command must not count as an unsent draft during its own probe.
-        QTimer::singleShot(
-            0, getApp()->getWindows(),
-            [channel = ctx.channel, login = ctx.words[1],
-             id = ctx.words.size() == 3 ? ctx.words[2] : QString{}] {
-                if (auto *app = tryGetApp(); app && !isAppAboutToQuit())
-                    channel->addSystemMessage(
-                        app->getWindows()->simulateSatorinoRaid(channel, login,
-                                                                id));
-            });
+        // Queue after input clearing; explicit ID overrides, otherwise one users lookup is allowed.
+        QTimer::singleShot(0, getApp()->getWindows(),
+                           [channel = ctx.channel, command = *command] {
+                               if (auto *app = tryGetApp();
+                                   app && !isAppAboutToQuit())
+                                   channel->addSystemMessage(
+                                       app->getWindows()->simulateSatorinoRaid(
+                                           channel, command.login, command.id));
+                           });
     }
     return {};
 }

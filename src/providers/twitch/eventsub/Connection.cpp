@@ -31,11 +31,6 @@
 
 #include <boost/json.hpp>
 #include <QTimer>
-#include <QByteArray>  // satorino: raw raid payload bridge
-#include <QDateTime>
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QJsonValue>  // satorino: raw subscription/event members
 #include <QVariant>
 #include <QVector>
 #include <twitch-eventsub-ws/listener.hpp>
@@ -44,8 +39,6 @@
 #include <algorithm>
 #include <chrono>
 #include <optional>
-#include <unordered_set>  // satorino: reconnect snapshot
-#include <mutex>          // satorino: direct lock_guard dependency
 
 namespace {
 
@@ -192,72 +185,9 @@ void Connection::onSessionWelcome(
 void Connection::onNotification(const lib::messages::Metadata &metadata,
                                 const boost::json::value &jv)
 {
-    // satorino: raid diagnostics never log raw payloads; other typed paths stay stock.
-    if (metadata.subscriptionType != "channel.raid")
-    {
-        auto jsonString = boost::json::serialize(jv);
-        qCDebug(LOG) << "on notification: " << jsonString.c_str();
-        return;
-    }
-    if (metadata.subscriptionVersion != "1")
-    {
-        qCInfo(LOG) << "Raid notification ignored: unsupported version";
-        return;
-    }
-    if (metadata.messageType == "revocation")
-    {
-        const auto subscription =
-            QJsonDocument::fromJson(
-                QByteArray::fromStdString(boost::json::serialize(jv)))
-                .object()
-                .value("subscription")
-                .toObject();
-        const auto id = subscription.value("id").toString();
-        const auto reason =
-            satorino::raidSafeReason(subscription.value("status").toString());
-        postToThread([id, reason] {
-            if (auto *app = tryGetApp(); app && !isAppAboutToQuit())
-                app->getEventSub()->raidSubscriptionRevoked(id, reason);
-        });
-        return;
-    }
-    if (isAppAboutToQuit() || !getSettings()->satorinoRaidsOpenTab.getValue())
-    {
-        qCInfo(LOG)
-            << "Raid notification ignored: setting off or shutting down";
-        return;
-    }
-    const auto payload = QByteArray::fromStdString(boost::json::serialize(jv));
-    const auto timestampMs =
-        chronoToQDateTime(metadata.messageTimestamp).toMSecsSinceEpoch();
-    QString ownerId;
-    {
-        std::lock_guard lock(this->subscriptionMutex_);
-        ownerId = this->twitchUserID;
-    }
-    const auto receivedAtMs = QDateTime::currentMSecsSinceEpoch();
-    const auto sessionId =
-        this->sessionID;  // satorino: immutable welcome ID on this read thread
-    qCInfo(LOG) << "Raid notification queued for GUI";
-    postToThread([payload, timestampMs, ownerId, receivedAtMs, sessionId] {
-        if (auto *app = tryGetApp(); app && !isAppAboutToQuit())
-        {
-            const auto object = QJsonDocument::fromJson(payload).object();
-            const auto owner =
-                ownerId.isEmpty()
-                    ? app->getEventSub()->raidPendingOwner(
-                          sessionId, object.value("event")
-                                         .toObject()
-                                         .value("from_broadcaster_user_id")
-                                         .toString())
-                    : ownerId;
-            app->getWindows()->handleSatorinoRaid(object, timestampMs, owner,
-                                                  receivedAtMs);
-        }
-        else
-            qCInfo(LOG) << "Raid notification ignored: application unavailable "
-                           "or shutting down";
-    });
+    (void)metadata;
+    auto jsonString = boost::json::serialize(jv);
+    qCDebug(LOG) << "on notification: " << jsonString.c_str();
 }
 
 void Connection::onClose(std::unique_ptr<lib::Listener> self,
@@ -274,14 +204,8 @@ void Connection::onClose(std::unique_ptr<lib::Listener> self,
         return;
     }
 
-    // satorino: copy under the owner/subscription lock, release before calling Controller.
-    std::unordered_set<SubscriptionRequest> subscriptions;
-    {
-        std::lock_guard lock(this->subscriptionMutex_);
-        subscriptions = this->subscriptions;
-    }
     app->getEventSub()->reconnectConnection(std::move(self), reconnectURL,
-                                            subscriptions);
+                                            this->subscriptions);
 }
 
 void Connection::onChannelBan(
@@ -705,15 +629,11 @@ QString Connection::getSessionID() const
 
 bool Connection::isSubscribedTo(const SubscriptionRequest &request) const
 {
-    std::lock_guard lock(
-        this->subscriptionMutex_);  // satorino: shared owner/subscriptions
     return this->subscriptions.contains(request);
 }
 
 void Connection::markRequestSubscribed(const SubscriptionRequest &request)
 {
-    std::lock_guard lock(
-        this->subscriptionMutex_);  // satorino: shared owner/subscriptions
     assert((this->twitchUserID.isEmpty() ||
             this->twitchUserID == request.ownerTwitchUserID) &&
            "A subscription was made when another user's subscriptions were "
@@ -726,8 +646,6 @@ void Connection::markRequestSubscribed(const SubscriptionRequest &request)
 
 void Connection::markRequestUnsubscribed(const SubscriptionRequest &request)
 {
-    std::lock_guard lock(
-        this->subscriptionMutex_);  // satorino: shared owner/subscriptions
     this->subscriptions.erase(request);
 
     if (this->subscriptions.empty())
@@ -741,8 +659,6 @@ void Connection::markRequestUnsubscribed(const SubscriptionRequest &request)
 
 void Connection::claimHelixAuthMode(bool alternate)
 {
-    std::lock_guard lock(
-        this->subscriptionMutex_);  // satorino: shared owner/subscriptions
     if (!this->alternateHelixAuth.has_value())
     {
         this->alternateHelixAuth = alternate;
@@ -751,8 +667,6 @@ void Connection::claimHelixAuthMode(bool alternate)
 
 bool Connection::canHandleSubscription(const SubscriptionRequest &request) const
 {
-    std::lock_guard lock(
-        this->subscriptionMutex_);  // satorino: shared owner/subscriptions
     if (!this->twitchUserID.isEmpty() &&
         this->twitchUserID != request.ownerTwitchUserID)
     {
@@ -771,8 +685,6 @@ bool Connection::canHandleSubscription(const SubscriptionRequest &request) const
 
 void Connection::debug()
 {
-    std::lock_guard lock(
-        this->subscriptionMutex_);  // satorino: shared owner/subscriptions
     for (const auto &request : this->subscriptions)
     {
         qCInfo(LOG).noquote().nospace()

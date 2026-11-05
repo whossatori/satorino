@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>  // satorino: requested shared raid topics
 
 #if __has_include(<gtest/gtest_prod.h>)
 #    include <gtest/gtest_prod.h>
@@ -91,6 +92,8 @@ public:
     void listenToPredictions(const QString &channelID);
     void listenToPolls(const QString &channelID);
     void listenToRaids(const QString &channelID);
+    bool isListeningToRaids(const QString &channelID)
+        const;  // satorino: requested, not an acknowledgement
     void listenToUserPredictions(const QString &userID,
                                  const QString &authToken);
     void listenToUserChannelPoints(const QString &userID,
@@ -116,6 +119,8 @@ private:
     void listenToAuthenticatedTopic(QString topic, const QString &authToken);
 
     std::unique_ptr<PubSubManagerPrivate> private_;
+    std::unordered_set<QString>
+        raidTopicRequests_;  // satorino: shared feed status, GUI only
     std::unordered_map<QString, QString> authenticatedTopicTokens_;
 
 #ifdef FRIEND_TEST

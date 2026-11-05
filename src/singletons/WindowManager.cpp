@@ -841,15 +841,12 @@ void WindowManager::initialize()
         std::make_unique<satorino::RaidController>(*this);  // satorino
 }
 
-// satorino: no direct access to the service from EventSub worker threads.
+// satorino: context-guarded shared raid-feed delivery.
 QString WindowManager::handleSatorinoRaid(const QJsonObject &payload,
-                                          qint64 timestampMs,
-                                          const QString &ownerId,
                                           qint64 receivedAtMs)
 {
     if (this->satorinoRaids_ && !this->shuttingDown_)
-        return this->satorinoRaids_->receive(payload, timestampMs, ownerId,
-                                             receivedAtMs);
+        return this->satorinoRaids_->receive(payload, receivedAtMs);
     return "Raid watch: unavailable";
 }
 

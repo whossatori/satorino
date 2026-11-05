@@ -4,8 +4,6 @@
 
 #pragma once
 
-#include "providers/twitch/eventsub/SubscriptionHandle.hpp"
-#include "providers/twitch/eventsub/SubscriptionRequest.hpp"
 #include "common/Channel.hpp"
 #include "util/SatorinoRaid.hpp"
 
@@ -16,7 +14,7 @@
 #include <QString>
 #include <QTimer>
 
-#include <map>
+#include <cstdint>
 
 namespace chatterino {
 class WindowManager;
@@ -25,44 +23,36 @@ class RaidController : public QObject
 {
 public:
     explicit RaidController(WindowManager &windows);
-    QString receive(const QJsonObject &payload, qint64 timestampMs,
-                    const QString &ownerId, qint64 receivedAtMs = 0);
+    QString receive(const QJsonObject &payload, qint64 receivedAtMs);
     QString simulate(const ChannelPtr &source, const QString &targetLogin,
                      const QString &targetId);
     RaidStatusContext statusContext() const;
-
 private:
-    QString receiveImpl(const QJsonObject &payload, qint64 timestampMs,
-                        const QString &ownerId, qint64 receivedAtMs,
-                        bool synthetic);
-    void publishStatus();
+    QString act(const RaidEvent &event, qint64 receivedAtMs,
+                const QString &trigger, bool synthetic);
+    QString record(const QString &sourceId,
+                   const std::optional<RaidEvent> &event, const QString &result,
+                   bool synthetic = false);
+    QString simulateKnown(const ChannelPtr &source, const QString &login,
+                          const QString &id);
     void configure();
     void accountChanged();
-    void sync();
     void stop();
+    void scheduleDeadline();
+    void deadlineExpired();
     WindowManager &windows_;
-    QTimer timer_;
+    QTimer deadlineTimer_;  // One-shot fallback only, never a polling timer.
     QElapsedTimer clock_;
     qint64 enabledAtUtcMs_ = 0;
+    std::uint64_t generation_ = 0;
     QString ownerId_;
-    RaidPolicy policy_;
-    struct Watch {
-        eventsub::SubscriptionRequest request;
-        eventsub::SubscriptionHandle handle;
-        QString login;
-        RaidSubscriptionStatus last;
-        int failures = 0;
-        qint64 retryAt = 0;
-        qint64 startedAt = 0;
-    };
-    QString token_;  // In-memory comparison only; never shown/logged.
-    QString client_;
     QString lastEvent_;
     QString lastStatus_;
-    bool waitingForIds_ = false;
-    std::map<QString, Watch> watches_;
+    RaidPolicy policy_;
+    RaidFeedTracker feed_;
     pajlada::Signals::SignalHolder settingsConnections_;
     pajlada::Signals::SignalHolder accountConnections_;
+    pajlada::Signals::SignalHolder feedConnection_;
     boost::signals2::scoped_connection accountChangedConnection_;
 };
 }  // namespace satorino

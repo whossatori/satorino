@@ -369,7 +369,9 @@ public:
     void showPendingChatWarningIfVisible();
     SharedAccessGuard<const std::optional<RaidEvent>> accessRaid() const;
     void setActiveRaid(std::optional<RaidEvent> raid);
-    void clearActiveRaid();
+    void clearActiveRaid(
+        bool raidSent =
+            false);  // satorino: distinguish confirmed go from cancellation
     void handleRaidUpdate(const QJsonObject &payload);
 
     /**

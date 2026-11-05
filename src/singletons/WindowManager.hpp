@@ -127,9 +127,8 @@ public:
     QRect emotePopupBounds() const;
     void setEmotePopupBounds(QRect bounds);
 
-    // satorino: GUI-thread entry from the context-guarded EventSub bridge.
-    QString handleSatorinoRaid(const QJsonObject &payload, qint64 timestampMs,
-                               const QString &ownerId, qint64 receivedAtMs = 0);
+    // satorino: GUI-thread entry from the shared raid feed and existing raid-state clears.
+    QString handleSatorinoRaid(const QJsonObject &payload, qint64 receivedAtMs);
     QString satorinoRaidStatus()
         const;  // satorino: UI-only snapshot, no networking
     QString satorinoRaidDetails() const;

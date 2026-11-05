@@ -860,3 +860,54 @@ only that glyph inside its unchanged hit/hover box for highlighted stars;
 circle/non-highlighted rendering and non-pinned size hints stay stock. A
 session/source-checked pending-owner lookup handles an event arriving before
 the POST response; it does not substitute the currently selected account.
+
+
+## Stage F batch 10
+
+Supersedes the raid-source/diagnostic implementation in batches 8 and 9;
+all their tab visual fixes remain. The earlier research wrongly dismissed
+the shared raid bar feed as countdown-only. PubSub raid.<roomId> already
+provides target metadata; its client now forwards update/go/cancel v2.
+One central raid.updated connection serves every open real Twitch split,
+including aggregate children. There is no EventSub raid subscription, ten-
+channel cap, sorted watch list, retry loop or polling timer. EventSub
+Controller/Connection/SubscriptionRequest, Helix.cpp and the handwritten
+library session.cpp are restored byte-for-byte to pre-batch-8 (0b329736e).
+
+Go is the primary trigger. A cancellable one-shot uses the bar's creation/
+receipt time plus forceRaidNowSeconds, with up to one second boundary grace,
+as a fallback when go is missing/unusable. Repeated updates do not slide it.
+Cancel, early active-state clearing, account/setting changes and closed
+sources suppress fallback; go and fallback complete once. Existing confirmed
+send-success clearing is marked as go, without initiating a raid. Terminal
+cancel IDs are remembered for three minutes to reject reordered stale go.
+Unexpected target mismatches disable a stale-target fallback.
+
+TwitchChannel listens when showRaidStatusAboveInput OR satorinoRaidsOpenTab
+is on; both setting bindings refresh already-open channels, and later room
+IDs use the existing refresh path. Both off keeps the pre-existing PubSub
+manager/topic lifetime behavior; the new consumer/deadline timer stop. The
+bar update path remains, go does not restart its countdown, and cancel clears
+the matching bar state. Normal PubSub pooling/reconnect behavior is reused.
+
+The same policy/actions retain three-minute pair dedupe, one new tab per
+15 seconds/five per ten minutes, blocks, self/invalid/account/source checks,
+existing-tab reuse across windows/aggregates, normal registry chat joining
+and draft/active-main/switch guards. The single grey line reports the shared
+feed, open-channel request count, missing room IDs and last raid outcome;
+its tooltip states go/countdown triggers and shared bar use. Counts describe
+LISTEN requests, not a delivery guarantee. No restart is needed.
+
+/satorino-testraid <login> [id] still runs locally through parser/policy/tab
+action. Explicit ID overrides; otherwise local identity is used, or exactly
+one normal Helix users lookup by login is made for this explicit command.
+Not-found/error/ten-second timeout/late callback/account-setting-window
+changes cannot create a stale tab. No fabricated ID, passive users lookup,
+chat message, real raid or point redemption is added. The command is queued
+after input clearing and shares the real dedupe/caps.
+
+The registered SatorinoRaid suite now has 26 pure cases covering feed mapping,
+go/cancel/reorder/countdown, listening, status, lookup and existing policy.
+The obsolete EventSub dispatch suite is removed. No app source files or
+dependencies were added. Nothing compiled; C++ tests, Windows UI, live feed
+and live lookup are **NOT RUN**. See REPORT-F10.md / batch10 output evidence.
