@@ -58,8 +58,10 @@ void saveRedeemData(const satorino::RedeemData &data)
 QString ChannelPointsDialog::redeemChannelKey() const
 {
     // Never use a display name: rooms retain preferences across renames.
-    return satorino::redeemChannelKey(this->channel_->roomId(),
-                                      this->rewardsChannelId_);
+    return satorino::redeemChannelKey(
+        this->channel_->roomId(),
+        satorino::redeemChannelKey(this->rewardsPinChannelId_,
+                                   this->rewardsChannelId_));
 }
 
 void ChannelPointsDialog::loadCachedRedeems()

@@ -762,8 +762,9 @@ updates the same preview/button immediately. List and preview paint a passive
 used for the stars. Pinning off hides the button/stars and skips ordering,
 while stored pins and all filters/manual redeem methods remain unchanged.
 
-Room ID remains the preferred local key. Catalog parsing now prefers a valid
-channel.id before the legacy community.id fallback, and an arriving room ID
+Room ID remains the preferred local key. A separate pin-only catalog field
+prefers a valid channel.id before the legacy community.id fallback; the
+existing manual-redemption channel ID is unchanged. An arriving room ID
 refreshes open content. New util/RedeemPin.{hpp,cpp} owns the shared validation,
 tooltip and passive-star helpers, registered in the marked CMake block.
 Tests extend search reset, radius/clamp/layout fixtures and pin round-trip/

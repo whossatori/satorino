@@ -4535,8 +4535,9 @@ void TwitchGql::getChannelPointRewards(
             }
 
             GqlChannelPointRewards rewards;
-            // satorino: channel.id is the broadcaster; retain validated legacy fallback.
-            rewards.channelId =
+            rewards.channelId = community.value("id").toString();
+            // satorino: separate local-pin key; preserve the manual redemption channelId.
+            rewards.pinChannelId =
                 satorino::redeemChannelKey(channel.value("id").toString(),
                                            community.value("id").toString());
             rewards.channelDisplayName =

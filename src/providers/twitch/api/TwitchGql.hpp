@@ -262,6 +262,8 @@ struct GqlChannelPointRewards {
     bool completeSnapshot = false;
     qint64 balance = -1;
     QVector<GqlChannelPointReward> rewards;
+    QString
+        pinChannelId;  // satorino: local pin identity only; never a redemption target
 };
 
 struct GqlChannelPointEmoteModification {

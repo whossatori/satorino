@@ -1425,6 +1425,8 @@ void ChannelPointsDialog::reloadRewards(bool force)
             }
             self->rewardsLoading_ = false;
             self->rewardsChannelId_ = rewards.channelId;
+            self->rewardsPinChannelId_ =
+                rewards.pinChannelId;  // satorino: local identity
             self->mergeRedeems(
                 rewards);  // satorino: preserve missing offline rewards
             self->rewardImageRefreshAttempts_ = 0;

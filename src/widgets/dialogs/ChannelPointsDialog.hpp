@@ -124,6 +124,7 @@ private:
 
     View view_ = View::Rewards;
     QString rewardsChannelId_;
+    QString rewardsPinChannelId_;  // satorino: never used by manual redemption
     // satorino: avoid reparsing settings per card.
     QStringList pinnedRedeemIds_;
     QVector<GqlChannelPointReward> rewards_;
