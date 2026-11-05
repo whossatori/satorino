@@ -32,6 +32,7 @@
 #include <QDebug>
 #include <QDialogButtonBox>
 #include <QIcon>
+#include <QFontMetrics>  // satorino: tight title ink, not a line box
 #include <QLabel>
 #include <QLinearGradient>
 #include <QLineEdit>
@@ -579,7 +580,12 @@ int NotebookTab::normalTabWidthForHeight(int height) const
         getApp()->getFonts()->getFontMetrics(FontStyle::UiTabs, scale);
 
     float compactDivider = getCompactDivider(getSettings()->tabStyle);
-    if (this->isPinned() || this->hasXButton())  // satorino: reserve pin space
+    // satorino: pinned tabs reserve only the tighter left glyph box and the full title.
+    if (this->isPinned())
+        return satorino::pinnedTabWidth(
+            metrics.horizontalAdvance(this->getTitle()), height, scale,
+            getSettings()->tabStyle == TabStyle::Compact);
+    if (this->hasXButton())
     {
         width = static_cast<int>(metrics.horizontalAdvance(this->getTitle()) +
                                  (32 / compactDivider * scale));
@@ -1306,11 +1312,21 @@ void NotebookTab::paintEvent(QPaintEvent *)
         {
             // satorino: exact chosen colour; use the actual title ink and visible close/pin glyph bounds.
             QVector<QRectF> obstacles;
-            auto titleInk = painter.boundingRect(QRectF(textRect),
-                                                 this->getTitle(), option);
+            // satorino: position tight glyph ink using the same alignment/baseline as drawText.
+            const int textX =
+                textRect.left() + (alignment.testFlag(Qt::AlignHCenter)
+                                       ? (textRect.width() - width) / 2
+                                       : 0);
+            const int baseline = textRect.top() +
+                                 (textRect.height() - metrics.height()) / 2 +
+                                 metrics.ascent();
+            auto titleInk = QRectF(metrics.tightBoundingRect(this->getTitle())
+                                       .translated(textX, baseline));
             if (this->isPinned())
                 titleInk = titleInk.intersected(QRectF(textRect));
-            obstacles.push_back(titleInk);
+            // satorino: only the title's actual approach from the left affects the corner.
+            if (titleInk.right() <= QRectF(liveIndicatorRect).center().x())
+                obstacles.push_back(titleInk);
             if (this->isPinned())
             {
                 obstacles.push_back(satorino::pinnedTabGlyphBounds(

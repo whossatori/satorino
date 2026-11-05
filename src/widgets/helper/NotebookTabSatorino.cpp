@@ -98,7 +98,8 @@ void NotebookTab::paintPin(QPainter &painter) const
 {
     painter.save();
     painter.setRenderHint(QPainter::Antialiasing);
-    painter.translate(QRectF(this->getXRect()).center());
+    painter.translate(
+        satorino::pinnedTabGlyphOrigin(this->getXRect(), this->scale()));
     const qreal pinScale = this->scale() * satorino::TAB_PIN_SCALE;
     painter.scale(pinScale, pinScale);
     auto pen = painter.pen();

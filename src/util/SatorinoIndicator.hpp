@@ -21,7 +21,9 @@ class QPainter;
 namespace chatterino::satorino {
 
 enum class IndicatorShape { Circle, Star };
-inline constexpr qreal INDICATOR_STAR_FACTOR = 1.45;
+// Target is 1.7 times stock painted radius; obstacles may not reduce below Batch 7.
+inline constexpr qreal INDICATOR_STAR_FACTOR = 1.7;
+inline constexpr qreal INDICATOR_STAR_FLOOR = 1.45;
 IndicatorShape indicatorShape(LiveIndicator kind, bool gameStar);
 // Exact stock integer geometry, including location/selection translation.
 QRect indicatorRect(const QRect &tab, float scale, NotebookTabLocation location,
@@ -31,11 +33,13 @@ std::array<QPointF, 10> indicatorStar(const QPointF &centre, qreal outerRadius,
 qreal indicatorStarRadius(const QRect &circle, const QRectF &tab,
                           const QVector<QRectF> &obstacles, qreal penWidth = 1,
                           qreal clearance = 1);
-// One documented factor: the pin glyph is 15% smaller; its hit target stays usable.
-inline constexpr qreal TAB_PIN_SCALE = 0.85;
+// Smaller original pin glyph; hit box adds two scale units total, not the old X box.
+inline constexpr qreal TAB_PIN_SCALE = 0.7;
 QRect pinnedTabRect(const QRect &tab, float scale, bool compact);
 QRect pinnedTabTitleRect(QRect title, const QRect &pin, int gap);
+QPointF pinnedTabGlyphOrigin(const QRect &pin, float scale);
 QRectF pinnedTabGlyphBounds(const QRect &pin, float scale);
+int pinnedTabWidth(int titleWidth, int height, float scale, bool compact);
 // Uses the existing stock pen geometry; restores all painter state afterwards.
 void paintHighlightedIndicator(QPainter &painter, const QRect &rect,
                                const QColor &chosen, const QColor &background,

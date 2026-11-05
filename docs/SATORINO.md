@@ -808,3 +808,14 @@ uses a QObject context; QPointers and live checks protect GUI actions. It
 never sends a message or redeems points. Live delivery/cost acceptance,
 reconnect timing, Windows UI and all C++ tests are **NOT RUN**. Nothing was
 compiled. See REPORT-F8.md and the batch8 output report/verification log.
+
+## Stage F batch 9
+
+Commit A raises the star target to 1.7 painted-dot radii and keeps the Batch 7
+1.45 floor against obstacles; only tab edges can reduce it further. Tight
+aligned title ink replaces the line box. The anchor, circle and exact colour
+paths stay unchanged. Pin scale is 0.7; its hit/paint/tooltip box fits its ink
+plus two scale units total padding, at a four-unit left margin. Pinned width
+reserves that box once and preserves the full title; non-pinned sizing stays
+stock. Pure floor/edge, pin-box/width and unchanged colour tests are updated.
+Compilation and C++ tests **NOT RUN**. See REPORT-F9.md.

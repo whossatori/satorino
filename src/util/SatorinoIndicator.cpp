@@ -78,11 +78,14 @@ qreal indicatorStarRadius(const QRect &circle, const QRectF &tab,
     const QRectF box(circle);
     const auto centre = box.center();
     const qreal gap = std::max(qreal(0), clearance);
-    qreal radius = (std::min(box.width(), box.height()) + penWidth) / 2 *
-                   INDICATOR_STAR_FACTOR;
+    const qreal paintedRadius =
+        (std::min(box.width(), box.height()) + penWidth) / 2;
+    const qreal floor = paintedRadius * INDICATOR_STAR_FLOOR;
+    qreal radius = paintedRadius * INDICATOR_STAR_FACTOR;
     radius = std::min(
         {radius, centre.x() - tab.left() - gap, tab.right() - centre.x() - gap,
          centre.y() - tab.top() - gap, tab.bottom() - centre.y() - gap});
+    const qreal edgeLimit = std::max(qreal(0), radius);
     for (const auto &rect : obstacles)
     {
         if (rect.isEmpty())
@@ -91,32 +94,49 @@ qreal indicatorStarRadius(const QRect &circle, const QRectF &tab,
             {rect.left() - centre.x(), centre.x() - rect.right(), qreal(0)});
         const qreal dy = std::max(
             {rect.top() - centre.y(), centre.y() - rect.bottom(), qreal(0)});
-        // The entire star is inside this disc, so distance-to-rect safely bounds every edge.
-        radius = std::min(radius, std::hypot(dx, dy) - gap);
+        // Obstacle pressure stops at the Batch 7 floor; the tab edge limit stays hard.
+        radius = std::min(radius, std::max(floor, std::hypot(dx, dy) - gap));
     }
-    return std::max(qreal(0), radius);
+    return std::max(qreal(0), std::min(radius, edgeLimit));
 }
 
-QRect pinnedTabRect(const QRect &tab, float scale, bool compact)
+QRect pinnedTabRect(const QRect &tab, float scale, bool)
 {
-    const int size = static_cast<int>(16 * scale);
-    // Mirror the old right margin; keep true vertical centring at every location.
-    const int margin = static_cast<int>((compact ? 16 : 20) * scale) - size + 1;
-    return QRect(tab.left() + margin, tab.top() + (tab.height() - size) / 2,
-                 size, size);
+    const int width =
+        static_cast<int>(std::ceil((9.2 * TAB_PIN_SCALE + 2) * scale));
+    const int height =
+        static_cast<int>(std::ceil((12.2 * TAB_PIN_SCALE + 2) * scale));
+    return QRect(tab.left() + static_cast<int>(4 * scale),
+                 tab.top() + (tab.height() - height) / 2, width, height);
 }
+
 QRect pinnedTabTitleRect(QRect title, const QRect &pin, int gap)
 {
     title.setLeft(std::max(title.left(), pin.right() + gap));
     return title;
 }
+QPointF pinnedTabGlyphOrigin(const QRect &pin, float scale)
+{
+    // The original stroked path spans y=-5.6..6.6; centre its ink, not its origin.
+    return QRectF(pin).center() - QPointF(0, 0.5 * scale * TAB_PIN_SCALE);
+}
 QRectF pinnedTabGlyphBounds(const QRect &pin, float scale)
 {
-    const auto centre = QRectF(pin).center();
+    const auto centre = pinnedTabGlyphOrigin(pin, scale);
     const qreal factor = scale * TAB_PIN_SCALE;
     // Original path plus the round 1.2-unit stroke, transformed exactly as paintPin.
     return QRectF(centre.x() - 4.6 * factor, centre.y() - 5.6 * factor,
                   9.2 * factor, 12.2 * factor);
+}
+
+int pinnedTabWidth(int titleWidth, int height, float scale, bool compact)
+{
+    const auto pin = pinnedTabRect(QRect(0, 0, 1, height), scale, compact);
+    const qreal rightMargin = 4 * scale / (compact ? 1.5 : 1.0);
+    // One tight left reservation; full title width, no inherited close-button padding/cap.
+    return std::max(height,
+                    static_cast<int>(std::ceil(pin.right() + 2 * scale +
+                                               titleWidth + rightMargin)));
 }
 
 void paintHighlightedIndicator(QPainter &painter, const QRect &rect,

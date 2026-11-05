@@ -20,6 +20,7 @@
 #include <QtGui/qrgb.h>
 #include <QTransform>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -120,14 +121,14 @@ TEST(SatorinoIndicator, StarHasMirrorAndFivefoldRotationalSymmetry)
         EXPECT_NEAR(rotated.y(), points[(i + 2) % 10].y(), 1e-9);
     }
 }
-TEST(SatorinoIndicator, StarUsesOnePointFourFiveRadiusWhenThereIsRoom)
+TEST(SatorinoIndicator, StarUsesOnePointSevenRadiusWithBatchSevenFloor)
 {
     const QRect circle(48, 48, 4, 4);
     const auto radius = indicatorStarRadius(circle, QRectF(0, 0, 100, 100), {});
-    EXPECT_NEAR(radius, 2.5 * 1.45, 1e-9);
+    EXPECT_NEAR(radius, 2.5 * 1.7, 1e-9);
     EXPECT_NEAR(radius, 2.5 * INDICATOR_STAR_FACTOR, 1e-9);
 }
-TEST(SatorinoIndicator, StarClampsInsideTabAndAvoidsTitleCloseAndPinFixtures)
+TEST(SatorinoIndicator, StarFloorAndTabEdgesWithCloseAndTightLeftPinFixtures)
 {
     for (float scale : SCALES)
         for (bool compact : {false, true})
@@ -188,7 +189,16 @@ TEST(SatorinoIndicator, StarClampsInsideTabAndAvoidsTitleCloseAndPinFixtures)
                             EXPECT_GE(radius, 0);
                             EXPECT_LE(radius, (circle.width() + 1) / 2.0 *
                                                   INDICATOR_STAR_FACTOR);
-                            // The renderer suppresses a fully obstructed star.
+                            const qreal edge =
+                                std::min({centre.x(), tab.width() - centre.x(),
+                                          centre.y(),
+                                          tab.height() - centre.y()}) -
+                                0.5;
+                            EXPECT_GE(
+                                radius + 1e-9,
+                                std::min(edge, (circle.width() + 1) / 2.0 *
+                                                   INDICATOR_STAR_FLOOR));
+                            // Only tab edges can bring the radius below the Batch 7 floor.
                             if (radius == 0)
                                 continue;
                             const auto points = indicatorStar(centre, radius);
@@ -204,18 +214,20 @@ TEST(SatorinoIndicator, StarClampsInsideTabAndAvoidsTitleCloseAndPinFixtures)
                                 EXPECT_GE(p.y(), -1e-9);
                                 EXPECT_LE(p.y(), tab.height() + 1e-9);
                             }
-                            for (const auto &obstacle : obstacles)
-                                EXPECT_FALSE(star.intersects(obstacle));
+                            // Title padding may overlap at the floor; control glyphs must not.
+                            for (qsizetype i = 1; i < obstacles.size(); ++i)
+                                EXPECT_FALSE(star.intersects(obstacles[i]));
                         }
 }
-TEST(SatorinoIndicator, StarShrinksOrHidesInsteadOfOverlappingAnObstruction)
+TEST(SatorinoIndicator, TitleObstaclesCannotShrinkBelowFloorButTabEdgesCan)
 {
     const QRect circle(48, 48, 4, 4);
     const QRectF tab(0, 0, 100, 100);
     EXPECT_NEAR(
-        indicatorStarRadius(circle, tab, {QRectF(52, 40, 10, 20)}, 1, 0.5), 1.5,
-        1e-9);
-    EXPECT_EQ(indicatorStarRadius(circle, tab, {QRectF(49, 49, 2, 2)}), 0);
+        indicatorStarRadius(circle, tab, {QRectF(52, 40, 10, 20)}, 1, 0.5),
+        2.5 * INDICATOR_STAR_FLOOR, 1e-9);
+    EXPECT_EQ(indicatorStarRadius(circle, tab, {QRectF(49, 49, 2, 2)}),
+              2.5 * INDICATOR_STAR_FLOOR);
     EXPECT_LE(indicatorStarRadius(QRect(96, 48, 4, 4), tab, {}, 1, 0.5), 1.5);
 }
 TEST(SatorinoIndicator, ShapeChooserUsesOptionOnlyForGameKind)
@@ -336,7 +348,7 @@ TEST(SatorinoIndicator, ChosenAlphaIsPreserved)
 }
 TEST(SatorinoIndicator, LeftPinReplacesRightReservationAndFitsTitle)
 {
-    EXPECT_DOUBLE_EQ(TAB_PIN_SCALE, 0.85);
+    EXPECT_DOUBLE_EQ(TAB_PIN_SCALE, 0.7);
     for (float scale : SCALES)
         for (bool compact : {false, true})
             for (auto location : {Top, Left, Right, Bottom})
@@ -360,4 +372,31 @@ TEST(SatorinoIndicator, LeftPinReplacesRightReservationAndFitsTitle)
                     EXPECT_FALSE(pin.contains(
                         QPoint(tab.right() - 5, tab.center().y())));
                 }
+}
+
+TEST(SatorinoIndicator, TightPinBoxAndWidthPreserveTitleWithoutOldXPadding)
+{
+    for (float scale : SCALES)
+        for (bool compact : {false, true})
+        {
+            const int titleWidth = int(55 * scale);
+            const int height = int(28 * scale);
+            const int width =
+                pinnedTabWidth(titleWidth, height, scale, compact);
+            const QRect tab(0, 0, width, height);
+            const auto pin = pinnedTabRect(tab, scale, compact);
+            const auto glyph = pinnedTabGlyphBounds(pin, scale);
+            EXPECT_LT(pin.width(), 16 * scale);
+            EXPECT_LT(pin.height(), 16 * scale);
+            EXPECT_NEAR(QRectF(pin).center().y(), glyph.center().y(), 1e-9);
+            EXPECT_TRUE(QRectF(pin).contains(glyph));
+            const int offset = int(4 * scale / (compact ? 1.5 : 1.0));
+            const auto title = pinnedTabTitleRect(
+                tab.adjusted(offset, 0, -offset, 0), pin, int(2 * scale));
+            EXPECT_GE(title.width(), titleWidth);
+            EXPECT_LT(width,
+                      titleWidth + int(32 * scale / (compact ? 1.5 : 1.0)));
+            EXPECT_GE(pinnedTabWidth(int(250 * scale), height, scale, compact),
+                      int(250 * scale));
+        }
 }
