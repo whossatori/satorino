@@ -40,12 +40,11 @@ void SatorinoPage::addLiveStatus(GeneralPageView &layout)
 
     SettingWidget::checkbox("Show highlighted games as a star instead of a dot",
                             getSettings()->satorinoLiveGameStar)
-        ->setTooltip("Matching live games use a five-point star; turn this off "
-                     "for a full-size coloured dot. "
-                     "Both use the selected game's colour swatch. Other live "
-                     "tabs keep the stock dot. "
-                     "A lighter or darker shade may be used for contrast with "
-                     "the tab background.")
+        ->setTooltip(
+            "Matching live games use a five-point star; turn this off "
+            "for a full-size coloured dot. "
+            "Both use the selected game's colour swatch. Other live "
+            "tabs keep the stock dot. The chosen colour is used exactly.")
         ->addKeywords({"star", "dot", "icon", "game", "live status"})
         ->addTo(layout);
 

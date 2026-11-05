@@ -89,6 +89,23 @@ void SatorinoPage::initLayout(GeneralPageView &layout)
         ->addKeywords(keywords)
         ->addKeywords({"pin", "pinning"})
         ->addTo(layout);
+    // satorino: opt-in outgoing raid tabs, with one dependent switch option.
+    layout.addTitle("Raids");
+    SettingWidget::checkbox("Open a tab for the channel being raided",
+                            getSettings()->satorinoRaidsOpenTab)
+        ->setTooltip("Follow outgoing raids from up to ten open Twitch "
+                     "channels. Twitch's shared EventSub budget may allow "
+                     "fewer. Only opens chat; never sends a message.")
+        ->addKeywords({"raid", "Twitch", "tab"})
+        ->addTo(layout);
+    SettingWidget::checkbox("Switch to the new tab",
+                            getSettings()->satorinoRaidsSwitchTab)
+        ->conditionallyEnabledBy(getSettings()->satorinoRaidsOpenTab)
+        ->setTooltip(
+            "Also selects an existing target tab. Switches only while the main "
+            "window is active and its current input is empty.")
+        ->addKeywords({"raid", "focus", "tab"})
+        ->addTo(layout);
     this->addLiveStatus(layout);
     layout.addStretch();
 }

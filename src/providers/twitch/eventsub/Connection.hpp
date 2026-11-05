@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <mutex>  // satorino: subscription/owner synchronization
+
 #include "providers/twitch/eventsub/SubscriptionRequest.hpp"
 #include "twitch-eventsub-ws/listener.hpp"
 #include "twitch-eventsub-ws/session.hpp"
@@ -106,6 +108,8 @@ public:
     void debug();
 
 private:
+    // satorino: raw raid delivery and Helix callbacks run on different threads.
+    mutable std::mutex subscriptionMutex_;
     QString sessionID;
 
     QString twitchUserID;

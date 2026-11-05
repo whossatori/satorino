@@ -8,6 +8,7 @@
 #include "common/Args.hpp"
 #include "common/Channel.hpp"
 #include "common/QLogging.hpp"
+#include "controllers/raids/SatorinoRaidController.hpp"  // satorino: outgoing raid tabs
 #ifndef Q_OS_MACOS
 #    include "controllers/tray/TrayController.hpp"
 #endif
@@ -836,6 +837,17 @@ void WindowManager::initialize()
             this->mainWindow_->hide();
         }
     }
+    this->satorinoRaids_ =
+        std::make_unique<satorino::RaidController>(*this);  // satorino
+}
+
+// satorino: no direct access to the service from EventSub worker threads.
+void WindowManager::handleSatorinoRaid(const QJsonObject &payload,
+                                       qint64 timestampMs,
+                                       const QString &ownerId)
+{
+    if (this->satorinoRaids_ && !this->shuttingDown_)
+        this->satorinoRaids_->receive(payload, timestampMs, ownerId);
 }
 
 void WindowManager::save()

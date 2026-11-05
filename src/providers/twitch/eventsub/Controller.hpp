@@ -69,20 +69,27 @@ public:
     void debug() override;
 
 private:
-    void subscribe(const SubscriptionRequest &request, bool isRetry);
+    // satorino: optional generation only guards cancelled/replaced raid work.
+    void subscribe(const SubscriptionRequest &request, bool isRetry,
+                   const std::shared_ptr<void> &raidGeneration = {});
 
     void createConnection(bool alternateHelixAuth = false);
     void createConnection(std::string host, std::string port, std::string path,
                           std::unique_ptr<lib::Listener> listener);
     void registerConnection(std::weak_ptr<lib::Session> &&connection);
 
-    void retrySubscription(const SubscriptionRequest &request);
+    void retrySubscription(
+        const SubscriptionRequest &request,
+        const std::shared_ptr<void> &raidGeneration = {});  // satorino
 
-    void markRequestSubscribed(const SubscriptionRequest &request,
-                               std::weak_ptr<lib::Session> connection,
-                               const QString &subscriptionID);
+    bool markRequestSubscribed(
+        const SubscriptionRequest &request,
+        std::weak_ptr<lib::Session> connection, const QString &subscriptionID,
+        const std::shared_ptr<void> &raidGeneration = {});  // satorino
 
-    void markRequestFailed(const SubscriptionRequest &request);
+    void markRequestFailed(
+        const SubscriptionRequest &request,
+        const std::shared_ptr<void> &raidGeneration = {});  // satorino
 
     void markRequestUnsubscribed(const SubscriptionRequest &request);
 
@@ -124,6 +131,8 @@ private:
             Unsubscribing,
         } state = State::Unsubscribed;
 
+        // satorino: identity for an in-flight raid POST, never OAuth data.
+        std::shared_ptr<void> raidGeneration;
         int32_t refCount = 0;
         std::weak_ptr<lib::Session> connection;
 

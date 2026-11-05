@@ -7,6 +7,12 @@
 #include "Application.hpp"
 #include "common/Args.hpp"
 #include "common/QLogging.hpp"
+#include "common/network/NetworkCommon.hpp"   // satorino: DELETE request type
+#include "common/network/NetworkRequest.hpp"  // satorino: late raid POST cleanup
+#include "common/network/NetworkResult.hpp"
+#include "controllers/accounts/AccountController.hpp"
+#include "providers/twitch/TwitchAccount.hpp"
+#include "providers/twitch/TwitchAccountManager.hpp"
 #include "common/Version.hpp"
 #include "providers/twitch/api/Helix.hpp"
 #include "providers/twitch/eventsub/Connection.hpp"
@@ -18,6 +24,8 @@
 #include <boost/asio/ssl/verify_mode.hpp>
 #include <boost/certify/https_verification.hpp>
 #include <twitch-eventsub-ws/session.hpp>
+#include <QUrl>  // satorino: late cleanup endpoint
+#include <QUrlQuery>
 
 #include <memory>
 #include <utility>
@@ -42,6 +50,26 @@ std::tuple<std::string, std::string, std::string> getEventSubHost()
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 const auto &LOG = chatterinoTwitchEventSub;
 
+// satorino: a late success must be deleted with the POST's original account,
+// even if normal Helix auth has already changed. No token appears in logging.
+void deleteLateRaid(const QString &id, const QString &client,
+                    const QString &token)
+{
+    QUrl url("https://api.twitch.tv/helix/eventsub/subscriptions");
+    QUrlQuery query;
+    query.addQueryItem("id", id);
+    url.setQuery(query);
+    NetworkRequest(url, NetworkRequestType::Delete)
+        .header("Client-ID", client)
+        .header("Authorization", QString("Bearer ") + token)
+        .sensitive()
+        .followRedirects(false)
+        .timeout(15000)
+        .onError([](const NetworkResult &) {
+            qCWarning(LOG) << "Late raid subscription cleanup failed";
+        })
+        .execute();
+}
 }  // namespace
 
 namespace chatterino::eventsub {
@@ -216,6 +244,8 @@ SubscriptionHandle Controller::subscribe(const SubscriptionRequest &request)
            "Subscription requests must include a Twitch User ID");
 
     bool needToSubscribe = false;
+    std::shared_ptr<void>
+        raidGeneration;  // satorino: no allocation for other topics
 
     {
         // TODO: Investigate if this scope can be done in boost::asio::post instead
@@ -260,6 +290,13 @@ SubscriptionHandle Controller::subscribe(const SubscriptionRequest &request)
                    "A new subscription should not have a retry timer created");
         }
 
+        // satorino: retain a stable generation through retries and remove/re-add races.
+        if (request.subscriptionType == "channel.raid")
+        {
+            if (!subscription.raidGeneration)
+                subscription.raidGeneration = std::make_shared<int>(0);
+            raidGeneration = subscription.raidGeneration;
+        }
         subscription.refCount++;
         qCDebug(LOG) << "Added ref for" << request << subscription.refCount
                      << needToSubscribe
@@ -270,8 +307,8 @@ SubscriptionHandle Controller::subscribe(const SubscriptionRequest &request)
 
     if (needToSubscribe)
     {
-        boost::asio::post(this->ioContext, [this, request] {
-            this->subscribe(request, false);
+        boost::asio::post(this->ioContext, [this, request, raidGeneration] {
+            this->subscribe(request, false, raidGeneration);
         });
     }
 
@@ -379,13 +416,25 @@ void Controller::debug()
     });
 }
 
-void Controller::subscribe(const SubscriptionRequest &request, bool isRetry)
+void Controller::subscribe(const SubscriptionRequest &request, bool isRetry,
+                           const std::shared_ptr<void> &expectedRaidGeneration)
 {
+    std::shared_ptr<void> raidGeneration;  // satorino: this request lifetime
     // 1. Flush dead connections (maybe this should not be done here)
     // TODO: implement
 
     {
         std::lock_guard lock(this->subscriptionsMutex);
+        // satorino: cancelled queued requests must not resurrect a raid subscription.
+        if (request.subscriptionType == "channel.raid")
+        {
+            const auto it = this->subscriptions.find(request);
+            if (it == this->subscriptions.end() || it->second.refCount == 0 ||
+                (expectedRaidGeneration &&
+                 it->second.raidGeneration != expectedRaidGeneration))
+                return;
+            raidGeneration = it->second.raidGeneration;
+        }
         auto &subscription = this->subscriptions[request];
         if (isRetry)
         {
@@ -419,17 +468,37 @@ void Controller::subscribe(const SubscriptionRequest &request, bool isRetry)
 
         listener->claimHelixAuthMode(!request.helixOAuthToken.isEmpty());
 
+        // satorino: snapshot only the existing normal account for late cleanup.
+        QString raidClient;
+        QString raidToken;
+        if (raidGeneration)
+        {
+            const auto account = getApp()->getAccounts()->twitch.getCurrent();
+            if (!account || account->isAnon() ||
+                account->getUserId() != request.ownerTwitchUserID)
+            {
+                this->markRequestFailed(request, raidGeneration);
+                return;
+            }
+            raidClient = account->getOAuthClient();
+            raidToken = account->getOAuthToken();
+        }
         qCDebug(LOG) << "Make helix request for" << request;
         getHelix()->createEventSubSubscription(
             request, listener->getSessionID(),
-            [this, request,
+            [this, request, raidGeneration, raidClient, raidToken,
              weakConnection{std::weak_ptr<lib::Session>(connection)}](
                 const auto &res) {
                 qCDebug(LOG) << "Subscription success" << request;
-                this->markRequestSubscribed(request, weakConnection,
-                                            res.subscriptionID);
+                // satorino: rejected late raid successes cannot leave an orphan subscription.
+                const bool accepted = this->markRequestSubscribed(
+                    request, weakConnection, res.subscriptionID,
+                    raidGeneration);
+                if (raidGeneration && !accepted)
+                    deleteLateRaid(res.subscriptionID, raidClient, raidToken);
             },
-            [this, request](const auto &error, const auto &errorString) {
+            [this, request, raidGeneration](const auto &error,
+                                            const auto &errorString) {
                 using Error = HelixCreateEventSubSubscriptionError;
 
                 bool retry = false;
@@ -474,16 +543,21 @@ void Controller::subscribe(const SubscriptionRequest &request, bool isRetry)
 
                 if (retry)
                 {
-                    boost::asio::post(this->ioContext, [this, request] {
-                        this->retrySubscription(request);
-                    });
+                    boost::asio::post(
+                        this->ioContext, [this, request, raidGeneration] {
+                            this->retrySubscription(request, raidGeneration);
+                        });
                 }
                 else
                 {
-                    this->markRequestFailed(request);
+                    this->markRequestFailed(request, raidGeneration);
                 }
             },
-            request.helixClientId, request.helixOAuthToken);
+            raidGeneration ? raidClient : request.helixClientId,
+            raidGeneration
+                ? raidToken
+                : request
+                      .helixOAuthToken);  // satorino: same normal auth snapshot
 
         return;
     }
@@ -500,7 +574,7 @@ void Controller::subscribe(const SubscriptionRequest &request, bool isRetry)
                        << "open but no ready connections";
     }
 
-    this->retrySubscription(request);
+    this->retrySubscription(request, raidGeneration);
 }
 
 std::optional<std::shared_ptr<lib::Session>> Controller::getViableConnection(
@@ -594,7 +668,8 @@ void Controller::registerConnection(std::weak_ptr<lib::Session> &&connection)
     this->connections.emplace_back(std::move(connection));
 }
 
-void Controller::retrySubscription(const SubscriptionRequest &request)
+void Controller::retrySubscription(const SubscriptionRequest &request,
+                                   const std::shared_ptr<void> &raidGeneration)
 {
     if (isAppAboutToQuit())
     {
@@ -604,6 +679,14 @@ void Controller::retrySubscription(const SubscriptionRequest &request)
 
     std::lock_guard lock(this->subscriptionsMutex);
 
+    // satorino: ignore late errors/timers from a released or replaced raid lifetime.
+    if (request.subscriptionType == "channel.raid")
+    {
+        const auto it = this->subscriptions.find(request);
+        if (it == this->subscriptions.end() || it->second.refCount == 0 ||
+            it->second.raidGeneration != raidGeneration)
+            return;
+    }
     auto &subscription = this->subscriptions[request];
 
     if (subscription.refCount == 0)
@@ -633,7 +716,7 @@ void Controller::retrySubscription(const SubscriptionRequest &request)
     auto retryTimer =
         std::make_unique<boost::asio::system_timer>(this->ioContext);
     retryTimer->expires_after(subscription.backoff.next() + jitter);
-    retryTimer->async_wait([this, request](const auto &ec) {
+    retryTimer->async_wait([this, request, raidGeneration](const auto &ec) {
         if (isAppAboutToQuit())
         {
             qCDebug(LOG)
@@ -646,7 +729,7 @@ void Controller::retrySubscription(const SubscriptionRequest &request)
         {
             qCDebug(LOG) << "Firing retry" << request;
             // The timer passed naturally
-            this->subscribe(request, true);
+            this->subscribe(request, true, raidGeneration);
         }
         else
         {
@@ -666,13 +749,13 @@ void Controller::retrySubscription(const SubscriptionRequest &request)
     subscription.retryTimer = std::move(retryTimer);
 }
 
-void Controller::markRequestSubscribed(const SubscriptionRequest &request,
-                                       std::weak_ptr<lib::Session> connection,
-                                       const QString &subscriptionID)
+bool Controller::markRequestSubscribed(
+    const SubscriptionRequest &request, std::weak_ptr<lib::Session> connection,
+    const QString &subscriptionID, const std::shared_ptr<void> &raidGeneration)
 {
     if (this->quitting)
     {
-        return;
+        return false;
     }
 
     std::lock_guard lock(this->subscriptionsMutex);
@@ -680,33 +763,39 @@ void Controller::markRequestSubscribed(const SubscriptionRequest &request,
     auto it = this->subscriptions.find(request);
     if (it == this->subscriptions.end())
     {
-        return;
+        return false;
     }
 
+    // satorino: a new handle with the same source is a different request lifetime.
+    if (request.subscriptionType == "channel.raid" &&
+        (it->second.refCount == 0 ||
+         it->second.raidGeneration != raidGeneration))
+        return false;
     auto &subscription = it->second;
 
     if (subscription.state == Subscription::State::Subscribed)
     {
-        return;
+        return subscription.subscriptionID ==
+               subscriptionID;  // satorino: idempotent response
     }
 
     if (subscription.state != Subscription::State::Subscribing &&
         subscription.state != Subscription::State::Retrying)
     {
-        return;
+        return false;
     }
 
     auto strong = connection.lock();
     if (!strong)
     {
         // we disconnected
-        return;
+        return false;
     }
     auto *listener = dynamic_cast<Connection *>(strong->getListener());
     if (!listener)
     {
         // we disconnected
-        return;
+        return false;
     }
     listener->markRequestSubscribed(request);
 
@@ -715,9 +804,11 @@ void Controller::markRequestSubscribed(const SubscriptionRequest &request,
     qCDebug(LOG) << "Set state to subscribed" << request;
     subscription.state = Subscription::State::Subscribed;
     subscription.backoff.reset();
+    return true;
 }
 
-void Controller::markRequestFailed(const SubscriptionRequest &request)
+void Controller::markRequestFailed(const SubscriptionRequest &request,
+                                   const std::shared_ptr<void> &raidGeneration)
 {
     if (this->quitting)
     {
@@ -728,6 +819,14 @@ void Controller::markRequestFailed(const SubscriptionRequest &request)
 
     std::lock_guard lock(this->subscriptionsMutex);
 
+    // satorino: a cancelled raid error must not create a new map entry.
+    if (request.subscriptionType == "channel.raid")
+    {
+        const auto it = this->subscriptions.find(request);
+        if (it == this->subscriptions.end() || it->second.refCount == 0 ||
+            it->second.raidGeneration != raidGeneration)
+            return;
+    }
     auto &subscription = this->subscriptions[request];
 
     qCDebug(LOG) << "Set state to failed" << request;

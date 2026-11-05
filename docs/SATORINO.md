@@ -783,3 +783,28 @@ star clamping uses the transformed pin stroke bounds. Redeem pinning off clears
 open-dialog caches/rebuilds immediately, guards both passive paint paths and
 makes stored pins dormant without deleting them. Pure geometry, pixel, alpha
 round-trip, ordering and flag tests were updated. Compilation/tests **NOT RUN**.
+
+
+Commit B adds the opt-in Raids section (/satorino/raids/openTab false,
+/satorino/raids/switchTab true, dependent checkbox). Existing EventSub user
+sessions subscribe to channel.raid v1 with from_broadcaster_user_id, without
+new scopes/dependencies. Only open real Twitch channels (including aggregate
+children) are watched, regardless of live metadata; ten unique IDs maximum,
+subject to the shared Twitch cost budget. A one-second scan runs only while
+enabled and logged in; closing sources releases references, and disabling
+stops scanning, disconnects account observers and releases all references.
+Account changes release with the previous token; generation guards delete
+late POST successes using a private original-token snapshot. Raid request
+identity includes its owner; connection owner/subscription access is locked.
+
+The pure policy/parser validates source/target, outgoing conditions, account,
+blocks, platform and notification age/enable epoch. Dedupe lasts three minutes
+(up to 128 pairs); new tabs are capped at one per 15 seconds and five per ten
+minutes, retained across toggles/accounts. Existing targets in any window,
+including aggregate children, are reused. New tabs append to the source
+window and join through the normal Twitch registry. Switching needs the
+option, an active main window and an empty current input. Queued delivery
+uses a QObject context; QPointers and live checks protect GUI actions. It
+never sends a message or redeems points. Live delivery/cost acceptance,
+reconnect timing, Windows UI and all C++ tests are **NOT RUN**. Nothing was
+compiled. See REPORT-F8.md and the batch8 output report/verification log.

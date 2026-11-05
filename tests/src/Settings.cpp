@@ -266,3 +266,16 @@ TEST(Settings, HighlightedGamesUseStarByDefault)
     EXPECT_EQ(app.settings.satorinoLiveGameStar.getPath(),
               "/satorino/live/gameStar");
 }
+
+// satorino: raid opening is opt-in and switch is a dependent default-on option.
+TEST(Settings, RaidTabsAreOptIn)
+{
+    CleanupApplication app("{}", false);
+    EXPECT_FALSE(app.settings.satorinoRaidsOpenTab.getDefaultValue());
+    EXPECT_FALSE(app.settings.satorinoRaidsOpenTab.getValue());
+    EXPECT_TRUE(app.settings.satorinoRaidsSwitchTab.getDefaultValue());
+    EXPECT_EQ(app.settings.satorinoRaidsOpenTab.getPath(),
+              "/satorino/raids/openTab");
+    EXPECT_EQ(app.settings.satorinoRaidsSwitchTab.getPath(),
+              "/satorino/raids/switchTab");
+}

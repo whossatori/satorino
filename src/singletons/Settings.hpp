@@ -1357,6 +1357,9 @@ public:
                                                false};
     BoolSetting satorinoRedeemsEnablePinning = {
         "/satorino/redeems/enablePinning", true};
+    // satorino: outgoing raids open chats only; no automatic messages.
+    BoolSetting satorinoRaidsOpenTab = {"/satorino/raids/openTab", false};
+    BoolSetting satorinoRaidsSwitchTab = {"/satorino/raids/switchTab", true};
     // satorino: opt-in live presentation/delivery; stock watched-channel list is reused.
     QStringSetting satorinoLiveGames = {"/satorino/live/games", ""};
     // satorino: ordered game IDs/names, artwork and per-game dot colours.

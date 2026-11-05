@@ -31,6 +31,10 @@
 
 #include <boost/json.hpp>
 #include <QTimer>
+#include <QByteArray>  // satorino: raw raid payload bridge
+#include <QDateTime>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QVariant>
 #include <QVector>
 #include <twitch-eventsub-ws/listener.hpp>
@@ -39,6 +43,8 @@
 #include <algorithm>
 #include <chrono>
 #include <optional>
+#include <unordered_set>  // satorino: reconnect snapshot
+#include <mutex>          // satorino: direct lock_guard dependency
 
 namespace {
 
@@ -185,9 +191,30 @@ void Connection::onSessionWelcome(
 void Connection::onNotification(const lib::messages::Metadata &metadata,
                                 const boost::json::value &jv)
 {
-    (void)metadata;
     auto jsonString = boost::json::serialize(jv);
     qCDebug(LOG) << "on notification: " << jsonString.c_str();
+    // satorino: raw dispatch precedes unsupported typed dispatch; no raid work while off.
+    if (metadata.subscriptionType == "channel.raid" &&
+        metadata.subscriptionVersion == "1" && !isAppAboutToQuit() &&
+        getSettings()->satorinoRaidsOpenTab.getValue())
+    {
+        const auto payload = QByteArray::fromStdString(jsonString);
+        const auto timestampMs =
+            chronoToQDateTime(metadata.messageTimestamp).toMSecsSinceEpoch();
+        QString ownerId;
+        {
+            std::lock_guard lock(this->subscriptionMutex_);  // satorino
+            ownerId = this->twitchUserID;
+        }
+        postToThread([payload, timestampMs, ownerId] {
+            if (auto *app = tryGetApp();
+                app && !isAppAboutToQuit() &&
+                getSettings()->satorinoRaidsOpenTab.getValue())
+                app->getWindows()->handleSatorinoRaid(
+                    QJsonDocument::fromJson(payload).object(), timestampMs,
+                    ownerId);
+        });
+    }
 }
 
 void Connection::onClose(std::unique_ptr<lib::Listener> self,
@@ -204,8 +231,14 @@ void Connection::onClose(std::unique_ptr<lib::Listener> self,
         return;
     }
 
+    // satorino: copy under the owner/subscription lock, release before calling Controller.
+    std::unordered_set<SubscriptionRequest> subscriptions;
+    {
+        std::lock_guard lock(this->subscriptionMutex_);
+        subscriptions = this->subscriptions;
+    }
     app->getEventSub()->reconnectConnection(std::move(self), reconnectURL,
-                                            this->subscriptions);
+                                            subscriptions);
 }
 
 void Connection::onChannelBan(
@@ -629,11 +662,15 @@ QString Connection::getSessionID() const
 
 bool Connection::isSubscribedTo(const SubscriptionRequest &request) const
 {
+    std::lock_guard lock(
+        this->subscriptionMutex_);  // satorino: shared owner/subscriptions
     return this->subscriptions.contains(request);
 }
 
 void Connection::markRequestSubscribed(const SubscriptionRequest &request)
 {
+    std::lock_guard lock(
+        this->subscriptionMutex_);  // satorino: shared owner/subscriptions
     assert((this->twitchUserID.isEmpty() ||
             this->twitchUserID == request.ownerTwitchUserID) &&
            "A subscription was made when another user's subscriptions were "
@@ -646,6 +683,8 @@ void Connection::markRequestSubscribed(const SubscriptionRequest &request)
 
 void Connection::markRequestUnsubscribed(const SubscriptionRequest &request)
 {
+    std::lock_guard lock(
+        this->subscriptionMutex_);  // satorino: shared owner/subscriptions
     this->subscriptions.erase(request);
 
     if (this->subscriptions.empty())
@@ -659,6 +698,8 @@ void Connection::markRequestUnsubscribed(const SubscriptionRequest &request)
 
 void Connection::claimHelixAuthMode(bool alternate)
 {
+    std::lock_guard lock(
+        this->subscriptionMutex_);  // satorino: shared owner/subscriptions
     if (!this->alternateHelixAuth.has_value())
     {
         this->alternateHelixAuth = alternate;
@@ -667,6 +708,8 @@ void Connection::claimHelixAuthMode(bool alternate)
 
 bool Connection::canHandleSubscription(const SubscriptionRequest &request) const
 {
+    std::lock_guard lock(
+        this->subscriptionMutex_);  // satorino: shared owner/subscriptions
     if (!this->twitchUserID.isEmpty() &&
         this->twitchUserID != request.ownerTwitchUserID)
     {
@@ -685,6 +728,8 @@ bool Connection::canHandleSubscription(const SubscriptionRequest &request) const
 
 void Connection::debug()
 {
+    std::lock_guard lock(
+        this->subscriptionMutex_);  // satorino: shared owner/subscriptions
     for (const auto &request : this->subscriptions)
     {
         qCInfo(LOG).noquote().nospace()

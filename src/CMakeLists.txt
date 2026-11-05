@@ -1177,6 +1177,10 @@ set(SOURCE_FILES
         controllers/notifications/NotificationControllerSatorino.cpp
         widgets/helper/NotebookTabLiveSatorino.cpp
         widgets/settingspages/SatorinoLivePage.cpp
+        util/SatorinoRaid.cpp
+        util/SatorinoRaid.hpp
+        controllers/raids/SatorinoRaidController.cpp
+        controllers/raids/SatorinoRaidController.hpp
         # satorino: end additional sources
 
         widgets/splits/ClosedSplits.cpp

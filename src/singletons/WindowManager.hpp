@@ -10,6 +10,9 @@
 
 #include <pajlada/settings/settinglistener.hpp>
 #include <QJsonArray>
+#include <QJsonObject>  // satorino: raid bridge public argument
+#include <QString>
+#include <QtGlobal>
 #include <QObject>
 #include <QPoint>
 #include <QSet>
@@ -22,6 +25,9 @@
 
 namespace chatterino {
 
+namespace satorino {
+class RaidController;  // satorino: owned GUI service
+}  // namespace satorino
 class Settings;
 class Args;
 class Paths;
@@ -121,6 +127,9 @@ public:
     QRect emotePopupBounds() const;
     void setEmotePopupBounds(QRect bounds);
 
+    // satorino: GUI-thread entry from the context-guarded EventSub bridge.
+    void handleSatorinoRaid(const QJsonObject &payload, qint64 timestampMs,
+                            const QString &ownerId);
     void initialize();
     void save();
     void closeAll();
@@ -172,6 +181,8 @@ private:
     const QString windowLayoutFilePath;
 
     bool shuttingDown_ = false;
+    std::unique_ptr<satorino::RaidController>
+        satorinoRaids_;  // satorino: GUI lifetime
 
     QRect emotePopupBounds_;
 
