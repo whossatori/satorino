@@ -31,9 +31,11 @@ std::array<QPointF, 10> indicatorStar(const QPointF &centre, qreal outerRadius,
 qreal indicatorStarRadius(const QRect &circle, const QRectF &tab,
                           const QVector<QRectF> &obstacles, qreal penWidth = 1,
                           qreal clearance = 1);
-// Shade only when necessary: contrast without an inset outline or a size change.
-QColor indicatorFillColour(const QColor &chosen, const QColor &background);
-QColor indicatorBackground(const QColor &base, const QColor &overlay);
+// One documented factor: the pin glyph is 15% smaller; its hit target stays usable.
+inline constexpr qreal TAB_PIN_SCALE = 0.85;
+QRect pinnedTabRect(const QRect &tab, float scale, bool compact);
+QRect pinnedTabTitleRect(QRect title, const QRect &pin, int gap);
+QRectF pinnedTabGlyphBounds(const QRect &pin, float scale);
 // Uses the existing stock pen geometry; restores all painter state afterwards.
 void paintHighlightedIndicator(QPainter &painter, const QRect &rect,
                                const QColor &chosen, const QColor &background,

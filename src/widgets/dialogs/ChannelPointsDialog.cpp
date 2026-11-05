@@ -770,7 +770,10 @@ protected:
         }
 
         // satorino: passive favourite painted after image/status, without layout changes.
-        if (this->pinned_)
+        // satorino: read the live setting even before a queued rebuild.
+        if (satorino::redeemPinVisible(
+                getSettings()->satorinoRedeemsEnablePinning.getValue(),
+                this->pinned_))
             satorino::paintRedeemStar(painter, QRectF(square));
 
         if (this->hasFocus())
@@ -974,7 +977,10 @@ protected:
             drawRewardGlyph(painter, glyphRect, this->reward_, false);
         }
         // satorino: paint the passive mark in this widget, not as a child overlay.
-        if (this->pinned_)
+        // satorino: read the live setting even before a queued rebuild.
+        if (satorino::redeemPinVisible(
+                getSettings()->satorinoRedeemsEnablePinning.getValue(),
+                this->pinned_))
             satorino::paintRedeemStar(painter, QRectF(rect));
     }
 

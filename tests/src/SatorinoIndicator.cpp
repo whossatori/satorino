@@ -169,10 +169,12 @@ TEST(SatorinoIndicator, StarClampsInsideTabAndAvoidsTitleCloseAndPinFixtures)
                             }
                             if (pinned)
                             {
-                                const auto c = QRectF(controls).center();
-                                obstacles.push_back(QRectF(
-                                    c.x() - 4.6 * scale, c.y() - 5.6 * scale,
-                                    9.2 * scale, 12.2 * scale));
+                                controls = pinnedTabRect(tab, scale, compact);
+                                obstacles[0] = QRectF(pinnedTabTitleRect(
+                                    obstacles[0].toRect(), controls,
+                                    int(2 * scale)));
+                                obstacles.push_back(
+                                    pinnedTabGlyphBounds(controls, scale));
                             }
                             else if (close)
                             {
@@ -247,32 +249,6 @@ TEST(SatorinoIndicator, ColoursStillResolveByPriorityIndependentlyOfShape)
                   colours.stock);
     }
 }
-TEST(SatorinoIndicator, ShadeKeepsVisibleColoursAndAdaptsLowContrastFills)
-{
-    EXPECT_EQ(indicatorFillColour(QColor(Qt::cyan), QColor(Qt::black)),
-              QColor(Qt::cyan));
-    EXPECT_EQ(indicatorFillColour(QColor(Qt::blue), QColor(Qt::white)),
-              QColor(Qt::blue));
-    const auto dark = indicatorFillColour(QColor("#101820"), QColor("#101820"));
-    EXPECT_NE(dark, QColor("#101820"));
-    EXPECT_GT(dark.lightness(), QColor("#101820").lightness());
-    EXPECT_LE(dark.red(), dark.green());
-    EXPECT_LE(dark.green(), dark.blue());
-    const auto light =
-        indicatorFillColour(QColor(Qt::white), QColor(Qt::white));
-    EXPECT_LT(light.lightness(), 255);
-    EXPECT_EQ(dark.alpha(), 255);
-    EXPECT_EQ(light.alpha(), 255);
-}
-TEST(SatorinoIndicator, ContrastBackgroundIncludesCustomTabOverlay)
-{
-    const auto base = QColor(Qt::blue);
-    EXPECT_EQ(indicatorBackground(base, {}), base);
-    const auto composite = indicatorBackground(base, QColor(255, 0, 0, 128));
-    EXPECT_NEAR(composite.red(), 128, 1);
-    EXPECT_EQ(composite.green(), 0);
-    EXPECT_NEAR(composite.blue(), 127, 1);
-}
 TEST(SatorinoIndicator, GameCircleHasExactStockCoverageAndNoInsetBorder)
 {
     for (float scale : SCALES)
@@ -318,4 +294,70 @@ TEST(SatorinoIndicator, PaintingRestoresPenBrushTransformAndAntialiasing)
         EXPECT_EQ(painter.transform(), transform);
         EXPECT_EQ(painter.renderHints(), hints);
     }
+}
+
+TEST(SatorinoIndicator, ExactChosenPixelsForEveryBackgroundStateAndShape)
+{
+    for (auto shape : {IndicatorShape::Circle, IndicatorShape::Star})
+        for (bool selected : {false, true})
+            for (bool hover : {false, true})
+                for (const auto &background :
+                     {QColor("#101820"), QColor("#fafafa"), QColor("#667788")})
+                {
+                    QImage image(120, 56, QImage::Format_ARGB32);
+                    image.fill(hover ? background.lighter() : background);
+                    QPainter painter(&image);
+                    painter.setPen(QColor(Qt::red));
+                    painter.setBrush(QBrush(Qt::red, Qt::SolidPattern));
+                    const auto rect =
+                        indicatorRect(QRect(0, 0, 120, 56), 2, Top, selected);
+                    const QColor chosen("#101820");
+                    paintHighlightedIndicator(painter, rect, chosen, background,
+                                              shape);
+                    painter.end();
+                    EXPECT_EQ(image.pixelColor(QRectF(rect).center().toPoint()),
+                              chosen);
+                }
+}
+TEST(SatorinoIndicator, ChosenAlphaIsPreserved)
+{
+    for (auto shape : {IndicatorShape::Circle, IndicatorShape::Star})
+    {
+        QImage image(80, 80, QImage::Format_ARGB32);
+        image.fill(Qt::transparent);
+        QPainter painter(&image);
+        painter.setBrush(QBrush(Qt::red, Qt::SolidPattern));
+        const QColor chosen(255, 0, 255, 128);
+        paintHighlightedIndicator(painter, QRect(30, 30, 16, 16), chosen,
+                                  Qt::white, shape);
+        painter.end();
+        EXPECT_EQ(image.pixelColor(38, 38), chosen);
+    }
+}
+TEST(SatorinoIndicator, LeftPinReplacesRightReservationAndFitsTitle)
+{
+    EXPECT_DOUBLE_EQ(TAB_PIN_SCALE, 0.85);
+    for (float scale : SCALES)
+        for (bool compact : {false, true})
+            for (auto location : {Top, Left, Right, Bottom})
+                for (bool selected : {false, true})
+                {
+                    // Pin geometry is intentionally independent of location and selection.
+                    (void)location;
+                    (void)selected;
+                    const QRect tab(0, 0, int(84 * scale), int(28 * scale));
+                    const auto pin = pinnedTabRect(tab, scale, compact);
+                    EXPECT_LT(pin.right(), tab.center().x());
+                    EXPECT_NEAR(QRectF(pin).center().y(),
+                                QRectF(tab).center().y(), 0.5);
+                    EXPECT_TRUE(
+                        QRectF(pin).contains(pinnedTabGlyphBounds(pin, scale)));
+                    const auto title = pinnedTabTitleRect(
+                        tab.adjusted(2, 0, -2, 0), pin, int(2 * scale));
+                    EXPECT_GT(title.left(), pin.right());
+                    EXPECT_EQ(title.right(), tab.right() - 2);
+                    EXPECT_TRUE(tab.contains(pin));
+                    EXPECT_FALSE(pin.contains(
+                        QPoint(tab.right() - 5, tab.center().y())));
+                }
 }

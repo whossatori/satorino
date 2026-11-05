@@ -16,21 +16,6 @@
 #include <numbers>
 
 namespace chatterino::satorino {
-namespace {
-qreal luminance(const QColor &colour)
-{
-    const auto linear = [](qreal c) {
-        return c <= 0.04045 ? c / 12.92 : std::pow((c + 0.055) / 1.055, 2.4);
-    };
-    return 0.2126 * linear(colour.redF()) + 0.7152 * linear(colour.greenF()) +
-           0.0722 * linear(colour.blueF());
-}
-qreal contrast(qreal a, qreal b)
-{
-    return (std::max(a, b) + 0.05) / (std::min(a, b) + 0.05);
-}
-}  // namespace
-
 IndicatorShape indicatorShape(LiveIndicator kind, bool gameStar)
 {
     // Train stays reserved; a later producer can select its own shape here.
@@ -112,45 +97,37 @@ qreal indicatorStarRadius(const QRect &circle, const QRectF &tab,
     return std::max(qreal(0), radius);
 }
 
-QColor indicatorBackground(const QColor &base, const QColor &overlay)
+QRect pinnedTabRect(const QRect &tab, float scale, bool compact)
 {
-    if (!overlay.isValid())
-        return base;
-    const qreal alpha = overlay.alphaF();
-    return QColor::fromRgbF(
-        base.redF() * (1 - alpha) + overlay.redF() * alpha,
-        base.greenF() * (1 - alpha) + overlay.greenF() * alpha,
-        base.blueF() * (1 - alpha) + overlay.blueF() * alpha);
+    const int size = static_cast<int>(16 * scale);
+    // Mirror the old right margin; keep true vertical centring at every location.
+    const int margin = static_cast<int>((compact ? 16 : 20) * scale) - size + 1;
+    return QRect(tab.left() + margin, tab.top() + (tab.height() - size) / 2,
+                 size, size);
 }
-
-QColor indicatorFillColour(const QColor &chosen, const QColor &background)
+QRect pinnedTabTitleRect(QRect title, const QRect &pin, int gap)
 {
-    const qreal bg = luminance(background);
-    if (contrast(luminance(chosen), bg) >= 3)
-        return chosen;
-    // Blend toward the better-contrasting endpoint, preserving the selected hue.
-    const qreal target = contrast(1, bg) > contrast(0, bg) ? 1 : 0;
-    for (int step = 1; step <= 20; ++step)
-    {
-        const qreal amount = step / 20.0;
-        const auto shade =
-            QColor::fromRgbF(chosen.redF() * (1 - amount) + target * amount,
-                             chosen.greenF() * (1 - amount) + target * amount,
-                             chosen.blueF() * (1 - amount) + target * amount);
-        if (contrast(luminance(shade), bg) >= 3)
-            return shade;
-    }
-    return chosen;
+    title.setLeft(std::max(title.left(), pin.right() + gap));
+    return title;
+}
+QRectF pinnedTabGlyphBounds(const QRect &pin, float scale)
+{
+    const auto centre = QRectF(pin).center();
+    const qreal factor = scale * TAB_PIN_SCALE;
+    // Original path plus the round 1.2-unit stroke, transformed exactly as paintPin.
+    return QRectF(centre.x() - 4.6 * factor, centre.y() - 5.6 * factor,
+                  9.2 * factor, 12.2 * factor);
 }
 
 void paintHighlightedIndicator(QPainter &painter, const QRect &rect,
-                               const QColor &chosen, const QColor &background,
+                               const QColor &chosen, const QColor &,
                                IndicatorShape shape,
                                std::optional<qreal> starRadius)
 {
     painter.save();
     painter.setRenderHint(QPainter::Antialiasing);
-    const auto fill = indicatorFillColour(chosen, background);
+    const auto &fill =
+        chosen;  // Exact stored RGB and alpha, independent of tab state.
     auto pen = painter.pen();
     // Same stock width/style/cosmetic state; no contrasting border.
     pen.setColor(fill);

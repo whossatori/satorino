@@ -106,6 +106,8 @@ TEST(RedeemPinFix, UnpinAndRepinAppendWhileMergeAndRoundTripKeepOrder)
     EXPECT_EQ(ids(restored.displayOrder("123", rewards, false)),
               (QStringList{"c", "a", "b"}));
     EXPECT_TRUE(restored.isPinned("123", "a"));
+    EXPECT_EQ(ids(restored.displayOrder("123", rewards, true)),
+              (QStringList{"b", "a", "c"}));
 }
 TEST(RedeemPinFix, EmptyChannelOrRewardNeverCreatesAPin)
 {

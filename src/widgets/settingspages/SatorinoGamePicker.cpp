@@ -310,7 +310,8 @@ void SatorinoGamePicker::showSelected()
         QObject::connect(colour, &QPushButton::clicked, this, [this, game] {
             const QPointer<SatorinoGamePicker> guard(this);
             const auto colour =
-                QColorDialog::getColor(game.colour, this, "Dot / star colour");
+                QColorDialog::getColor(game.colour, this, "Dot / star colour",
+                                       QColorDialog::ShowAlphaChannel);
             if (!guard)
                 return;
             const auto index = selectedIndex(this->selected_, game);

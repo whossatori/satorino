@@ -772,3 +772,14 @@ merge/order coverage, with a new registered six-case RedeemPin suite (12 net
 additional tests). Nothing was compiled; all C++ tests and Windows/runtime
 checks are **NOT RUN**. See REPORT-F7.md for the complete input/persistence
 trace and Windows checklist.
+
+## Stage F batch 8
+
+Commit A preserves the exact chosen game-indicator RGB/alpha, including saved
+alpha, for stars and circles in every tab state. Pins use one 0.85 scale factor
+and a shared left-side paint/hit rectangle, true vertical centring and a left
+title reservation replacing the old right reservation. Size hints are unchanged;
+star clamping uses the transformed pin stroke bounds. Redeem pinning off clears
+open-dialog caches/rebuilds immediately, guards both passive paint paths and
+makes stored pins dormant without deleting them. Pure geometry, pixel, alpha
+round-trip, ordering and flag tests were updated. Compilation/tests **NOT RUN**.

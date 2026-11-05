@@ -70,7 +70,7 @@ GameList gamesFromJson(const QJsonArray &json)
             continue;
         if (gameBoxArtUrl(game.boxArtUrl).isEmpty())
             game.boxArtUrl.clear();
-        if (!game.colour.isValid() || game.colour.alpha() != 255)
+        if (!game.colour.isValid())
             game.colour = nextGameColour(result);
         if (std::any_of(result.begin(), result.end(),
                         [&game](const auto &other) {
@@ -96,7 +96,7 @@ QJsonArray gamesToJson(const GameList &games)
             QJsonObject{{"id", game.id},
                         {"name", game.name},
                         {"boxArtUrl", game.boxArtUrl},
-                        {"colour", game.colour.name(QColor::HexRgb)}});
+                        {"colour", game.colour.name(QColor::HexArgb)}});
     return result;
 }
 GameList migrateGames(bool v2Present, const GameList &current,

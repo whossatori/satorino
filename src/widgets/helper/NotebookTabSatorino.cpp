@@ -5,6 +5,7 @@
 #include "widgets/helper/NotebookTab.hpp"
 
 #include "widgets/splits/SplitContainer.hpp"
+#include "util/SatorinoIndicator.hpp"
 
 #include <QHelpEvent>
 #include <QPainter>
@@ -98,7 +99,8 @@ void NotebookTab::paintPin(QPainter &painter) const
     painter.save();
     painter.setRenderHint(QPainter::Antialiasing);
     painter.translate(QRectF(this->getXRect()).center());
-    painter.scale(this->scale(), this->scale());
+    const qreal pinScale = this->scale() * satorino::TAB_PIN_SCALE;
+    painter.scale(pinScale, pinScale);
     auto pen = painter.pen();
     pen.setWidthF(1.2);
     pen.setCapStyle(Qt::RoundCap);

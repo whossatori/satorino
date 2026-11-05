@@ -10,6 +10,7 @@
 class QPainter;
 namespace chatterino::satorino {
 QString redeemChannelKey(const QString &primaryId, const QString &fallbackId);
+bool redeemPinVisible(bool enabled, bool storedPinned);
 QString redeemPinTooltip(bool pinned, bool channelReady, bool rewardReady,
                          bool failed = false);
 QRectF redeemStarRect(const QRectF &image);

@@ -315,3 +315,12 @@ TEST(SatorinoGames, AddResetRejectsLateSuccessOrErrorFromOlderGeneration)
     EXPECT_TRUE(state.accepts(next->generation));
     EXPECT_FALSE(state.accepts(old->generation));
 }
+
+TEST(SatorinoGames, ColourAlphaRoundTripsWithoutShading)
+{
+    const QColor chosen(17, 34, 51, 87);
+    const GameList games{{"123", "Game", {}, chosen}};
+    const auto result = gamesFromJson(gamesToJson(games));
+    ASSERT_EQ(result.size(), 1);
+    EXPECT_EQ(result.front().colour, chosen);
+}

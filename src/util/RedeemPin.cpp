@@ -33,6 +33,10 @@ QString redeemChannelKey(const QString &primaryId, const QString &fallbackId)
            : channelIdValid(fallback) ? fallback
                                       : QString{};
 }
+bool redeemPinVisible(bool enabled, bool storedPinned)
+{
+    return enabled && storedPinned;
+}
 QString redeemPinTooltip(bool pinned, bool channelReady, bool rewardReady,
                          bool failed)
 {

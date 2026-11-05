@@ -11,6 +11,7 @@
 #    include "util/RedeemData.hpp"
 
 #    include <QIcon>
+#    include <QMetaObject>
 #    include <QCursor>
 #    include <QDateTime>
 #    include <QSize>
@@ -109,7 +110,7 @@ void ChannelPointsDialog::mergeRedeems(const GqlChannelPointRewards &snapshot)
 
 void ChannelPointsDialog::bindRedeemOptions()
 {
-    auto refresh = [this](bool, auto) {
+    auto refresh = [this](bool) {
         QTimer::singleShot(0, this, [this] {
             if (this->selectedRewardValid_ &&
                 !satorino::redeemVisible(this->selectedReward_,
@@ -139,7 +140,17 @@ void ChannelPointsDialog::bindRedeemOptions()
     settings->satorinoRedeemsHideCooldown.connect(
         refresh, this->managedConnections_, false);
     settings->satorinoRedeemsEnablePinning.connect(
-        refresh, this->managedConnections_, false);
+        [this](bool) {
+            // No stale flags/cache for one frame when toggled from the GUI.
+            QMetaObject::invokeMethod(
+                this,
+                [this] {
+                    this->pinnedRedeemIds_.clear();
+                    this->rebuildContent();
+                },
+                Qt::AutoConnection);
+        },
+        this->managedConnections_, false);
 }
 
 QVector<GqlChannelPointReward> ChannelPointsDialog::orderRedeems(
@@ -172,9 +183,10 @@ QVector<GqlChannelPointReward> ChannelPointsDialog::orderRedeems(
 bool ChannelPointsDialog::isRedeemPinned(
     const GqlChannelPointReward &reward) const
 {
-    return getSettings()->satorinoRedeemsEnablePinning.getValue() &&
-           redeemData().isPinned(this->redeemChannelKey(),
-                                 satorino::redeemPinId(reward));
+    return satorino::redeemPinVisible(
+        getSettings()->satorinoRedeemsEnablePinning.getValue(),
+        redeemData().isPinned(this->redeemChannelKey(),
+                              satorino::redeemPinId(reward)));
 }
 
 void ChannelPointsDialog::addRedeemPinButton(
@@ -212,6 +224,12 @@ void ChannelPointsDialog::addRedeemPinButton(
     QObject::connect(
         pin, &QToolButton::clicked, this,
         [this, pin, id, refresh](bool checked) {
+            if (!getSettings()->satorinoRedeemsEnablePinning.getValue())
+            {
+                pin->hide();
+                refresh(false, true, true);
+                return;
+            }
             const auto currentKey = this->redeemChannelKey();
             const bool rewardReady = !id.isEmpty() && id.size() <= 128;
             if (currentKey.isEmpty() || !rewardReady)

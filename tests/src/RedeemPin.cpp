@@ -83,3 +83,11 @@ TEST(RedeemPin, PaintedStarIsYellowAndInsideItsImage)
         }
     EXPECT_TRUE(yellow);
 }
+
+TEST(RedeemPin, PinFlagIsDormantWhenDisabled)
+{
+    EXPECT_FALSE(redeemPinVisible(false, false));
+    EXPECT_FALSE(redeemPinVisible(false, true));
+    EXPECT_FALSE(redeemPinVisible(true, false));
+    EXPECT_TRUE(redeemPinVisible(true, true));
+}

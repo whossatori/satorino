@@ -1249,9 +1249,9 @@ void NotebookTab::paintEvent(QPaintEvent *)
     // satorino: calculate unchanged title geometry before the indicator for collision bounds.
     float compactDivider = getCompactDivider(getSettings()->tabStyle);
     // set area for text
-    int rectW =
-        (!getSettings()->showTabCloseButton ? 0
-                                            : int(16 * scale / compactDivider));
+    int rectW = (!getSettings()->showTabCloseButton || this->isPinned()
+                     ? 0
+                     : int(16 * scale / compactDivider));
     QRect rect(0, 0, this->width() - rectW, height);
 
     // draw text
@@ -1260,15 +1260,15 @@ void NotebookTab::paintEvent(QPaintEvent *)
     translateRectForLocation(textRect, this->tabLocation_,
                              this->selected_ ? -1 : -2);
 
-    if (this->isPinned() || this->shouldDrawXButton())  // satorino: pin space
+    if (this->shouldDrawXButton())  // satorino: pins reserve the left instead
     {
         textRect.setRight(textRect.right() - this->height() / 2);
     }
 
     if (this->isPinned())
     {
-        textRect.setRight(std::min(textRect.right(),
-                                   this->getXRect().left() - int(2 * scale)));
+        textRect = satorino::pinnedTabTitleRect(
+            textRect, this->getXRect(), int(2 * scale));  // satorino: left pin
     }
 
     int width = metrics.horizontalAdvance(this->getTitle());
@@ -1304,27 +1304,17 @@ void NotebookTab::paintEvent(QPaintEvent *)
             this->rect(), scale, this->tabLocation_, this->selected_);
         if (const auto colour = this->gameIndicatorColour())
         {
-            // satorino: match the actual tab fill, including the custom-colour overlay.
-            const auto background = satorino::indicatorBackground(
-                tabBackground.color(),
-                this->hasCustomTabColor()
-                    ? tabColorFill(this->customTabColor_, this->selected_,
-                                   windowFocused)
-                    : QColor{});
-            // satorino: use the actual title ink and visible close/pin glyph bounds.
+            // satorino: exact chosen colour; use the actual title ink and visible close/pin glyph bounds.
             QVector<QRectF> obstacles;
             auto titleInk = painter.boundingRect(QRectF(textRect),
                                                  this->getTitle(), option);
             if (this->isPinned())
                 titleInk = titleInk.intersected(QRectF(textRect));
             obstacles.push_back(titleInk);
-            const QRectF controls(this->getXRect());
             if (this->isPinned())
             {
-                const auto centre = controls.center();
-                obstacles.push_back(QRectF(centre.x() - 4.6 * scale,
-                                           centre.y() - 5.6 * scale,
-                                           9.2 * scale, 12.2 * scale));
+                obstacles.push_back(satorino::pinnedTabGlyphBounds(
+                    this->getXRect(), scale));  // satorino: left, scaled pin
             }
             else if (this->shouldDrawXButton())
             {
@@ -1337,7 +1327,7 @@ void NotebookTab::paintEvent(QPaintEvent *)
                 liveIndicatorRect, QRectF(this->rect()), obstacles,
                 painter.pen().widthF(), 1.0 / this->devicePixelRatioF());
             satorino::paintHighlightedIndicator(
-                painter, liveIndicatorRect, *colour, background,
+                painter, liveIndicatorRect, *colour, QColor{},
                 satorino::indicatorShape(
                     satorino::LiveIndicator::Game,
                     getSettings()->satorinoLiveGameStar.getValue()),
@@ -1648,6 +1638,11 @@ void NotebookTab::update()
 
 QRect NotebookTab::getXRect() const
 {
+    // satorino: paint, tooltip, double-click and hit tests share the left pin rect.
+    if (this->isPinned())
+        return satorino::pinnedTabRect(
+            this->rect(), this->scale(),
+            getSettings()->tabStyle == TabStyle::Compact);
     QRect rect = this->rect();
     float s = this->scale();
     int size = static_cast<int>(16 * s);
