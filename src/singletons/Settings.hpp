@@ -22,6 +22,7 @@
 #include "controllers/sound/ISoundController.hpp"
 #include "providers/emoji/EmojiStyle.hpp"
 #include "singletons/Toasts.hpp"
+#include "util/SatorinoGamesSettings.hpp"  // satorino: registered JSON game list
 #include "util/RapidJsonSerializeQString.hpp"  // IWYU pragma: keep
 #include "util/serialize/List.hpp"             // IWYU pragma: keep
 #include "widgets/NotebookEnums.hpp"
@@ -1358,6 +1359,9 @@ public:
         "/satorino/redeems/enablePinning", true};
     // satorino: opt-in live presentation/delivery; stock watched-channel list is reused.
     QStringSetting satorinoLiveGames = {"/satorino/live/games", ""};
+    // satorino: ordered game IDs/names, artwork and per-game dot colours.
+    ChatterinoSetting<satorino::GameList> satorinoLiveGamesV2 = {
+        "/satorino/live/gamesV2", {}};
     BoolSetting satorinoLiveDesktop = {"/satorino/live/desktop", false};
     BoolSetting satorinoLiveDiscordEnabled = {"/satorino/live/discordEnabled",
                                               false};

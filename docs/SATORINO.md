@@ -668,3 +668,38 @@ were added. Nothing was compiled: no native toolchain/WSL distro is available.
 C++ tests and Windows/Twitch/Discord runtime checks are **NOT RUN**. See
 REPORT-F4.md for every pin suspect, verification and the Windows checklist.
 Batch 4 compile fix: use public QWidget repaint without changing the protected mock hook; audit/harden direct includes; compilation NOT RUN (REPORT-F4-FIX.md).
+
+## Stage F batch 5
+
+Game highlights now recolour the stock round live dot instead of drawing a
+controller glyph. Dot size, position, stock/rerun/offline paths and tab layout
+are unchanged. A matching dot gets the selected game's opaque colour and a
+thin contrasting outline in the same ellipse. Across splits and aggregates,
+the first matching entry in the user's game list wins. The pure priority stays
+train > game > dot; a regular/golden-kappa/other colour table is reserved only.
+There is no train detection, train colour UI or active train colour producer.
+
+Live status now has a searchable game picker using the existing Helix
+searchGames category endpoint. Search requires two characters, waits 300 ms,
+and ignores stale query/account responses. Compact results show async box art
+and Add/Added controls. Selected games have colour, remove and up/down controls;
+the maximum is 50. Eight non-red default hues expand into distinct shades.
+Thumbnail downloads/decode have four slots, weak row targets, placeholders,
+negative caching and a 96-entry cache; decoding uses the existing Qt worker pool.
+
+The registered /satorino/live/gamesV2 setting is an actual ordered JSON array
+of id/name/boxArtUrl/colour objects. Only an absent key migrates the old text;
+the old key is untouched. Explicit empty or malformed V2 values stay empty
+and cannot resurrect removed lines. Numeric legacy entries start without a
+name; existing stream observations or search results enrich known names/art.
+Matching uses ID when both IDs exist, otherwise exact NFC/case-folded names.
+Known duplicate aliases collapse while retaining the first entry's colour.
+The watch-list heading is Live notifications, with a grey shared-list help
+line and Streamer column. Desktop and Discord controls use their existing paths.
+
+New sources are util/SatorinoGames.{hpp,cpp}, util/SatorinoGamesSettings.hpp and
+widgets/settingspages/SatorinoGamePicker.{hpp,cpp}, in the marked CMake block.
+20 gtests in tests/src/SatorinoGames.cpp cover JSON/setting storage, migration,
+matching, dedupe/bounds, colours, metadata, URL sizing and search generations.
+Nothing was compiled; C++ tests and Windows/runtime checks are **NOT RUN**.
+See REPORT-F5.md for verification, decisions and the Windows checklist.

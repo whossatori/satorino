@@ -1163,6 +1163,11 @@ set(SOURCE_FILES
         widgets/dialogs/ChannelPointsDialogSatorino.cpp
         util/SatorinoLive.cpp
         util/SatorinoLive.hpp
+        util/SatorinoGames.cpp
+        util/SatorinoGames.hpp
+        util/SatorinoGamesSettings.hpp
+        widgets/settingspages/SatorinoGamePicker.cpp
+        widgets/settingspages/SatorinoGamePicker.hpp
         controllers/notifications/SatorinoLiveNotifications.cpp
         controllers/notifications/SatorinoLiveNotifications.hpp
         controllers/notifications/NotificationControllerSatorino.cpp

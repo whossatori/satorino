@@ -391,6 +391,14 @@ void Settings::migrate(bool isTest)
 {
     bool ranMigration = false;
 
+    // satorino: presence, including an explicit [], prevents legacy resurrection.
+    if (!this->satorinoLiveGamesV2.hasValueBeenSet())
+    {
+        this->satorinoLiveGamesV2.setValue(satorino::migrateGames(
+            false, {}, this->satorinoLiveGames.getValue()));
+        ranMigration = true;
+    }
+
     auto currentVersion = this->settingsVersion.getValue();
 
     qCDebug(LOG) << "Migrating settings from" << currentVersion;

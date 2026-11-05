@@ -89,6 +89,7 @@ set(test_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/src/RedeemVisibility.cpp # satorino: filter defaults/toggles and pin enablement
     ${CMAKE_CURRENT_LIST_DIR}/src/SatorinoLive.cpp # satorino: live transitions, games, webhook privacy
     ${CMAKE_CURRENT_LIST_DIR}/src/RedeemPinFix.cpp # satorino: final pin order and persistence
+    ${CMAKE_CURRENT_LIST_DIR}/src/SatorinoGames.cpp # satorino: game picker data, migration, colours and stale search tests
     # Add your new file above this line!
 
     ${CMAKE_CURRENT_LIST_DIR}/src/lib/Snapshot.cpp

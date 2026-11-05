@@ -15,6 +15,7 @@
 #include "singletons/Theme.hpp"
 #include "singletons/WindowManager.hpp"
 #include "util/Helpers.hpp"
+#include "util/SatorinoGames.hpp"  // satorino: game dot outline
 #include "widgets/dialogs/ColorPickerDialog.hpp"
 #include "widgets/dialogs/SettingsDialog.hpp"
 #include "widgets/Notebook.hpp"
@@ -35,6 +36,7 @@
 #include <QLineEdit>
 #include <QMimeData>
 #include <QPainter>
+#include <QPen>  // satorino: contrasting game dot outline
 #include <QPixmap>
 
 #include <algorithm>
@@ -192,8 +194,8 @@ NotebookTab::NotebookTab(Notebook *notebook)
             this->tabSizeChanged();
         },
         this->managedConnections_);
-    // satorino: game-list edits repaint only; they do not change tab geometry.
-    getSettings()->satorinoLiveGames.connect(
+    // satorino: ordered game/colour edits repaint only; tab geometry is unchanged.
+    getSettings()->satorinoLiveGamesV2.connect(
         [this] {
             this->update();
         },
@@ -1260,8 +1262,16 @@ void NotebookTab::paintEvent(QPaintEvent *)
         QRect liveIndicatorRect(x, y, diameter, diameter);
         translateRectForLocation(liveIndicatorRect, this->tabLocation_,
                                  this->selected_ ? 0 : -1);
-        // satorino: keep the same indicator slot and stock dot fallback.
-        if (!this->paintGameIndicator(painter, liveIndicatorRect))
+        // satorino: same stock ellipse and pen width; only matching live dots change colour.
+        if (const auto colour = this->gameIndicatorColour())
+        {
+            painter.save();
+            painter.setBrush(*colour);
+            painter.setPen(QPen(satorino::dotOutline(*colour)));
+            painter.drawEllipse(liveIndicatorRect);
+            painter.restore();
+        }
+        else
         {
             painter.drawEllipse(liveIndicatorRect);
         }

@@ -6,85 +6,51 @@
 
 #include "providers/twitch/TwitchChannel.hpp"
 #include "singletons/Settings.hpp"
+#include "singletons/Theme.hpp"
 #include "util/MultiChannel.hpp"
-#include "util/SatorinoLive.hpp"
+#include "util/SatorinoGames.hpp"
 #include "widgets/splits/Split.hpp"
 #include "widgets/splits/SplitContainer.hpp"
 
-#include <QPainter>
-#include <QPainterPath>
-#include <QPen>  // satorino: complete paint types, independent of transitive headers
-#include <QPointF>
-#include <QRectF>
+#include <QColor>
+#include <QVector>
 
 #include <memory>
+#include <optional>
 
 namespace chatterino {
-
-bool NotebookTab::paintGameIndicator(QPainter &painter, const QRect &dot) const
+std::optional<QColor> NotebookTab::gameIndicatorColour() const
 {
-    const auto games = getSettings()->satorinoLiveGames.getValue();
+    const auto games = getSettings()->satorinoLiveGamesV2.getValue();
     auto *container = dynamic_cast<SplitContainer *>(this->page);
-    if (!this->isLive_ || games.trimmed().isEmpty() || !container)
-    {
-        return false;
-    }
-    const auto matches = [&games](const ChannelPtr &channel) {
+    if (!this->isLive_ || games.isEmpty() || !container)
+        return std::nullopt;
+    QVector<satorino::LiveGame> live;
+    const auto collect = [&live](const ChannelPtr &channel) {
         const auto twitch = std::dynamic_pointer_cast<TwitchChannel>(channel);
         if (!twitch || !twitch->isLive() || twitch->isRerun())
-        {
-            return false;
-        }
+            return;
         const auto status = twitch->accessStreamStatus();
-        return satorino::gameMatches(games, status->game, status->gameId);
+        live.push_back({status->gameId, status->game});
     };
-    bool highlighted = false;
     for (auto *split : container->getSplits())
     {
         const auto channel = split->getChannel();
         if (auto multi = std::dynamic_pointer_cast<MultiChannel>(channel))
         {
             for (const auto &child : multi->channels())
-            {
-                highlighted = highlighted || matches(child.channel);
-            }
+                collect(child.channel);
         }
         else
-        {
-            highlighted = highlighted || matches(channel);
-        }
+            collect(channel);
     }
-    if (satorino::liveIndicator(this->isLive_, highlighted) !=
-        satorino::LiveIndicator::Game)
-    {
-        return false;
-    }
-    // Original, unbranded controller glyph in the stock indicator corner.
-    painter.save();
-    painter.translate(QRectF(dot).center());
-    const auto scale = this->scale();
-    painter.scale(scale, scale);
-    auto pen = painter.pen();
-    pen.setWidthF(0.8);
-    pen.setCapStyle(Qt::RoundCap);
-    pen.setJoinStyle(Qt::RoundJoin);
-    painter.setPen(pen);
-    painter.setBrush(Qt::NoBrush);
-    QPainterPath shape;
-    shape.moveTo(-2.5, -2);
-    shape.cubicTo(-4, -2, -4.5, 2.5, -3.5, 2.5);
-    shape.lineTo(-1.5, 1);
-    shape.lineTo(1.5, 1);
-    shape.lineTo(3.5, 2.5);
-    shape.cubicTo(4.5, 2.5, 4, -2, 2.5, -2);
-    shape.closeSubpath();
-    painter.drawPath(shape);
-    painter.drawLine(QPointF(-2.8, -0.5), QPointF(-1.2, -0.5));
-    painter.drawLine(QPointF(-2, -1.3), QPointF(-2, 0.3));
-    painter.drawPoint(QPointF(2, -1));
-    painter.drawPoint(QPointF(2.8, 0));
-    painter.restore();
-    return true;
+    const auto match = satorino::firstMatchingGame(games, live);
+    // Unmatched dots follow the exact stock paint path.
+    if (!match)
+        return std::nullopt;
+    return satorino::indicatorColour(
+        satorino::liveIndicator(true, true),
+        satorino::IndicatorColours{
+            this->theme->tabs.liveIndicator, games[*match].colour, {}});
 }
-
 }  // namespace chatterino

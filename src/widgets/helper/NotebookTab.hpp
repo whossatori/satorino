@@ -16,6 +16,7 @@
 #include <QPropertyAnimation>
 
 #include <memory>
+#include <optional>  // satorino: optional game dot colour
 #include <unordered_map>
 
 namespace chatterino {
@@ -144,8 +145,8 @@ private:
     void addPinAction();
     void updateTabManagementActions();
     void paintPin(QPainter &painter) const;
-    bool paintGameIndicator(QPainter &painter,
-                            const QRect &dot) const;  // satorino
+    // satorino: optional colour, preserving stock dot geometry.
+    std::optional<QColor> gameIndicatorColour() const;
     bool pinned_ = false;
     QAction *pinTabAction_{};
     QAction *closeTabAction_{};

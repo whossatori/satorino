@@ -13,15 +13,14 @@
 #include "widgets/helper/EditableModelView.hpp"
 #include "widgets/settingspages/GeneralPageView.hpp"
 #include "widgets/settingspages/SettingWidget.hpp"
+#include "widgets/settingspages/SatorinoGamePicker.hpp"
 
 #include <QCheckBox>
 #include <QHeaderView>
 #include <QLabel>  // satorino: direct widget dependencies, independent of PCH
 #include <QLineEdit>
-#include <QPlainTextEdit>
 #include <QPointer>
 #include <QPushButton>
-#include <QSignalBlocker>
 #include <QTableView>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -33,35 +32,17 @@ namespace chatterino {
 void SatorinoPage::addLiveStatus(GeneralPageView &layout)
 {
     layout.addTitle("Live status");
-    layout.addDescription(
-        "Notifications work only while satorino is running. Watched streamers "
-        "use the same list as Notifications -> Selected Channels, including "
-        "channels without an open tab.");
-    layout.addDescription(
-        "Games to highlight (one exact game name or ID per line)");
-    auto *games = new QPlainTextEdit;
-    games->setMaximumHeight(100);
-    games->setPlaceholderText("One game name per line");
-    getSettings()->satorinoLiveGames.connect(
-        [games](const QString &value) {
-            if (games->toPlainText() != value)
-            {
-                const QSignalBlocker blocker(games);
-                games->setPlainText(value);
-            }
-        },
-        this->managedConnections_);
-    QObject::connect(games, &QPlainTextEdit::textChanged, this, [games] {
-        getSettings()->satorinoLiveGames.setValue(games->toPlainText());
-    });
-    layout.addWidget(games, {"Games to highlight", "live status", "game",
-                             "controller", "category"});
+    layout.addDescription("Notifications work only while satorino is running, "
+                          "including for streamers without an open tab.");
+    layout.addWidget(new SatorinoGamePicker(this),
+                     {"Games to highlight", "Search games", "Selected games",
+                      "game", "category", "colour", "live"});
 
-    layout.addDescription(
-        "Streamers to watch (shared with Notifications -> Selected Channels)");
+    layout.addSubtitle("Live notifications");
+    layout.addDescription("Shared with Notifications -> Selected Channels.");
     auto *watch = new EditableModelView(
         getApp()->getNotifications()->createModel(nullptr, Platform::Twitch));
-    watch->setTitles({"Twitch streamers to watch"});
+    watch->setTitles({"Streamer"});
     watch->setValidationRegexp(twitchUserNameRegexp());
     watch->getTableView()->horizontalHeader()->setSectionResizeMode(
         0, QHeaderView::Stretch);

@@ -6,6 +6,7 @@
 
 #include "controllers/notifications/SatorinoLiveNotifications.hpp"
 #include "providers/twitch/api/Helix.hpp"
+#include "singletons/Settings.hpp"  // satorino: enrich migrated game names from existing polls
 
 #include <QStringList>  // satorino: direct adapter dependency
 
@@ -31,6 +32,13 @@ void NotificationController::observeSatorinoLive(
     const QString &login, const std::optional<HelixStream> &stream,
     bool initial)
 {
+    // satorino: use existing metadata only; never add a request for migration.
+    if (stream)
+    {
+        auto games = getSettings()->satorinoLiveGamesV2.getValue();
+        if (satorino::learnGame(games, stream->gameId, stream->gameName))
+            getSettings()->satorinoLiveGamesV2.setValue(games);
+    }
     if (!this->satorinoLive_)
     {
         this->satorinoLive_ = std::make_shared<satorino::LiveNotifications>();
