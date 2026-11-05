@@ -842,14 +842,38 @@ void WindowManager::initialize()
 }
 
 // satorino: no direct access to the service from EventSub worker threads.
-void WindowManager::handleSatorinoRaid(const QJsonObject &payload,
-                                       qint64 timestampMs,
-                                       const QString &ownerId)
+QString WindowManager::handleSatorinoRaid(const QJsonObject &payload,
+                                          qint64 timestampMs,
+                                          const QString &ownerId,
+                                          qint64 receivedAtMs)
 {
     if (this->satorinoRaids_ && !this->shuttingDown_)
-        this->satorinoRaids_->receive(payload, timestampMs, ownerId);
+        return this->satorinoRaids_->receive(payload, timestampMs, ownerId,
+                                             receivedAtMs);
+    return "Raid watch: unavailable";
 }
 
+// satorino: these snapshot getters never start scans or subscriptions.
+QString WindowManager::satorinoRaidStatus() const
+{
+    return this->satorinoRaids_
+               ? satorino::raidStatusText(this->satorinoRaids_->statusContext())
+               : "Raid watch: initializing";
+}
+QString WindowManager::satorinoRaidDetails() const
+{
+    return this->satorinoRaids_ ? satorino::raidStatusDetails(
+                                      this->satorinoRaids_->statusContext())
+                                : QString{};
+}
+QString WindowManager::simulateSatorinoRaid(const ChannelPtr &source,
+                                            const QString &login,
+                                            const QString &id)
+{
+    return this->satorinoRaids_ && !this->shuttingDown_
+               ? this->satorinoRaids_->simulate(source, login, id)
+               : "Raid watch: unavailable";
+}
 void WindowManager::save()
 {
     if (this->appArgs.dontSaveSettings)

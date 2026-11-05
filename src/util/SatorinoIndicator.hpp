@@ -40,6 +40,8 @@ QRect pinnedTabTitleRect(QRect title, const QRect &pin, int gap);
 QPointF pinnedTabGlyphOrigin(const QRect &pin, float scale);
 QRectF pinnedTabGlyphBounds(const QRect &pin, float scale);
 int pinnedTabWidth(int titleWidth, int height, float scale, bool compact);
+QRect starSafeCloseGlyph(const QRect &hit, const QRect &circle, float scale,
+                         qreal clearance);
 // Uses the existing stock pen geometry; restores all painter state afterwards.
 void paintHighlightedIndicator(QPainter &painter, const QRect &rect,
                                const QColor &chosen, const QColor &background,

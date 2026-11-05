@@ -819,3 +819,44 @@ plus two scale units total padding, at a four-unit left margin. Pinned width
 reserves that box once and preserves the full title; non-pinned sizing stays
 stock. Pure floor/edge, pin-box/width and unchanged colour tests are updated.
 Compilation and C++ tests **NOT RUN**. See REPORT-F9.md.
+
+
+Commit B adds one grey raid status line under the two existing checkboxes;
+its one-second timer runs only while the settings page is visible. The line
+reports the actual startup Controller/DummyController choice (EventSub's
+registered default is true), missing login/token/room ID, accepted/pending/
+failed watches with HTTP reason and retry time, and the last event/action or
+ignore reason. Hover shows every watch. Existing EventSub logging gets the
+same transitions/decisions without tokens or raw raid payloads.
+
+Failed/lost watches retry with 5/10/20/40/60-second backoff and a 90-second
+pending timeout; sync also picks up delayed room IDs and credential refresh.
+Own-channel ID can use the logged-in account before ROOMSTATE; offline is
+not a gate. Credentials are captured on the GUI thread before Asio posting.
+Raid references migrate to a Twitch-directed reconnect session. The small
+marked handwritten EventSub session hook consumes raw channel.raid v1 without
+NoMessageHandler and routes raid revocations into failure/retry state; no
+generated table/dependency or other event type is changed. The old fail()
+logged that error but did not close an already-open socket; it was not a
+proven reconnect cause. Local arrival time guards the enable epoch, while
+metadata UTC still enforces age/future limits (with explicit clock reasons).
+
+Advanced local command: /satorino-testraid <targetLogin> [targetId]. It queues
+until the submitted command leaves the input, then uses the same parser,
+policy and tab action and prints a local system message. The optional ID is
+required if unavailable in the local channel registry; no Helix lookup or
+fabricated ID is used. Only transport subscription membership is bypassed;
+normal login/setting/source/block/dedupe/cap/draft/focus guards remain. Opening
+the tab still uses normal chat joining; the command never sends a chat/raid.
+
+Pure status/reason/backoff/parser/epoch tests and a registered offline test of
+the actual library dispatch were added. No app source files were added.
+Nothing compiled: C++ tests, Windows UI and real Twitch behavior **NOT RUN**.
+The user's failure is narrowed to observable pipeline stages, not proven
+without runtime evidence. See REPORT-F9.md and batch9 verification output.
+
+Final review also keeps compact close ink clear of the star floor by moving
+only that glyph inside its unchanged hit/hover box for highlighted stars;
+circle/non-highlighted rendering and non-pinned size hints stay stock. A
+session/source-checked pending-owner lookup handles an event arriving before
+the POST response; it does not substitute the currently selected account.

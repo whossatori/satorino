@@ -139,6 +139,27 @@ int pinnedTabWidth(int titleWidth, int height, float scale, bool compact)
                                                titleWidth + rightMargin)));
 }
 
+QRect starSafeCloseGlyph(const QRect &hit, const QRect &circle, float scale,
+                         qreal clearance)
+{
+    const int inset = static_cast<int>(4 * scale);
+    auto glyph = hit.adjusted(inset, inset, -inset, -inset);
+    const auto centre = QRectF(circle).center();
+    const qreal floor = (std::min(circle.width(), circle.height()) + 1) / 2.0 *
+                        INDICATOR_STAR_FLOOR;
+    if (glyph.right() + 0.5 >= centre.x() - floor &&
+        glyph.left() - 0.5 <= centre.x() + floor)
+    {
+        const int needed =
+            static_cast<int>(std::ceil(centre.y() + floor + clearance + 0.5)) -
+            glyph.top();
+        // Keep the existing hit/hover box; use only its unused internal padding.
+        const int room = std::max(0, hit.bottom() - glyph.bottom() - 1);
+        glyph.translate(0, std::clamp(needed, 0, room));
+    }
+    return glyph;
+}
+
 void paintHighlightedIndicator(QPainter &painter, const QRect &rect,
                                const QColor &chosen, const QColor &,
                                IndicatorShape shape,

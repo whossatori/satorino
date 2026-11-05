@@ -35,6 +35,7 @@
 #include <QDateTime>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonValue>  // satorino: raw subscription/event members
 #include <QVariant>
 #include <QVector>
 #include <twitch-eventsub-ws/listener.hpp>
@@ -191,30 +192,72 @@ void Connection::onSessionWelcome(
 void Connection::onNotification(const lib::messages::Metadata &metadata,
                                 const boost::json::value &jv)
 {
-    auto jsonString = boost::json::serialize(jv);
-    qCDebug(LOG) << "on notification: " << jsonString.c_str();
-    // satorino: raw dispatch precedes unsupported typed dispatch; no raid work while off.
-    if (metadata.subscriptionType == "channel.raid" &&
-        metadata.subscriptionVersion == "1" && !isAppAboutToQuit() &&
-        getSettings()->satorinoRaidsOpenTab.getValue())
+    // satorino: raid diagnostics never log raw payloads; other typed paths stay stock.
+    if (metadata.subscriptionType != "channel.raid")
     {
-        const auto payload = QByteArray::fromStdString(jsonString);
-        const auto timestampMs =
-            chronoToQDateTime(metadata.messageTimestamp).toMSecsSinceEpoch();
-        QString ownerId;
-        {
-            std::lock_guard lock(this->subscriptionMutex_);  // satorino
-            ownerId = this->twitchUserID;
-        }
-        postToThread([payload, timestampMs, ownerId] {
-            if (auto *app = tryGetApp();
-                app && !isAppAboutToQuit() &&
-                getSettings()->satorinoRaidsOpenTab.getValue())
-                app->getWindows()->handleSatorinoRaid(
-                    QJsonDocument::fromJson(payload).object(), timestampMs,
-                    ownerId);
-        });
+        auto jsonString = boost::json::serialize(jv);
+        qCDebug(LOG) << "on notification: " << jsonString.c_str();
+        return;
     }
+    if (metadata.subscriptionVersion != "1")
+    {
+        qCInfo(LOG) << "Raid notification ignored: unsupported version";
+        return;
+    }
+    if (metadata.messageType == "revocation")
+    {
+        const auto subscription =
+            QJsonDocument::fromJson(
+                QByteArray::fromStdString(boost::json::serialize(jv)))
+                .object()
+                .value("subscription")
+                .toObject();
+        const auto id = subscription.value("id").toString();
+        const auto reason =
+            satorino::raidSafeReason(subscription.value("status").toString());
+        postToThread([id, reason] {
+            if (auto *app = tryGetApp(); app && !isAppAboutToQuit())
+                app->getEventSub()->raidSubscriptionRevoked(id, reason);
+        });
+        return;
+    }
+    if (isAppAboutToQuit() || !getSettings()->satorinoRaidsOpenTab.getValue())
+    {
+        qCInfo(LOG)
+            << "Raid notification ignored: setting off or shutting down";
+        return;
+    }
+    const auto payload = QByteArray::fromStdString(boost::json::serialize(jv));
+    const auto timestampMs =
+        chronoToQDateTime(metadata.messageTimestamp).toMSecsSinceEpoch();
+    QString ownerId;
+    {
+        std::lock_guard lock(this->subscriptionMutex_);
+        ownerId = this->twitchUserID;
+    }
+    const auto receivedAtMs = QDateTime::currentMSecsSinceEpoch();
+    const auto sessionId =
+        this->sessionID;  // satorino: immutable welcome ID on this read thread
+    qCInfo(LOG) << "Raid notification queued for GUI";
+    postToThread([payload, timestampMs, ownerId, receivedAtMs, sessionId] {
+        if (auto *app = tryGetApp(); app && !isAppAboutToQuit())
+        {
+            const auto object = QJsonDocument::fromJson(payload).object();
+            const auto owner =
+                ownerId.isEmpty()
+                    ? app->getEventSub()->raidPendingOwner(
+                          sessionId, object.value("event")
+                                         .toObject()
+                                         .value("from_broadcaster_user_id")
+                                         .toString())
+                    : ownerId;
+            app->getWindows()->handleSatorinoRaid(object, timestampMs, owner,
+                                                  receivedAtMs);
+        }
+        else
+            qCInfo(LOG) << "Raid notification ignored: application unavailable "
+                           "or shutting down";
+    });
 }
 
 void Connection::onClose(std::unique_ptr<lib::Listener> self,

@@ -45,6 +45,7 @@
 #include <QVector>
 
 #include <algorithm>
+#include <optional>  // satorino: actual close glyph shared by paint/collision
 
 using namespace Qt::StringLiterals;
 
@@ -1285,6 +1286,8 @@ void NotebookTab::paintEvent(QPaintEvent *)
     QTextOption option(alignment);
     option.setWrapMode(QTextOption::NoWrap);
 
+    std::optional<QRect>
+        starCloseGlyph;  // satorino: retain stock hit box and circle geometry
     // draw live indicator
     if ((this->isLive_ || this->isRerun_) && getSettings()->showTabLive)
     {
@@ -1335,9 +1338,15 @@ void NotebookTab::paintEvent(QPaintEvent *)
             else if (this->shouldDrawXButton())
             {
                 const int inset = static_cast<int>(scale * 4);
-                obstacles.push_back(QRectF(this->getXRect().adjusted(
-                                               inset, inset, -inset, -inset))
-                                        .adjusted(-0.5, -0.5, 0.5, 0.5));
+                // satorino: reserve the star floor by moving only the X ink within its hit box.
+                if (getSettings()->satorinoLiveGameStar.getValue())
+                    starCloseGlyph = satorino::starSafeCloseGlyph(
+                        this->getXRect(), liveIndicatorRect, scale,
+                        1.0 / this->devicePixelRatioF());
+                const auto glyph = starCloseGlyph.value_or(
+                    this->getXRect().adjusted(inset, inset, -inset, -inset));
+                obstacles.push_back(
+                    QRectF(glyph).adjusted(-0.5, -0.5, 0.5, 0.5));
             }
             const auto starRadius = satorino::indicatorStarRadius(
                 liveIndicatorRect, QRectF(this->rect()), obstacles,
@@ -1393,10 +1402,11 @@ void NotebookTab::paintEvent(QPaintEvent *)
 
             int a = static_cast<int>(scale * 4);
 
-            painter.drawLine(xRect.topLeft() + QPoint(a, a),
-                             xRect.bottomRight() + QPoint(-a, -a));
-            painter.drawLine(xRect.topRight() + QPoint(-a, a),
-                             xRect.bottomLeft() + QPoint(a, -a));
+            // satorino: exactly the same glyph used by the star obstacle calculation.
+            const auto glyph =
+                starCloseGlyph.value_or(xRect.adjusted(a, a, -a, -a));
+            painter.drawLine(glyph.topLeft(), glyph.bottomRight());
+            painter.drawLine(glyph.topRight(), glyph.bottomLeft());
         }
     }
 

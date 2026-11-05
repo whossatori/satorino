@@ -5,6 +5,8 @@
 #include "util/SatorinoRaid.hpp"
 
 #include "providers/twitch/eventsub/SubscriptionRequest.hpp"
+#include "providers/twitch/eventsub/Controller.hpp"
+#include <QDateTime>
 #include "Test.hpp"
 
 #include <QJsonDocument>
@@ -259,4 +261,163 @@ TEST(SatorinoRaid,
     b = a;
     b.ownerTwitchUserID = "2";
     EXPECT_EQ(a, b);
+}
+
+TEST(SatorinoRaid, StatusChooserReportsEveryPipelineGate)
+{
+    RaidStatusContext status;
+    EXPECT_EQ(raidStatusText(status), "Raid watch: off");
+    status.enabled = true;
+    EXPECT_EQ(raidStatusText(status), "Raid watch: not logged in");
+    status.loggedIn = true;
+    EXPECT_TRUE(raidStatusText(status).contains("no OAuth token"));
+    status.hasToken = true;
+    EXPECT_TRUE(raidStatusText(status).contains("enable it and restart"));
+    status.eventSubSetting = true;
+    EXPECT_TRUE(raidStatusText(status).contains("restart needed"));
+    status.eventSubAvailable = true;
+    EXPECT_TRUE(raidStatusText(status).contains("no open Twitch"));
+    status.waitingForIds = true;
+    EXPECT_TRUE(raidStatusText(status).contains("room ID"));
+    status.watches.push_back({"own", {RaidWatchState::Waiting, {}}, 0});
+    EXPECT_TRUE(raidStatusText(status).contains("waiting for connection"));
+    status.watches.front().subscription.state = RaidWatchState::Subscribing;
+    EXPECT_TRUE(raidStatusText(status).contains("own: subscribing"));
+    status.watches.front().subscription = {RaidWatchState::Subscribed, {}};
+    EXPECT_TRUE(raidStatusText(status).contains("watching 1/1"));
+    status.watches.front().subscription = {
+        RaidWatchState::Failed,
+        "HTTP 403: subscription missing proper authorization"};
+    status.watches.front().retrySeconds = 5;
+    EXPECT_TRUE(raidStatusText(status).contains("could not watch own"));
+    EXPECT_TRUE(raidStatusText(status).contains("HTTP 403"));
+    EXPECT_TRUE(raidStatusText(status).contains("retry in 5s"));
+    status.lastEvent =
+        "Last raid event: own -> alt at 12:00, ignored (target is blocked)";
+    EXPECT_TRUE(raidStatusText(status).contains(status.lastEvent));
+}
+TEST(SatorinoRaid, PerWatchStatesAndDetailsIncludePendingSubscribedAndFailure)
+{
+    EXPECT_EQ(raidWatchStateText({RaidWatchState::Inactive, {}}),
+              "not requested");
+    EXPECT_EQ(raidWatchStateText({RaidWatchState::Waiting, {}}),
+              "waiting for connection");
+    EXPECT_TRUE(raidWatchStateText({RaidWatchState::Waiting, "HTTP 500: busy"})
+                    .contains("retrying: HTTP 500"));
+    EXPECT_EQ(raidWatchStateText({RaidWatchState::Subscribing, {}}),
+              "subscribing");
+    EXPECT_EQ(raidWatchStateText({RaidWatchState::Subscribed, {}}),
+              "subscribed");
+    EXPECT_TRUE(raidWatchStateText({RaidWatchState::Failed, {}})
+                    .contains("request failed"));
+    RaidStatusContext status;
+    status.enabled = status.loggedIn = status.hasToken =
+        status.eventSubAvailable = status.eventSubSetting = true;
+    for (int i = 0; i < 10; ++i)
+        status.watches.push_back(
+            {QString("channel%1").arg(i), {RaidWatchState::Subscribed, {}}, 0});
+    EXPECT_TRUE(raidStatusText(status).contains("watching 10/10"));
+    EXPECT_TRUE(raidStatusDetails(status).contains("channel9: subscribed"));
+    status.eventSubSetting = false;
+    EXPECT_TRUE(raidStatusText(status).contains("restart pending"));
+}
+TEST(SatorinoRaid, DummyControllerCannotPretendToWatch)
+{
+    chatterino::eventsub::DummyController controller;
+    chatterino::eventsub::SubscriptionRequest request;
+    request.subscriptionType = "channel.raid";
+    EXPECT_FALSE(controller.raidsAvailable());
+    EXPECT_EQ(controller.raidSubscriptionStatus(request).state,
+              RaidWatchState::Inactive);
+    EXPECT_FALSE(controller.subscribe(request));
+}
+TEST(SatorinoRaid, FailureBackoffIsBounded)
+{
+    EXPECT_EQ(raidRetrySeconds(0), 5);
+    EXPECT_EQ(raidRetrySeconds(1), 10);
+    EXPECT_EQ(raidRetrySeconds(2), 20);
+    EXPECT_EQ(raidRetrySeconds(3), 40);
+    EXPECT_EQ(raidRetrySeconds(4), 60);
+    EXPECT_EQ(raidRetrySeconds(100), 60);
+    EXPECT_EQ(raidRetrySeconds(-1), 5);
+}
+TEST(SatorinoRaid, ReasonsAreRedactedAndBoundedBeforeUiOrLogs)
+{
+    const auto reason = raidSafeReason(
+        "HTTP 401: Bearer my_secret https://example.invalid/?token=my_secret",
+        {"my_secret"});
+    EXPECT_TRUE(reason.contains("HTTP 401"));
+    EXPECT_FALSE(reason.contains("my_secret"));
+    EXPECT_FALSE(reason.contains("example.invalid"));
+    EXPECT_FALSE(raidSafeReason("HTTP 400: {raw_payload: true}")
+                     .contains("raw_payload"));
+    EXPECT_LE(raidSafeReason(QString(500, 'x')).size(), 160);
+}
+TEST(SatorinoRaid, FullMessageAndPayloadOnlyProduceTheSameEvent)
+{
+    const auto now =
+        QDateTime::fromString("2026-11-05T13:45:12.123Z", Qt::ISODateWithMs)
+            .toMSecsSinceEpoch();
+    ASSERT_GT(now, 0);
+    const QJsonObject full{
+        {"metadata",
+         QJsonObject{{"message_id", "f8d8b9e9-4255-4f31-a404-6c8dbf0ff343"},
+                     {"message_type", "notification"},
+                     {"message_timestamp", "2026-11-05T13:45:12.123456789Z"},
+                     {"subscription_type", "channel.raid"},
+                     {"subscription_version", "1"}}},
+        {"payload", payload()}};
+    QString error;
+    const auto bare = parseRaidEvent(payload(), now, &error);
+    EXPECT_TRUE(error.isEmpty());
+    const auto wrapped = parseRaidEvent(full, now, &error);
+    ASSERT_TRUE(bare);
+    ASSERT_TRUE(wrapped);
+    EXPECT_EQ(wrapped->sourceId, bare->sourceId);
+    EXPECT_EQ(wrapped->targetId, bare->targetId);
+    EXPECT_EQ(wrapped->timestampMs, now);
+    auto malformed = full;
+    malformed.insert("metadata", QJsonObject{{"message_type", "revocation"}});
+    EXPECT_FALSE(parseRaidEvent(malformed, now, &error));
+    EXPECT_EQ(error, "invalid notification metadata");
+}
+TEST(SatorinoRaid, RealisticUtcMetadataAgeAndLocalArrivalEpoch)
+{
+    const auto now =
+        QDateTime::fromString("2026-11-05T13:45:12.123Z", Qt::ISODateWithMs)
+            .toMSecsSinceEpoch();
+    RaidContext input = context();
+    input.nowUtcMs = now;
+    input.enabledAtUtcMs = now - 1000;
+    input.receivedAtUtcMs = now;
+    // Server time slightly before local enable time is legitimate when local arrival is current.
+    RaidPolicy policy;
+    EXPECT_EQ(policy.decide(event("200", now - 5000), input).action,
+              RaidAction::OpenAndJoin);
+    RaidPolicy queued;
+    input.receivedAtUtcMs = input.enabledAtUtcMs - 1;
+    EXPECT_EQ(queued.decide(event("201", now), input).reason,
+              "received before watch started");
+    input.receivedAtUtcMs = now;
+    RaidPolicy stale;
+    EXPECT_TRUE(stale.decide(event("202", now - RAID_DEDUPE_MS - 1), input)
+                    .reason.contains("older than three minutes"));
+    RaidPolicy future;
+    EXPECT_TRUE(future.decide(event("203", now + 30001), input)
+                    .reason.contains("future"));
+}
+TEST(SatorinoRaid, DecisionReasonsExplainIgnoredAndUnswitchedActions)
+{
+    RaidPolicy policy;
+    auto input = context();
+    input.targetBlocked = true;
+    EXPECT_EQ(policy.decide(event(), input).reason, "target is blocked");
+    input.targetBlocked = false;
+    input.hasDraft = true;
+    EXPECT_EQ(policy.decide(event(), input).reason,
+              "current input has a draft");
+    EXPECT_TRUE(policy.decide(event(), input).reason.contains("duplicate"));
+    input.nowMs = 1000;
+    EXPECT_TRUE(
+        policy.decide(event("201"), input).reason.contains("rate limit"));
 }

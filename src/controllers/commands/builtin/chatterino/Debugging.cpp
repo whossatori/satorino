@@ -33,6 +33,7 @@
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <QString>
+#include <QTimer>  // satorino: simulate after the submitted command leaves the input
 
 using namespace Qt::Literals::StringLiterals;
 
@@ -228,6 +229,30 @@ QString invalidateBuffers(const CommandContext &)
     return {};
 }
 
+// satorino: always consume locally, including invalid/off cases; never return chat text.
+QString satorinoTestRaid(const CommandContext &ctx)
+{
+    if (!ctx.channel)
+        return {};
+    if (ctx.words.size() < 2 || ctx.words.size() > 3)
+        ctx.channel->addSystemMessage(
+            "Usage: /satorino-testraid <targetLogin> [targetId]. Local "
+            "simulation only; opens chat, never sends a raid or message.");
+    else
+    {
+        // A submitted command must not count as an unsent draft during its own probe.
+        QTimer::singleShot(
+            0, getApp()->getWindows(),
+            [channel = ctx.channel, login = ctx.words[1],
+             id = ctx.words.size() == 3 ? ctx.words[2] : QString{}] {
+                if (auto *app = tryGetApp(); app && !isAppAboutToQuit())
+                    channel->addSystemMessage(
+                        app->getWindows()->simulateSatorinoRaid(channel, login,
+                                                                id));
+            });
+    }
+    return {};
+}
 QString eventsub(const CommandContext &)
 {
     getApp()->getEventSub()->debug();

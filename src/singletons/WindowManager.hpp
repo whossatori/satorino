@@ -128,8 +128,13 @@ public:
     void setEmotePopupBounds(QRect bounds);
 
     // satorino: GUI-thread entry from the context-guarded EventSub bridge.
-    void handleSatorinoRaid(const QJsonObject &payload, qint64 timestampMs,
-                            const QString &ownerId);
+    QString handleSatorinoRaid(const QJsonObject &payload, qint64 timestampMs,
+                               const QString &ownerId, qint64 receivedAtMs = 0);
+    QString satorinoRaidStatus()
+        const;  // satorino: UI-only snapshot, no networking
+    QString satorinoRaidDetails() const;
+    QString simulateSatorinoRaid(const ChannelPtr &source, const QString &login,
+                                 const QString &id);
     void initialize();
     void save();
     void closeAll();

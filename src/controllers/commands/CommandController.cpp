@@ -373,6 +373,8 @@ CommandController::CommandController(const Paths &paths)
     this->registerCommand("/saytranslate", &commands::sayTranslate);
     this->registerCommand("/tl", &commands::sayTranslate);
 
+    // satorino: hidden diagnostic, entirely consumed by the local command handler.
+    this->registerCommand("/satorino-testraid", &commands::satorinoTestRaid);
     this->registerCommand("/debug-args", &commands::listArgs);
 
     this->registerCommand("/debug-env", &commands::listEnvironmentVariables);

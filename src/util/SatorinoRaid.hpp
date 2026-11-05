@@ -6,6 +6,8 @@
 
 #include <QJsonObject>
 #include <QString>
+#include <QStringList>
+#include <QVector>
 #include <QtGlobal>
 
 #include <deque>
@@ -26,7 +28,8 @@ struct RaidEvent {
 bool validRaidId(const QString &id);
 bool validRaidLogin(const QString &login);
 std::optional<RaidEvent> parseRaidEvent(const QJsonObject &payload,
-                                        qint64 timestampMs);
+                                        qint64 timestampMs,
+                                        QString *error = nullptr);
 struct RaidContext {
     bool enabled = false;
     bool switchToTab = true;
@@ -40,12 +43,46 @@ struct RaidContext {
     qint64 nowMs = 0;  // Monotonic time for caps/dedupe.
     qint64 nowUtcMs = 0;
     qint64 enabledAtUtcMs = 0;
+    qint64 receivedAtUtcMs =
+        0;  // Local arrival clock avoids server skew at the enable boundary.
 };
 enum class RaidAction { Ignore, OpenAndJoin, SelectExisting };
 struct RaidDecision {
     RaidAction action = RaidAction::Ignore;
     bool switchToTab = false;
+    QString reason;
 };
+enum class RaidWatchState {
+    Inactive,
+    Waiting,
+    Subscribing,
+    Subscribed,
+    Failed
+};
+struct RaidSubscriptionStatus {
+    RaidWatchState state = RaidWatchState::Inactive;
+    QString detail;
+};
+struct RaidWatchStatus {
+    QString login;
+    RaidSubscriptionStatus subscription;
+    int retrySeconds = 0;
+};
+struct RaidStatusContext {
+    bool enabled = false;
+    bool loggedIn = false;
+    bool hasToken = false;
+    bool eventSubAvailable = false;
+    bool eventSubSetting = false;
+    bool waitingForIds = false;
+    QVector<RaidWatchStatus> watches;
+    QString lastEvent;
+};
+QString raidSafeReason(QString reason, const QStringList &secrets = {});
+QString raidWatchStateText(const RaidSubscriptionStatus &status);
+QString raidStatusText(const RaidStatusContext &context);
+QString raidStatusDetails(const RaidStatusContext &context);
+int raidRetrySeconds(int failures);
 class RaidPolicy
 {
 public:

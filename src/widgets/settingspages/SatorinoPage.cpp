@@ -5,10 +5,18 @@
 #include "widgets/settingspages/SatorinoPage.hpp"
 
 #include "singletons/Settings.hpp"
+#include "Application.hpp"  // satorino: GUI status snapshot
+#include "singletons/WindowManager.hpp"
 #include "widgets/settingspages/GeneralPageView.hpp"
 #include "widgets/settingspages/SettingWidget.hpp"
 
 #include <QFrame>
+#include <QShowEvent>
+#include <QHideEvent>
+#include <QLabel>
+#include <QColor>
+#include <QPalette>
+#include <QSizePolicy>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 
@@ -28,6 +36,9 @@ SatorinoPage::SatorinoPage()
     this->setLayout(outer);
 
     this->initLayout(*view);
+    this->raidStatusTimer_.setInterval(1000);
+    QObject::connect(&this->raidStatusTimer_, &QTimer::timeout, this,
+                     &SatorinoPage::refreshRaidStatus);
 }
 
 bool SatorinoPage::filterElements(const QString &query)
@@ -106,8 +117,39 @@ void SatorinoPage::initLayout(GeneralPageView &layout)
             "window is active and its current input is empty.")
         ->addKeywords({"raid", "focus", "tab"})
         ->addTo(layout);
+    // satorino: one calm text line; tooltip contains the full per-watch states.
+    this->raidStatus_ = layout.addDescription("Raid watch: initializing");
+    this->raidStatus_->setTextFormat(Qt::PlainText);
+    this->raidStatus_->setOpenExternalLinks(false);
+    this->raidStatus_->setWordWrap(false);
+    this->raidStatus_->setSizePolicy(QSizePolicy::Ignored,
+                                     QSizePolicy::Preferred);
+    this->raidStatus_->setMinimumWidth(0);
+    auto palette = this->raidStatus_->palette();
+    palette.setColor(QPalette::WindowText, QColor("#888888"));
+    this->raidStatus_->setPalette(palette);
     this->addLiveStatus(layout);
     layout.addStretch();
 }
 
+// satorino: snapshots are cheap and update only while this page is visible.
+void SatorinoPage::showEvent(QShowEvent *event)
+{
+    SettingsPage::showEvent(event);
+    this->refreshRaidStatus();
+    this->raidStatusTimer_.start();
+}
+void SatorinoPage::hideEvent(QHideEvent *event)
+{
+    this->raidStatusTimer_.stop();
+    SettingsPage::hideEvent(event);
+}
+void SatorinoPage::refreshRaidStatus()
+{
+    if (!this->raidStatus_ || !this->isVisible())
+        return;
+    this->raidStatus_->setText(getApp()->getWindows()->satorinoRaidStatus());
+    this->raidStatus_->setToolTip(
+        getApp()->getWindows()->satorinoRaidDetails());
+}
 }  // namespace chatterino

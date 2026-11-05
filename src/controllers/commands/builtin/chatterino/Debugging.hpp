@@ -33,6 +33,8 @@ QString incrementImageGeneration(const CommandContext &ctx);
 QString invalidateBuffers(const CommandContext &ctx);
 
 QString eventsub(const CommandContext &ctx);
+QString satorinoTestRaid(
+    const CommandContext &ctx);  // satorino: local-only advanced probe
 
 QString debugTest(const CommandContext &ctx);
 

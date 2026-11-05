@@ -179,10 +179,11 @@ TEST(SatorinoIndicator, StarFloorAndTabEdgesWithCloseAndTightLeftPinFixtures)
                             }
                             else if (close)
                             {
-                                const int a = static_cast<int>(4 * scale);
-                                obstacles.push_back(
-                                    QRectF(controls.adjusted(a, a, -a, -a))
-                                        .adjusted(-0.5, -0.5, 0.5, 0.5));
+                                const auto glyph = starSafeCloseGlyph(
+                                    controls, circle, scale, 0.5);
+                                EXPECT_TRUE(controls.contains(glyph));
+                                obstacles.push_back(QRectF(glyph).adjusted(
+                                    -0.5, -0.5, 0.5, 0.5));
                             }
                             const qreal radius = indicatorStarRadius(
                                 circle, QRectF(tab), obstacles, 1, 0.5);
