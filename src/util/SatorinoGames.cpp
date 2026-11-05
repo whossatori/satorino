@@ -212,6 +212,11 @@ void GameSearchState::edit(const QString &query, qint64 nowMs)
     this->due_ = nowMs + DEBOUNCE_MS;
     this->launched_ = false;
 }
+void GameSearchState::resetAfterAdd(qint64 nowMs)
+{
+    this->edit({}, nowMs);
+}
+
 bool GameSearchState::longEnough() const
 {
     return this->query_.size() >= 2;

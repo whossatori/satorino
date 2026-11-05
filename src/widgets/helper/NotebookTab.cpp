@@ -38,6 +38,10 @@
 #include <QMimeData>
 #include <QPainter>
 #include <QPixmap>
+#include <QPen>  // satorino: actual stock stroke width for star clamping
+#include <QRectF>
+#include <QTextOption>
+#include <QVector>
 
 #include <algorithm>
 
@@ -1242,6 +1246,39 @@ void NotebookTab::paintEvent(QPaintEvent *)
 
     painter.fillRect(lineRect, lineColor);
 
+    // satorino: calculate unchanged title geometry before the indicator for collision bounds.
+    float compactDivider = getCompactDivider(getSettings()->tabStyle);
+    // set area for text
+    int rectW =
+        (!getSettings()->showTabCloseButton ? 0
+                                            : int(16 * scale / compactDivider));
+    QRect rect(0, 0, this->width() - rectW, height);
+
+    // draw text
+    int offset = int(scale * 4 / compactDivider);
+    QRect textRect(offset, 0, this->width() - offset - offset, height);
+    translateRectForLocation(textRect, this->tabLocation_,
+                             this->selected_ ? -1 : -2);
+
+    if (this->isPinned() || this->shouldDrawXButton())  // satorino: pin space
+    {
+        textRect.setRight(textRect.right() - this->height() / 2);
+    }
+
+    if (this->isPinned())
+    {
+        textRect.setRight(std::min(textRect.right(),
+                                   this->getXRect().left() - int(2 * scale)));
+    }
+
+    int width = metrics.horizontalAdvance(this->getTitle());
+    Qt::Alignment alignment = width > textRect.width()
+                                  ? Qt::AlignLeft | Qt::AlignVCenter
+                                  : Qt::AlignHCenter | Qt::AlignVCenter;
+
+    QTextOption option(alignment);
+    option.setWrapMode(QTextOption::NoWrap);
+
     // draw live indicator
     if ((this->isLive_ || this->isRerun_) && getSettings()->showTabLive)
     {
@@ -1274,11 +1311,37 @@ void NotebookTab::paintEvent(QPaintEvent *)
                     ? tabColorFill(this->customTabColor_, this->selected_,
                                    windowFocused)
                     : QColor{});
+            // satorino: use the actual title ink and visible close/pin glyph bounds.
+            QVector<QRectF> obstacles;
+            auto titleInk = painter.boundingRect(QRectF(textRect),
+                                                 this->getTitle(), option);
+            if (this->isPinned())
+                titleInk = titleInk.intersected(QRectF(textRect));
+            obstacles.push_back(titleInk);
+            const QRectF controls(this->getXRect());
+            if (this->isPinned())
+            {
+                const auto centre = controls.center();
+                obstacles.push_back(QRectF(centre.x() - 4.6 * scale,
+                                           centre.y() - 5.6 * scale,
+                                           9.2 * scale, 12.2 * scale));
+            }
+            else if (this->shouldDrawXButton())
+            {
+                const int inset = static_cast<int>(scale * 4);
+                obstacles.push_back(QRectF(this->getXRect().adjusted(
+                                               inset, inset, -inset, -inset))
+                                        .adjusted(-0.5, -0.5, 0.5, 0.5));
+            }
+            const auto starRadius = satorino::indicatorStarRadius(
+                liveIndicatorRect, QRectF(this->rect()), obstacles,
+                painter.pen().widthF(), 1.0 / this->devicePixelRatioF());
             satorino::paintHighlightedIndicator(
                 painter, liveIndicatorRect, *colour, background,
                 satorino::indicatorShape(
                     satorino::LiveIndicator::Game,
-                    getSettings()->satorinoLiveGameStar.getValue()));
+                    getSettings()->satorinoLiveGameStar.getValue()),
+                starRadius);
         }
         else
         {
@@ -1289,40 +1352,12 @@ void NotebookTab::paintEvent(QPaintEvent *)
     // set the pen color
     painter.setPen(colors.text);
 
-    float compactDivider = getCompactDivider(getSettings()->tabStyle);
-    // set area for text
-    int rectW =
-        (!getSettings()->showTabCloseButton ? 0
-                                            : int(16 * scale / compactDivider));
-    QRect rect(0, 0, this->width() - rectW, height);
-
-    // draw text
-    int offset = int(scale * 4 / compactDivider);
-    QRect textRect(offset, 0, this->width() - offset - offset, height);
-    translateRectForLocation(textRect, this->tabLocation_,
-                             this->selected_ ? -1 : -2);
-
-    if (this->isPinned() || this->shouldDrawXButton())  // satorino: pin space
-    {
-        textRect.setRight(textRect.right() - this->height() / 2);
-    }
-
-    // satorino: clip long titles before the always-visible pin, including compact tabs.
+    // satorino: retain the original title clipping/drawing after the indicator.
     painter.save();
     if (this->isPinned())
     {
-        textRect.setRight(std::min(textRect.right(),
-                                   this->getXRect().left() - int(2 * scale)));
         painter.setClipRect(textRect, Qt::IntersectClip);
     }
-
-    int width = metrics.horizontalAdvance(this->getTitle());
-    Qt::Alignment alignment = width > textRect.width()
-                                  ? Qt::AlignLeft | Qt::AlignVCenter
-                                  : Qt::AlignHCenter | Qt::AlignVCenter;
-
-    QTextOption option(alignment);
-    option.setWrapMode(QTextOption::NoWrap);
     painter.drawText(textRect, this->getTitle(), option);
     painter.restore();  // satorino: end title clip
 

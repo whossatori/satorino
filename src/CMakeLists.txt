@@ -1160,6 +1160,8 @@ set(SOURCE_FILES
         widgets/splits/SplitInputSatorino.cpp
         util/RedeemData.cpp
         util/RedeemData.hpp
+        util/RedeemPin.cpp
+        util/RedeemPin.hpp
         widgets/dialogs/ChannelPointsDialogSatorino.cpp
         util/SatorinoLive.cpp
         util/SatorinoLive.hpp

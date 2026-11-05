@@ -35,6 +35,7 @@ public:
 
 private:
     void editSearch();
+    void resetSearchAfterAdd();
     void search();
     void showResults(const satorino::GameList &games);
     void showSelected();

@@ -12,6 +12,7 @@
 #include "providers/twitch/TwitchAccount.hpp"
 #include "providers/twitch/TwitchEmotes.hpp"
 #include "util/Helpers.hpp"
+#include "util/RedeemPin.hpp"  // satorino: prefer validated broadcaster ID in reward catalog
 #include "util/RapidjsonHelpers.hpp"
 
 #include <QCryptographicHash>
@@ -4534,7 +4535,10 @@ void TwitchGql::getChannelPointRewards(
             }
 
             GqlChannelPointRewards rewards;
-            rewards.channelId = community.value("id").toString();
+            // satorino: channel.id is the broadcaster; retain validated legacy fallback.
+            rewards.channelId =
+                satorino::redeemChannelKey(channel.value("id").toString(),
+                                           community.value("id").toString());
             rewards.channelDisplayName =
                 community.value("displayName").toString();
             rewards.balance = jsonIntegerValue(points.value("balance"));

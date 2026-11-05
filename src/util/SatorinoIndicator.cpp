@@ -74,7 +74,7 @@ std::array<QPointF, 10> indicatorStar(const QPointF &centre, qreal outerRadius,
         std::isfinite(outerRadius) ? std::max(qreal(0), outerRadius) : 0;
     const qreal ratio = std::isfinite(innerRatio)
                             ? std::clamp(innerRatio, qreal(0), qreal(1))
-                            : 0.48;
+                            : 0.5;
     for (std::size_t i = 0; i < points.size(); ++i)
     {
         const qreal angle =
@@ -84,6 +84,32 @@ std::array<QPointF, 10> indicatorStar(const QPointF &centre, qreal outerRadius,
         points[i] = centre + QPointF(r * std::cos(angle), r * std::sin(angle));
     }
     return points;
+}
+
+qreal indicatorStarRadius(const QRect &circle, const QRectF &tab,
+                          const QVector<QRectF> &obstacles, qreal penWidth,
+                          qreal clearance)
+{
+    const QRectF box(circle);
+    const auto centre = box.center();
+    const qreal gap = std::max(qreal(0), clearance);
+    qreal radius = (std::min(box.width(), box.height()) + penWidth) / 2 *
+                   INDICATOR_STAR_FACTOR;
+    radius = std::min(
+        {radius, centre.x() - tab.left() - gap, tab.right() - centre.x() - gap,
+         centre.y() - tab.top() - gap, tab.bottom() - centre.y() - gap});
+    for (const auto &rect : obstacles)
+    {
+        if (rect.isEmpty())
+            continue;
+        const qreal dx = std::max(
+            {rect.left() - centre.x(), centre.x() - rect.right(), qreal(0)});
+        const qreal dy = std::max(
+            {rect.top() - centre.y(), centre.y() - rect.bottom(), qreal(0)});
+        // The entire star is inside this disc, so distance-to-rect safely bounds every edge.
+        radius = std::min(radius, std::hypot(dx, dy) - gap);
+    }
+    return std::max(qreal(0), radius);
 }
 
 QColor indicatorBackground(const QColor &base, const QColor &overlay)
@@ -119,7 +145,8 @@ QColor indicatorFillColour(const QColor &chosen, const QColor &background)
 
 void paintHighlightedIndicator(QPainter &painter, const QRect &rect,
                                const QColor &chosen, const QColor &background,
-                               IndicatorShape shape)
+                               IndicatorShape shape,
+                               std::optional<qreal> starRadius)
 {
     painter.save();
     painter.setRenderHint(QPainter::Antialiasing);
@@ -138,13 +165,17 @@ void paintHighlightedIndicator(QPainter &painter, const QRect &rect,
     }
     else
     {
-        // Use the stock ellipse's outer stroke footprint, with no pen to blunt the points.
-        // This adds no painted extent in compact title/close/pin layouts.
         painter.setPen(Qt::NoPen);
         const QRectF bounds(rect);
-        const auto points = indicatorStar(
-            bounds.center(),
-            (std::min(bounds.width(), bounds.height()) + pen.widthF()) / 2);
+        const qreal radius = starRadius.value_or(
+            (std::min(bounds.width(), bounds.height()) + pen.widthF()) / 2 *
+            INDICATOR_STAR_FACTOR);
+        if (radius <= 0)
+        {
+            painter.restore();
+            return;
+        }
+        const auto points = indicatorStar(bounds.center(), radius);
         QPainterPath path;
         path.moveTo(points.front());
         for (std::size_t i = 1; i < points.size(); ++i)

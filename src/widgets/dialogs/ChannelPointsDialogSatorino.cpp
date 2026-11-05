@@ -10,12 +10,13 @@
 #    include "singletons/Settings.hpp"
 #    include "util/RedeemData.hpp"
 
-#    include <QEvent>
 #    include <QIcon>
-#    include <QLabel>
-#    include <QPointer>  // satorino: overlay lifetime tracking
+#    include <QCursor>
+#    include <QDateTime>
+#    include <QSize>
 #    include <QTimer>
 #    include <QToolButton>
+#    include <QVBoxLayout>
 
 #    include <algorithm>
 #    include <utility>
@@ -33,55 +34,12 @@ satorino::RedeemOptions redeemOptions()
             settings->satorinoRedeemsEnablePinning.getValue()};
 }
 
-// An overlay has no layout item and cannot affect a tile's size hints.
-class RedeemPinAnchor : public QObject
+void sizePin(QToolButton *pin, float scale)
 {
-public:
-    RedeemPinAnchor(QWidget *tile, QWidget *overlay, bool selected)
-        : QObject(tile)
-        , tile_(tile)
-        , overlay_(overlay)
-        , selected_(selected)
-    {
-        tile->installEventFilter(this);
-        this->position();
-    }
-
-protected:
-    bool eventFilter(QObject *watched, QEvent *event) override
-    {
-        if (event->type() == QEvent::Resize || event->type() == QEvent::Show)
-        {
-            this->position();
-        }
-        return QObject::eventFilter(watched, event);
-    }
-
-private:
-    void position()
-    {
-        if (!this->tile_ || !this->overlay_)
-        {
-            return;
-        }
-        const int size = this->selected_
-                             ? std::max(12, this->tile_->width() / 4)
-                             : std::max(8, this->tile_->width() / 10);
-        this->overlay_->setFixedSize(size, size);
-        if (auto *button = qobject_cast<QToolButton *>(this->overlay_.data()))
-        {
-            button->setIconSize(QSize(size - 4, size - 4));
-        }
-        this->overlay_->move(std::max(0, this->tile_->width() - size - 2), 2);
-        this->overlay_->raise();
-        this->overlay_
-            ->show();  // Child added to an already-visible preview needs this.
-    }
-
-    QPointer<QWidget> tile_;
-    QPointer<QWidget> overlay_;
-    bool selected_;
-};
+    const int size = std::max(18, static_cast<int>(18 * scale));
+    pin->setFixedSize(size, size);
+    pin->setIconSize(QSize(std::max(12, size - 4), std::max(12, size - 4)));
+}
 
 satorino::RedeemData redeemData()
 {
@@ -162,6 +120,13 @@ void ChannelPointsDialog::bindRedeemOptions()
             this->rebuildContent();
         });
     };
+    // The IRC room ID may arrive after an offline/cached detail was opened.
+    this->managedConnections_.managedConnect(
+        this->channel_->roomIdAssigned, [this] {
+            QTimer::singleShot(0, this, [this] {
+                this->rebuildContent();
+            });
+        });
     auto *settings = getSettings();
     settings->satorinoRedeemsShowDisabled.connect(
         refresh, this->managedConnections_, false);
@@ -202,82 +167,76 @@ QVector<GqlChannelPointReward> ChannelPointsDialog::orderRedeems(
                              options.enablePinning);
 }
 
-void ChannelPointsDialog::addRedeemPin(QWidget *tile,
-                                       const GqlChannelPointReward &reward,
-                                       bool selected)
+bool ChannelPointsDialog::isRedeemPinned(
+    const GqlChannelPointReward &reward) const
+{
+    return getSettings()->satorinoRedeemsEnablePinning.getValue() &&
+           redeemData().isPinned(this->redeemChannelKey(),
+                                 satorino::redeemPinId(reward));
+}
+
+void ChannelPointsDialog::addRedeemPinButton(
+    const GqlChannelPointReward &reward, std::function<void(bool)> updateStar)
 {
     if (!getSettings()->satorinoRedeemsEnablePinning.getValue())
-    {
         return;
-    }
-    const auto key = this->redeemChannelKey();
-    const auto id = satorino::redeemPinId(reward);
-    const bool pinned = selected ? redeemData().isPinned(key, id)
-                                 : this->pinnedRedeemIds_.contains(id);
-    if (!selected)
-    {
-        if (pinned)
-        {
-            auto *mark = new QLabel(tile);
-            mark->setObjectName("SatorinoRedeemPinMark");
-            mark->setPixmap(QIcon(":/buttons/pinEnabled.svg").pixmap(32, 32));
-            mark->setScaledContents(true);
-            mark->setAttribute(Qt::WA_TransparentForMouseEvents);
-            mark->setFocusPolicy(Qt::NoFocus);
-            tile->setToolTip(tile->toolTip() + "\nPinned");
-            new RedeemPinAnchor(tile, mark, false);
-        }
-        return;
-    }
-    // Only the selected detail's preview gets an interactive corner button.
-    auto *pin = new QToolButton(tile);
+    auto *pin = new QToolButton(this->contentWidget_);
     pin->setObjectName("SatorinoRedeemPin");
     pin->setCheckable(true);
-    pin->setChecked(pinned);
-    pin->setIcon(QIcon(pinned ? ":/buttons/pinEnabled.svg"
-                              : ":/buttons/pinDisabled-darkMode.svg"));
-    pin->setToolTip(pinned ? "Unpin reward" : "Pin reward to top");
-    pin->setAccessibleName(pin->toolTip());
-    pin->setCursor(Qt::PointingHandCursor);
-    const auto unavailable =
-        key.isEmpty() ? QString("Channel ID is not available yet; reopen "
-                                "rewards after connecting.")
-        : id.isEmpty()
-            ? QString("This reward has no stable ID for pinning.")
-            : QString{};  // Local pin edits do not depend on a pending redemption.
-    pin->setEnabled(unavailable.isEmpty());
-    if (!unavailable.isEmpty())
-    {
-        pin->setToolTip(unavailable);
-        tile->setToolTip(unavailable);
-    }
-    // Parent preview has no click/redeem action; consume clicks in this child.
-    pin->setAttribute(Qt::WA_NoMousePropagation);
-    pin->setStyleSheet("QToolButton { background: rgba(0,0,0,160); border: 0; "
-                       "border-radius: 3px; }");
-    new RedeemPinAnchor(tile, pin, true);
-    // Pinning only changes a registered setting; it cannot spend points.
+    pin->setAutoRaise(true);
+    pin->setMouseTracking(
+        true);  // FramelessDraggable native hit test must return HTCLIENT.
+    pin->setFocusPolicy(Qt::StrongFocus);
+    sizePin(pin, this->scale());
+    const auto key = this->redeemChannelKey();
+    const auto id = satorino::redeemPinId(reward);
+    const bool ready = !key.isEmpty() && !id.isEmpty() && id.size() <= 128;
+    const auto refresh = [pin, updateStar](bool pinned, bool channelReady,
+                                           bool rewardReady) {
+        pin->setChecked(pinned);
+        pin->setIcon(QIcon(pinned ? ":/buttons/pinEnabled.svg"
+                                  : ":/buttons/pinDisabled-darkMode.svg"));
+        pin->setEnabled(channelReady && rewardReady);
+        pin->setToolTip(
+            satorino::redeemPinTooltip(pinned, channelReady, rewardReady));
+        pin->setAccessibleName(pin->toolTip());
+        updateStar(pinned);
+    };
+    refresh(this->isRedeemPinned(reward), !key.isEmpty(),
+            !id.isEmpty() && id.size() <= 128);
+    pin->setCursor(ready ? Qt::PointingHandCursor : Qt::ArrowCursor);
+    // Same parent/layout pattern as Redeem; this button never calls its action.
+    this->contentLayout_->addWidget(pin, 0, Qt::AlignHCenter);
     QObject::connect(
-        pin, &QToolButton::clicked, this, [this, key, id](bool checked) {
-            if (key != this->redeemChannelKey())
+        pin, &QToolButton::clicked, this,
+        [this, pin, id, refresh](bool checked) {
+            const auto currentKey = this->redeemChannelKey();
+            const bool rewardReady = !id.isEmpty() && id.size() <= 128;
+            if (currentKey.isEmpty() || !rewardReady)
             {
-                this->setStatus(
-                    "Channel ID changed; reopen rewards before pinning.", true);
+                refresh(false, !currentKey.isEmpty(), rewardReady);
                 return;
             }
             auto data = redeemData();
-            data.setPinned(key, id, checked, QDateTime::currentDateTime());
+            data.setPinned(currentKey, id, checked,
+                           QDateTime::currentDateTime());
             saveRedeemData(data);
-            const bool saved = redeemData().isPinned(key, id);
-            this->setStatus(
-                saved     ? "Pinned"
-                : checked ? "Could not save this pin (check the pin limit)."
-                          : "Unpinned",
-                checked && !saved);
-            QTimer::singleShot(0, this, [this] {
-                this->rebuildContent();
-            });
+            const bool saved = redeemData().isPinned(currentKey, id);
+            refresh(saved, true, true);
+            if (saved != checked)
+            {
+                pin->setToolTip(
+                    satorino::redeemPinTooltip(saved, true, true, true));
+                pin->setAccessibleName(pin->toolTip());
+            }
         });
+}
+
+void ChannelPointsDialog::refreshRedeemPinLayout()
+{
+    for (auto *pin :
+         this->contentWidget_->findChildren<QToolButton *>("SatorinoRedeemPin"))
+        sizePin(pin, this->scale());
 }
 
 }  // namespace chatterino

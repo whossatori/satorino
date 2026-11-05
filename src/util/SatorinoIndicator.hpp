@@ -10,26 +10,34 @@
 #include <QColor>
 #include <QPointF>
 #include <QRect>
+#include <QRectF>
+#include <QVector>
 
 #include <array>
+#include <optional>
 
 class QPainter;
 
 namespace chatterino::satorino {
 
 enum class IndicatorShape { Circle, Star };
+inline constexpr qreal INDICATOR_STAR_FACTOR = 1.45;
 IndicatorShape indicatorShape(LiveIndicator kind, bool gameStar);
 // Exact stock integer geometry, including location/selection translation.
 QRect indicatorRect(const QRect &tab, float scale, NotebookTabLocation location,
                     bool selected);
 std::array<QPointF, 10> indicatorStar(const QPointF &centre, qreal outerRadius,
-                                      qreal innerRatio = 0.48);
+                                      qreal innerRatio = 0.5);
+qreal indicatorStarRadius(const QRect &circle, const QRectF &tab,
+                          const QVector<QRectF> &obstacles, qreal penWidth = 1,
+                          qreal clearance = 1);
 // Shade only when necessary: contrast without an inset outline or a size change.
 QColor indicatorFillColour(const QColor &chosen, const QColor &background);
 QColor indicatorBackground(const QColor &base, const QColor &overlay);
 // Uses the existing stock pen geometry; restores all painter state afterwards.
 void paintHighlightedIndicator(QPainter &painter, const QRect &rect,
                                const QColor &chosen, const QColor &background,
-                               IndicatorShape shape);
+                               IndicatorShape shape,
+                               std::optional<qreal> starRadius = std::nullopt);
 
 }  // namespace chatterino::satorino

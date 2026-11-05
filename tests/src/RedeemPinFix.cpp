@@ -89,4 +89,32 @@ TEST(RedeemPinFix, AutomaticRewardWithoutPlatformIdHasStableLocalPinKey)
     EXPECT_TRUE(redeemPinId(r).isEmpty());
 }
 
+TEST(RedeemPinFix, UnpinAndRepinAppendWhileMergeAndRoundTripKeepOrder)
+{
+    const auto now = QDateTime::currentDateTimeUtc();
+    RedeemData data;
+    const QVector<GqlChannelPointReward> rewards{
+        reward("a", 10), reward("b", 20), reward("c", 1)};
+    data.setPinned("123", "a", true, now);
+    data.setPinned("123", "b", true, now);
+    data.setPinned("123", "a", false, now);
+    data.setPinned("123", "a", true, now);
+    data.merge("123", rewards, true, true, now);
+    const auto restored = RedeemData::fromJson(data.toJson(), now);
+    EXPECT_EQ(ids(restored.displayOrder("123", rewards)),
+              (QStringList{"b", "a", "c"}));
+    EXPECT_EQ(ids(restored.displayOrder("123", rewards, false)),
+              (QStringList{"c", "a", "b"}));
+    EXPECT_TRUE(restored.isPinned("123", "a"));
+}
+TEST(RedeemPinFix, EmptyChannelOrRewardNeverCreatesAPin)
+{
+    RedeemData data;
+    const auto now = QDateTime::currentDateTimeUtc();
+    data.setPinned("", "id", true, now);
+    data.setPinned("123", "", true, now);
+    EXPECT_FALSE(data.isPinned("", "id"));
+    EXPECT_FALSE(data.isPinned("123", ""));
+}
+
 #endif

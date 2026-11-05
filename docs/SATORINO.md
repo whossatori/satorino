@@ -731,3 +731,43 @@ New util/SatorinoIndicator.{hpp,cpp} sources are in the marked CMake block.
 resolution, contrast and offscreen pixel coverage/state. An existing Settings
 test fixture checks the registered default. Nothing was compiled: these
 12 tests and Windows/runtime checks are **NOT RUN**. See REPORT-F6.md.
+
+## Stage F batch 7
+
+Highlighted stars target 1.45 times the previous painted-dot radius, with a
+0.5 inner ratio (approximately the dot's visual area before clamping). The
+shared stock circle rectangle and circle paint path remain unchanged. A pure
+radius helper clamps the enclosing star disc to the tab edges and the actual
+current title bounds, visible close glyph or stroked pin bounds, with one
+physical pixel of clearance. Normal/compact layouts, all locations and both
+selection states use those current geometries. A fully obstructed location
+suppresses the star instead of overlapping. Title geometry is calculated
+earlier for this check, but title drawing/clipping and tab size hints stay
+unchanged. Colour, contrast shading, matching and the default-on star option
+remain as in Batch 6.
+
+Adding a game clears the query, hides/clears results, clears search status,
+stops debounce, invalidates the active generation and focuses the query.
+An unabortable Helix request can finish but its stale callback cannot restore
+the old results. Remove/colour/reorder actions do not reset search.
+
+Reward pin overlays are removed. Detail has one small icon-only, checkable
+content-layout button centred beneath the unchanged reward image; it uses
+Pin redeem / Unpin redeem or a short disabled/failure tooltip, with no pin
+status label. Explicit mouse tracking keeps it in the Windows frameless
+popup's client input path. A click edits only /satorino/redeems/state and
+updates the same preview/button immediately. List and preview paint a passive
+#ffd23f star directly in their own paintEvent, using the shared star points,
+19% of image width and a 4% corner margin. No child marks or layout items are
+used for the stars. Pinning off hides the button/stars and skips ordering,
+while stored pins and all filters/manual redeem methods remain unchanged.
+
+Room ID remains the preferred local key. Catalog parsing now prefers a valid
+channel.id before the legacy community.id fallback, and an arriving room ID
+refreshes open content. New util/RedeemPin.{hpp,cpp} owns the shared validation,
+tooltip and passive-star helpers, registered in the marked CMake block.
+Tests extend search reset, radius/clamp/layout fixtures and pin round-trip/
+merge/order coverage, with a new registered six-case RedeemPin suite (12 net
+additional tests). Nothing was compiled; all C++ tests and Windows/runtime
+checks are **NOT RUN**. See REPORT-F7.md for the complete input/persistence
+trace and Windows checklist.

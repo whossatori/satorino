@@ -72,14 +72,6 @@ GqlChannelPointReward readReward(const QJsonObject &obj)
 
 }  // namespace
 
-QString redeemChannelKey(const QString &roomId, const QString &catalogId)
-{
-    const auto room = roomId.trimmed();
-    const auto catalog = catalogId.trimmed();
-    return validChannel(room) ? room
-                              : (validChannel(catalog) ? catalog : QString{});
-}
-
 QString redeemPinId(const GqlChannelPointReward &reward)
 {
     if (!reward.id.isEmpty())

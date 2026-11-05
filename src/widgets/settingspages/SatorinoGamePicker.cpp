@@ -24,6 +24,7 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QSignalBlocker>
 #include <QSize>
 #include <QSizePolicy>
 #include <QUrl>
@@ -169,6 +170,18 @@ void SatorinoGamePicker::editSearch()
         this->debounce_.start();
     }
 }
+void SatorinoGamePicker::resetSearchAfterAdd()
+{
+    this->debounce_.stop();
+    this->searchState_.resetAfterAdd(this->clock_.elapsed());
+    const QSignalBlocker blocker(this->query_);
+    this->query_->clear();
+    this->showResults({});
+    this->status_->clear();
+    this->query_->setFocus(Qt::OtherFocusReason);
+    // Keep the single in-flight slot until its callback drains; its generation is invalid.
+}
+
 void SatorinoGamePicker::search()
 {
     if (this->inFlight_ ||
@@ -251,6 +264,7 @@ void SatorinoGamePicker::showResults(const GameList &games)
             chosen.colour = nextGameColour(this->selected_);
             this->selected_.push_back(chosen);
             this->save();
+            this->resetSearchAfterAdd();
         });
         this->resultRows_->addWidget(row);
         this->thumbnail(game.boxArtUrl, art);

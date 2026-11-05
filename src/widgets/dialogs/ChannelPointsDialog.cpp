@@ -11,6 +11,7 @@
 #    include "singletons/Theme.hpp"
 #    include "util/Helpers.hpp"
 #    include "util/RedeemData.hpp"  // satorino: availability/cache/pins
+#    include "util/RedeemPin.hpp"   // satorino: passive painted favourite star
 #    include "widgets/buttons/Button.hpp"
 #    include "widgets/buttons/SvgButton.hpp"
 #    include "widgets/dialogs/ChannelPointsChartDialog.hpp"
@@ -27,6 +28,9 @@
 #    include <QLabel>
 #    include <QLayout>
 #    include <QLineEdit>
+#    include <QBrush>  // satorino: explicit painted-star dependencies
+#    include <QPen>
+#    include <QRectF>
 #    include <QPainter>
 #    include <QPainterPath>
 #    include <QPalette>
@@ -580,12 +584,13 @@ class RewardCardButton final : public QPushButton
 public:
     // satorino: explicit, always-visible row availability.
     RewardCardButton(const GqlChannelPointReward &reward, qint64 balance,
-                     QString availability, QWidget *parent)
+                     QString availability, bool pinned, QWidget *parent)
         : QPushButton(parent)
         , reward_(reward)
         , image_(rewardImage(reward))
         , balance_(balance)
         , availability_(std::move(availability))
+        , pinned_(pinned)  // satorino: paint only, never a child control
     {
         this->setCursor(Qt::PointingHandCursor);
         this->setFocusPolicy(Qt::StrongFocus);
@@ -764,6 +769,10 @@ protected:
                              statusLines.join('\n'));
         }
 
+        // satorino: passive favourite painted after image/status, without layout changes.
+        if (this->pinned_)
+            satorino::paintRedeemStar(painter, QRectF(square));
+
         if (this->hasFocus())
         {
             painter.setPen(QPen(QColor(255, 255, 255, 210), 1));
@@ -788,6 +797,7 @@ private:
     ImagePtr image_;
     qint64 balance_ = -1;
     QString availability_;  // satorino: cached/unavailable reason
+    bool pinned_ = false;   // satorino
     float scale_ = 1.F;
 };
 
@@ -914,13 +924,22 @@ private:
 class RewardIconPreview final : public QWidget
 {
 public:
-    RewardIconPreview(const GqlChannelPointReward &reward, QWidget *parent)
+    RewardIconPreview(const GqlChannelPointReward &reward, QWidget *parent,
+                      bool pinned)
         : QWidget(parent)
         , reward_(reward)
         , image_(rewardImage(reward))
+        , pinned_(pinned)  // satorino
     {
         this->setObjectName("ChannelPointsRewardPreview");
         this->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    }
+
+    // satorino: repaint only; no preview children or input handling.
+    void setPinned(bool pinned)
+    {
+        this->pinned_ = pinned;
+        this->update();
     }
 
     void setScale(float scale)
@@ -954,11 +973,15 @@ protected:
                                    glyphSize, glyphSize);
             drawRewardGlyph(painter, glyphRect, this->reward_, false);
         }
+        // satorino: paint the passive mark in this widget, not as a child overlay.
+        if (this->pinned_)
+            satorino::paintRedeemStar(painter, QRectF(rect));
     }
 
 private:
     GqlChannelPointReward reward_;
     ImagePtr image_;
+    bool pinned_ = false;  // satorino
     float scale_ = 1.F;
 };
 
@@ -1606,6 +1629,7 @@ void ChannelPointsDialog::refreshRewardsLayout()
 
 void ChannelPointsDialog::refreshRewardDetailLayout()
 {
+    this->refreshRedeemPinLayout();  // satorino: scale the ordinary layout button
     const auto effectiveScale = contentScale(this->scale());
     for (auto *preview : this->contentWidget_->findChildren<QWidget *>(
              QStringLiteral("ChannelPointsRewardPreview")))
@@ -1787,14 +1811,13 @@ void ChannelPointsDialog::rebuildRewards()
             reward, this->channel_->channelPointBalance(),
             satorino::redeemAvailability(reward, this->channel_->isLive(),
                                          isSupportedReward(reward)),
-            gridWidget);  // satorino: explicit availability
+            this->pinnedRedeemIds_.contains(satorino::redeemPinId(reward)),
+            gridWidget);  // satorino: explicit availability and passive favourite
         card->setObjectName("ChannelPointsRewardCardButton");
         card->setScale(effectiveScale);
         card->setFont(getApp()->getFonts()->getFont(
             FontStyle::UiMedium, readableFontScale(effectiveScale)));
         card->setEnabled(!this->actionInFlight_);
-        this->addRedeemPin(
-            card, reward);  // satorino: pin button, independent of redeeming
         QObject::connect(card, &QPushButton::clicked, this, [this, reward] {
             this->openRewardDetail(reward);
         });
@@ -1847,12 +1870,15 @@ void ChannelPointsDialog::rebuildRewardDetail()
 
     this->contentLayout_->addStretch(1);
 
-    auto *preview =
-        new RewardIconPreview(this->selectedReward_, this->contentWidget_);
+    auto *preview = new RewardIconPreview(
+        this->selectedReward_, this->contentWidget_,
+        this->isRedeemPinned(this->selectedReward_));  // satorino
     preview->setScale(effectiveScale);
     this->contentLayout_->addWidget(preview, 0, Qt::AlignCenter);
-    this->addRedeemPin(preview, this->selectedReward_,
-                       true);  // satorino: selected only
+    // satorino: normal centred layout item directly under the fixed-size image.
+    this->addRedeemPinButton(this->selectedReward_, [preview](bool pinned) {
+        preview->setPinned(pinned);
+    });
     if (!this->selectedReward_.imageUrl.isEmpty())
     {
         this->queueRewardImageRefresh();

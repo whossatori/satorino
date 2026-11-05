@@ -11,6 +11,7 @@
 #include <QColor>
 #include <QImage>
 #include <QPainter>
+#include <QPainterPath>
 #include <QPen>
 #include <QPoint>
 #include <QPointF>
@@ -89,14 +90,14 @@ TEST(SatorinoIndicator, StockSelectionAndLocationOffsetsArePreserved)
 TEST(SatorinoIndicator, StarHasTenAlternatingVerticesAndPointsUp)
 {
     const QPointF centre(12, 15);
-    const auto points = indicatorStar(centre, 10, 0.48);
+    const auto points = indicatorStar(centre, 10);
     ASSERT_EQ(points.size(), 10U);
     EXPECT_NEAR(points[0].x(), centre.x(), 1e-9);
     EXPECT_NEAR(points[0].y(), centre.y() - 10, 1e-9);
     for (std::size_t i = 0; i < points.size(); ++i)
     {
         const auto delta = points[i] - centre;
-        EXPECT_NEAR(std::hypot(delta.x(), delta.y()), i % 2 == 0 ? 10 : 4.8,
+        EXPECT_NEAR(std::hypot(delta.x(), delta.y()), i % 2 == 0 ? 10 : 5.0,
                     1e-9);
     }
 }
@@ -119,27 +120,101 @@ TEST(SatorinoIndicator, StarHasMirrorAndFivefoldRotationalSymmetry)
         EXPECT_NEAR(rotated.y(), points[(i + 2) % 10].y(), 1e-9);
     }
 }
-TEST(SatorinoIndicator, StarFitsTheStockPaintedBoxAtEveryScale)
+TEST(SatorinoIndicator, StarUsesOnePointFourFiveRadiusWhenThereIsRoom)
+{
+    const QRect circle(48, 48, 4, 4);
+    const auto radius = indicatorStarRadius(circle, QRectF(0, 0, 100, 100), {});
+    EXPECT_NEAR(radius, 2.5 * 1.45, 1e-9);
+    EXPECT_NEAR(radius, 2.5 * INDICATOR_STAR_FACTOR, 1e-9);
+}
+TEST(SatorinoIndicator, StarClampsInsideTabAndAvoidsTitleCloseAndPinFixtures)
 {
     for (float scale : SCALES)
-        for (bool selected : {false, true})
-            for (auto location : {Top, Left, Right, Bottom})
-            {
-                // Stock's one-unit pen extends half a unit beyond each rectangle edge.
-                const auto box =
-                    QRectF(indicatorRect(QRect(0, 0, 120, 56), scale, location,
-                                         selected))
-                        .adjusted(-0.5, -0.5, 0.5, 0.5);
-                const auto points =
-                    indicatorStar(box.center(), box.width() / 2);
-                for (const auto &point : points)
-                {
-                    EXPECT_GE(point.x(), box.left() - 1e-9);
-                    EXPECT_LE(point.x(), box.right() + 1e-9);
-                    EXPECT_GE(point.y(), box.top() - 1e-9);
-                    EXPECT_LE(point.y(), box.bottom() + 1e-9);
-                }
-            }
+        for (bool compact : {false, true})
+            for (bool pinned : {false, true})
+                for (bool close : {false, true})
+                    for (bool selected : {false, true})
+                        for (auto location : {Top, Left, Right, Bottom})
+                        {
+                            const QRect tab(
+                                0, 0,
+                                static_cast<int>((compact ? 84 : 120) * scale),
+                                static_cast<int>(28 * scale));
+                            const auto circle =
+                                indicatorRect(tab, scale, location, selected);
+                            const auto centre = QRectF(circle).center();
+                            // Conservative title ink fixtures include long titles and close-button-off layouts.
+                            QVector<QRectF> obstacles{
+                                QRectF(4 * scale, 10 * scale,
+                                       tab.width() -
+                                           (close || pinned ? 30 : 8) * scale,
+                                       13 * scale)};
+                            const int size = static_cast<int>(16 * scale);
+                            const int adjustment =
+                                location == Top ? size / 3 : size / 2;
+                            QRect controls(
+                                tab.right() - static_cast<int>(
+                                                  (compact ? 16 : 20) * scale),
+                                tab.center().y() - adjustment, size, size);
+                            if (selected)
+                            {
+                                if (location == Top)
+                                    controls.translate(0, -1);
+                                else if (location == Bottom)
+                                    controls.translate(0, 1);
+                                else if (location == Left)
+                                    controls.translate(-1, 0);
+                                else
+                                    controls.translate(1, 0);
+                            }
+                            if (pinned)
+                            {
+                                const auto c = QRectF(controls).center();
+                                obstacles.push_back(QRectF(
+                                    c.x() - 4.6 * scale, c.y() - 5.6 * scale,
+                                    9.2 * scale, 12.2 * scale));
+                            }
+                            else if (close)
+                            {
+                                const int a = static_cast<int>(4 * scale);
+                                obstacles.push_back(
+                                    QRectF(controls.adjusted(a, a, -a, -a))
+                                        .adjusted(-0.5, -0.5, 0.5, 0.5));
+                            }
+                            const qreal radius = indicatorStarRadius(
+                                circle, QRectF(tab), obstacles, 1, 0.5);
+                            EXPECT_GE(radius, 0);
+                            EXPECT_LE(radius, (circle.width() + 1) / 2.0 *
+                                                  INDICATOR_STAR_FACTOR);
+                            // The renderer suppresses a fully obstructed star.
+                            if (radius == 0)
+                                continue;
+                            const auto points = indicatorStar(centre, radius);
+                            QPainterPath star;
+                            star.moveTo(points.front());
+                            for (std::size_t i = 1; i < points.size(); ++i)
+                                star.lineTo(points[i]);
+                            star.closeSubpath();
+                            for (const auto &p : points)
+                            {
+                                EXPECT_GE(p.x(), -1e-9);
+                                EXPECT_LE(p.x(), tab.width() + 1e-9);
+                                EXPECT_GE(p.y(), -1e-9);
+                                EXPECT_LE(p.y(), tab.height() + 1e-9);
+                            }
+                            for (const auto &obstacle : obstacles)
+                                EXPECT_FALSE(star.intersects(obstacle));
+                        }
+}
+TEST(SatorinoIndicator, StarShrinksOrHidesInsteadOfOverlappingAnObstruction)
+{
+    const QRect circle(48, 48, 4, 4);
+    const QRectF tab(0, 0, 100, 100);
+    EXPECT_NEAR(
+        indicatorStarRadius(circle, tab, {QRectF(52, 40, 10, 20)}, 1, 0.5), 1.5,
+        1e-9);
+    EXPECT_EQ(indicatorStarRadius(circle, tab, {QRectF(49, 49, 2, 2)}), 0);
+    EXPECT_LE(indicatorStarRadius(QRect(96, 48, 4, 4), tab, {}, 1, 0.5), 1.5);
 }
 TEST(SatorinoIndicator, ShapeChooserUsesOptionOnlyForGameKind)
 {

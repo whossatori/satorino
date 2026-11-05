@@ -5,6 +5,7 @@
 #pragma once
 
 #include "providers/twitch/api/TwitchGql.hpp"
+#include "util/RedeemPin.hpp"  // satorino: shared validated channel identity
 
 #if MOLTORINO_ENABLE_CHANNEL_POINT_REWARDS
 
@@ -27,7 +28,6 @@ struct RedeemOptions {
 bool redeemVisible(const GqlChannelPointReward &reward, bool live,
                    const RedeemOptions &options = {});
 
-QString redeemChannelKey(const QString &roomId, const QString &catalogId);
 QString redeemPinId(const GqlChannelPointReward &reward);
 
 struct CachedRedeem {

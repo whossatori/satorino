@@ -15,6 +15,7 @@
 #    include <QTimer>
 #    include <QVector>
 
+#    include <functional>  // satorino: update painted star without rebuilding controls
 #    include <vector>
 
 class QButtonGroup;
@@ -65,8 +66,11 @@ private:
     void mergeRedeems(const GqlChannelPointRewards &snapshot);
     QVector<GqlChannelPointReward> orderRedeems(
         QVector<GqlChannelPointReward> rewards);
-    void addRedeemPin(QWidget *tile, const GqlChannelPointReward &reward,
-                      bool selected = false);
+    // satorino: regular content-layout button; no preview children or overlays.
+    void addRedeemPinButton(const GqlChannelPointReward &reward,
+                            std::function<void(bool)> updateStar);
+    bool isRedeemPinned(const GqlChannelPointReward &reward) const;
+    void refreshRedeemPinLayout();
     QString redeemChannelKey() const;
     void rebuildContent();
     void refreshCurrentLayout();

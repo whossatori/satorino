@@ -68,6 +68,7 @@ class GameSearchState
 public:
     static constexpr int DEBOUNCE_MS = 300;
     void edit(const QString &query, qint64 nowMs);
+    void resetAfterAdd(qint64 nowMs);
     std::optional<GameSearchRequest> takeReady(qint64 nowMs);
     bool accepts(quint64 generation) const;
     bool longEnough() const;

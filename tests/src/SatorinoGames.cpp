@@ -288,3 +288,30 @@ TEST(SatorinoGames, PersistedEmptyOrMalformedV2CountsAsPresent)
                              "Just Chatting")
                     .isEmpty());
 }
+
+TEST(SatorinoGames, AddResetCancelsPendingDebounce)
+{
+    GameSearchState state;
+    state.edit("Minecraft", 0);
+    state.resetAfterAdd(100);
+    EXPECT_FALSE(state.longEnough());
+    EXPECT_FALSE(state.takeReady(1000));
+    state.edit("Other", 1100);
+    EXPECT_FALSE(state.takeReady(1399));
+    ASSERT_TRUE(state.takeReady(1400));
+}
+TEST(SatorinoGames, AddResetRejectsLateSuccessOrErrorFromOlderGeneration)
+{
+    GameSearchState state;
+    state.edit("Minecraft", 0);
+    const auto old = state.takeReady(300);
+    ASSERT_TRUE(old);
+    state.resetAfterAdd(350);
+    EXPECT_FALSE(state.accepts(old->generation));
+    EXPECT_FALSE(state.takeReady(1000));
+    state.edit("Minecraft", 1100);
+    const auto next = state.takeReady(1400);
+    ASSERT_TRUE(next);
+    EXPECT_TRUE(state.accepts(next->generation));
+    EXPECT_FALSE(state.accepts(old->generation));
+}
