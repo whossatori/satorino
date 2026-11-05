@@ -1165,6 +1165,8 @@ set(SOURCE_FILES
         util/SatorinoLive.hpp
         util/SatorinoGames.cpp
         util/SatorinoGames.hpp
+        util/SatorinoIndicator.cpp
+        util/SatorinoIndicator.hpp
         util/SatorinoGamesSettings.hpp
         widgets/settingspages/SatorinoGamePicker.cpp
         widgets/settingspages/SatorinoGamePicker.hpp

@@ -90,6 +90,7 @@ set(test_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/src/SatorinoLive.cpp # satorino: live transitions, games, webhook privacy
     ${CMAKE_CURRENT_LIST_DIR}/src/RedeemPinFix.cpp # satorino: final pin order and persistence
     ${CMAKE_CURRENT_LIST_DIR}/src/SatorinoGames.cpp # satorino: game picker data, migration, colours and stale search tests
+    ${CMAKE_CURRENT_LIST_DIR}/src/SatorinoIndicator.cpp # satorino: shared geometry, full fill, star shape and colour regression
     # Add your new file above this line!
 
     ${CMAKE_CURRENT_LIST_DIR}/src/lib/Snapshot.cpp

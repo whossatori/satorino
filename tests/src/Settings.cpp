@@ -256,3 +256,13 @@ TEST(Settings, DefaultHighlightSerialization)
         ASSERT_EQ(highlight.index(), out.index());
     }
 }
+
+// satorino: exercise the registered setting, including the absent-key default.
+TEST(Settings, HighlightedGamesUseStarByDefault)
+{
+    CleanupApplication app("{}", false);
+    EXPECT_TRUE(app.settings.satorinoLiveGameStar.getDefaultValue());
+    EXPECT_TRUE(app.settings.satorinoLiveGameStar.getValue());
+    EXPECT_EQ(app.settings.satorinoLiveGameStar.getPath(),
+              "/satorino/live/gameStar");
+}

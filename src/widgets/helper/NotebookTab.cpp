@@ -15,7 +15,7 @@
 #include "singletons/Theme.hpp"
 #include "singletons/WindowManager.hpp"
 #include "util/Helpers.hpp"
-#include "util/SatorinoGames.hpp"  // satorino: game dot outline
+#include "util/SatorinoIndicator.hpp"  // satorino: shared dot/star geometry
 #include "widgets/dialogs/ColorPickerDialog.hpp"
 #include "widgets/dialogs/SettingsDialog.hpp"
 #include "widgets/Notebook.hpp"
@@ -28,6 +28,7 @@
 #include <boost/container_hash/hash.hpp>
 #include <QAbstractAnimation>
 #include <QApplication>
+#include <QBrush>  // satorino: direct stock brush/contrast dependency
 #include <QDebug>
 #include <QDialogButtonBox>
 #include <QIcon>
@@ -36,7 +37,6 @@
 #include <QLineEdit>
 #include <QMimeData>
 #include <QPainter>
-#include <QPen>  // satorino: contrasting game dot outline
 #include <QPixmap>
 
 #include <algorithm>
@@ -196,6 +196,12 @@ NotebookTab::NotebookTab(Notebook *notebook)
         this->managedConnections_);
     // satorino: ordered game/colour edits repaint only; tab geometry is unchanged.
     getSettings()->satorinoLiveGamesV2.connect(
+        [this] {
+            this->update();
+        },
+        this->managedConnections_);
+    // satorino: shape toggles repaint through this member's protected mock hook.
+    getSettings()->satorinoLiveGameStar.connect(
         [this] {
             this->update();
         },
@@ -1256,20 +1262,23 @@ void NotebookTab::paintEvent(QPaintEvent *)
         b.setStyle(Qt::SolidPattern);
         painter.setBrush(b);
 
-        auto x = this->width() - (7 * scale);
-        auto y = 4 * scale;
-        auto diameter = 4 * scale;
-        QRect liveIndicatorRect(x, y, diameter, diameter);
-        translateRectForLocation(liveIndicatorRect, this->tabLocation_,
-                                 this->selected_ ? 0 : -1);
-        // satorino: same stock ellipse and pen width; only matching live dots change colour.
+        // satorino: one exact stock rectangle for every indicator kind/shape.
+        const auto liveIndicatorRect = satorino::indicatorRect(
+            this->rect(), scale, this->tabLocation_, this->selected_);
         if (const auto colour = this->gameIndicatorColour())
         {
-            painter.save();
-            painter.setBrush(*colour);
-            painter.setPen(QPen(satorino::dotOutline(*colour)));
-            painter.drawEllipse(liveIndicatorRect);
-            painter.restore();
+            // satorino: match the actual tab fill, including the custom-colour overlay.
+            const auto background = satorino::indicatorBackground(
+                tabBackground.color(),
+                this->hasCustomTabColor()
+                    ? tabColorFill(this->customTabColor_, this->selected_,
+                                   windowFocused)
+                    : QColor{});
+            satorino::paintHighlightedIndicator(
+                painter, liveIndicatorRect, *colour, background,
+                satorino::indicatorShape(
+                    satorino::LiveIndicator::Game,
+                    getSettings()->satorinoLiveGameStar.getValue()));
         }
         else
         {

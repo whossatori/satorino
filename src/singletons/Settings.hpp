@@ -1362,6 +1362,8 @@ public:
     // satorino: ordered game IDs/names, artwork and per-game dot colours.
     ChatterinoSetting<satorino::GameList> satorinoLiveGamesV2 = {
         "/satorino/live/gamesV2", {}};
+    // satorino: same per-game colour, live repaint only.
+    BoolSetting satorinoLiveGameStar = {"/satorino/live/gameStar", true};
     BoolSetting satorinoLiveDesktop = {"/satorino/live/desktop", false};
     BoolSetting satorinoLiveDiscordEnabled = {"/satorino/live/discordEnabled",
                                               false};

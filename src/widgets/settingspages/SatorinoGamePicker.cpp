@@ -290,13 +290,13 @@ void SatorinoGamePicker::showSelected()
         colour->setStyleSheet("background-color: " + game.colour.name() +
                               "; border: 1px solid " +
                               dotOutline(game.colour).name() + ";");
-        colour->setToolTip("Change game colour");
-        colour->setAccessibleName("Change colour for " + game.name);
+        colour->setToolTip("Dot / star colour");
+        colour->setAccessibleName("Dot / star colour for " + game.name);
         line->addWidget(colour);
         QObject::connect(colour, &QPushButton::clicked, this, [this, game] {
             const QPointer<SatorinoGamePicker> guard(this);
-            const auto colour = QColorDialog::getColor(game.colour, this,
-                                                       "Game highlight colour");
+            const auto colour =
+                QColorDialog::getColor(game.colour, this, "Dot / star colour");
             if (!guard)
                 return;
             const auto index = selectedIndex(this->selected_, game);

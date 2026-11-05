@@ -703,3 +703,31 @@ widgets/settingspages/SatorinoGamePicker.{hpp,cpp}, in the marked CMake block.
 matching, dedupe/bounds, colours, metadata, URL sizing and search generations.
 Nothing was compiled; C++ tests and Windows/runtime checks are **NOT RUN**.
 See REPORT-F5.md for verification, decisions and the Windows checklist.
+
+## Stage F batch 6
+
+The small game-dot appearance came from Batch 5's contrasting pen: the rect
+was stock-sized, but part of the small coloured fill was covered by the
+outline. That outline is removed. Stock and highlighted indicators now share
+one pure indicatorRect calculation, preserving stock float-to-int rounding,
+DPI scale, selection/location offsets and the unchanged stock drawEllipse
+path. Highlighted circles copy the stock pen geometry and colour the entire
+stroke/fill. Low-contrast colours use a lighter/darker shade of the same hue
+against the actual tab background, including custom-colour overlays; the
+stored game colour and priority/colour resolver are unchanged.
+
+Live status adds Show highlighted games as a star instead of a dot,
+default on at /satorino/live/gameStar. The existing per-game swatch controls
+both shapes (Dot / star colour). Shape and colour changes repaint tabs live.
+An original ten-vertex five-point QPainterPath star stays within the same
+stock painted box without a pen blunting its tips; it is not enlarged into
+compact title/close/pin space. The pure Circle/Star selector reserves Train without activating
+train detection or train UI. Unmatched live, rerun and offline paths stay stock;
+tab size hints, layout, geometry and title/close/pin drawing are untouched.
+
+New util/SatorinoIndicator.{hpp,cpp} sources are in the marked CMake block.
+11 tests in tests/src/SatorinoIndicator.cpp cover stock geometry at scales
+1/1.25/1.5/2, star vertices/symmetry/bounds, shape selection, unchanged colour
+resolution, contrast and offscreen pixel coverage/state. An existing Settings
+test fixture checks the registered default. Nothing was compiled: these
+12 tests and Windows/runtime checks are **NOT RUN**. See REPORT-F6.md.

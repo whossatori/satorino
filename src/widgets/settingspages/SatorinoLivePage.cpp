@@ -38,6 +38,17 @@ void SatorinoPage::addLiveStatus(GeneralPageView &layout)
                      {"Games to highlight", "Search games", "Selected games",
                       "game", "category", "colour", "live"});
 
+    SettingWidget::checkbox("Show highlighted games as a star instead of a dot",
+                            getSettings()->satorinoLiveGameStar)
+        ->setTooltip("Matching live games use a five-point star; turn this off "
+                     "for a full-size coloured dot. "
+                     "Both use the selected game's colour swatch. Other live "
+                     "tabs keep the stock dot. "
+                     "A lighter or darker shade may be used for contrast with "
+                     "the tab background.")
+        ->addKeywords({"star", "dot", "icon", "game", "live status"})
+        ->addTo(layout);
+
     layout.addSubtitle("Live notifications");
     layout.addDescription("Shared with Notifications -> Selected Channels.");
     auto *watch = new EditableModelView(
