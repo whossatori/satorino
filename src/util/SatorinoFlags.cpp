@@ -179,11 +179,6 @@ std::optional<FlagTarget> flagTarget(const QString &room, const QString &user)
         return std::nullopt;
     return FlagTarget{room, user};
 }
-FlagControlPlacement flagControlPlacement(bool moderationBlockPresent)
-{
-    return moderationBlockPresent ? FlagControlPlacement::ModerationBlock
-                                  : FlagControlPlacement::ActionsRow;
-}
 FlagControlState flagControlState(const FlagStore &store, const QString &room,
                                   const QString &user, bool masterEnabled)
 {

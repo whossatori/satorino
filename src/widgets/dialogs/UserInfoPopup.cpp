@@ -1596,9 +1596,6 @@ UserInfoPopup::UserInfoPopup(bool closeAutomatically, Split *split)
         // visibility of this is updated in setData
 
         user.emplace<LabelButton>("&Notes", this).assign(&this->ui_.notesAdd);
-        // satorino: a local presentation flag, not a Twitch moderation action.
-        user.emplace<LabelButton>("Flag user", this)
-            .assign(&this->ui_.localFlag);
         auto usercard = user.emplace<LabelButton>("&Usercard", this)
                             .assign(&this->ui_.usercardLabel);
         auto userlogs = user.emplace<LabelButton>("&Logs", this)
@@ -1764,7 +1761,7 @@ UserInfoPopup::UserInfoPopup(bool closeAutomatically, Split *split)
         flagRow.emplace<LabelButton>("Flag user", this)
             .assign(&this->ui_.localFlagModeration);
         flagRow->addStretch(1);
-        this->bindLocalFlagButton();
+        this->bindNativeFlagButton();
 
         // We can safely ignore this signal connection since this is a private signal, and
         // we only connect once
@@ -1776,7 +1773,7 @@ UserInfoPopup::UserInfoPopup(bool closeAutomatically, Split *split)
                 timeout->setModerationVisible(moderation);
                 timeout->setCrossVisible(cross);
                 timeout->setVisible(moderation || cross);
-                this->refreshLocalFlagButton();  // satorino: follow mod-block visibility
+                this->refreshNativeFlagButton();  // satorino: follow mod-block visibility
             });
         getSettings()->showCrossActionsInUnmoderatedChannels.connect(
             [this](bool, auto) {
@@ -2271,6 +2268,19 @@ bool UserInfoPopup::updateTargetModerationStatusFromMessage(
     }
 
     bool changed = false;
+    // satorino: only real authored messages carry channel-specific target-role evidence.
+    // Absence of an ID/profile alone is not evidence of a regular chatter.
+    if (message->platform == MessagePlatform::AnyOrTwitch &&
+        !message->flags.has(MessageFlag::System) &&
+        !message->flags.has(MessageFlag::PubSub) &&
+        !message->userID.isEmpty() && this->underlyingChannel_ &&
+        message->channelName.compare(this->underlyingChannel_->getName(),
+                                     Qt::CaseInsensitive) == 0 &&
+        !this->nativeFlagRolesKnown_)
+    {
+        this->nativeFlagRolesKnown_ = true;
+        changed = true;
+    }
     if (!this->isMod_ && (messageHasTwitchBadge(*message, u"moderator") ||
                           messageHasTwitchBadge(*message, u"lead_moderator")))
     {
@@ -2435,7 +2445,7 @@ void UserInfoPopup::setData(const QString &name,
                         QTimer::singleShot(0, self, [self] {
                             if (self)
                             {
-                                self->refreshLocalFlagButton();
+                                self->refreshNativeFlagButton();
                                 // satorino: saved flags also appear when a late room ID arrives.
                                 getApp()
                                     ->getWindows()
@@ -2473,6 +2483,8 @@ void UserInfoPopup::setData(const QString &name,
     this->resetUsercardMessageLoader();
     this->isMod_ = false;
     this->isBroadcaster_ = false;
+    this->nativeFlagRolesKnown_ =
+        false;  // satorino: reset for every popup target
     this->userDataRequestGeneration_++;
     this->seventvUserRequestGeneration_++;
     this->seventvUserID_.clear();
@@ -5593,7 +5605,7 @@ void UserInfoPopup::updateLiveIndicatorDisplay()
 
 void UserInfoPopup::updateUsercardFollowButton()
 {
-    this->refreshLocalFlagButton();  // satorino: reuse existing identity/context refresh
+    this->refreshNativeFlagButton();  // satorino: reuse existing identity/context refresh
     if (this->ui_.followButton == nullptr)
     {
         return;

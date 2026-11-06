@@ -7,6 +7,7 @@
 #include "Application.hpp"
 #include "common/QLogging.hpp"
 #include "controllers/accounts/AccountController.hpp"
+#include "controllers/flags/SatorinoSuspiciousUsers.hpp"  // satorino: observe existing low-trust feed
 #include "controllers/filters/lang/Filter.hpp"
 #include "controllers/highlights/HighlightController.hpp"
 #include "controllers/highlights/HighlightResult.hpp"
@@ -30,6 +31,7 @@
 #include "util/PostToThread.hpp"
 
 #include <boost/json.hpp>
+#include <QDateTime>  // satorino: timestamped native status observations
 #include <QTimer>
 #include <QVariant>
 #include <QVector>
@@ -46,6 +48,28 @@ using namespace chatterino;
 using namespace chatterino::eventsub;
 
 namespace channel_moderate = lib::payload::channel_moderate::v2;
+
+// satorino: both existing suspicious handlers supply authoritative room/user IDs.
+void observeSuspiciousUser(const QString &room, const QString &user,
+                           lib::suspicious_users::Status status, qint64 atMs)
+{
+    auto state = satorino::SuspiciousState::Unknown;
+    switch (status)
+    {
+        case lib::suspicious_users::Status::None:
+            state = satorino::SuspiciousState::None;
+            break;
+        case lib::suspicious_users::Status::ActiveMonitoring:
+            state = satorino::SuspiciousState::Monitored;
+            break;
+        case lib::suspicious_users::Status::Restricted:
+            state = satorino::SuspiciousState::Restricted;
+            break;
+    }
+    runInGuiThread([room, user, state, atMs] {
+        satorino::observeNativeSuspiciousUser(room, user, state, atMs);
+    });
+}
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 const auto &LOG = chatterinoTwitchEventSub;
@@ -445,6 +469,12 @@ void Connection::onChannelSuspiciousUserMessage(
     const lib::messages::Metadata &metadata,
     const lib::payload::channel_suspicious_user_message::v1::Payload &payload)
 {
+    // satorino: state observation only; do not change message rendering or feed membership.
+    observeSuspiciousUser(
+        payload.event.broadcasterUserID.qt(), payload.event.userID.qt(),
+        payload.event.lowTrustStatus,
+        chronoToQDateTime(metadata.messageTimestamp).toMSecsSinceEpoch());
+
     // monitored chats are received over irc; in the future, we will use eventsub instead
     if (payload.event.lowTrustStatus !=
         lib::suspicious_users::Status::Restricted)
@@ -489,6 +519,12 @@ void Connection::onChannelSuspiciousUserUpdate(
     const lib::messages::Metadata &metadata,
     const lib::payload::channel_suspicious_user_update::v1::Payload &payload)
 {
+    // satorino: state observation only; do not change message rendering or feed membership.
+    observeSuspiciousUser(
+        payload.event.broadcasterUserID.qt(), payload.event.userID.qt(),
+        payload.event.lowTrustStatus,
+        chronoToQDateTime(metadata.messageTimestamp).toMSecsSinceEpoch());
+
     auto *channel = dynamic_cast<TwitchChannel *>(
         getApp()
             ->getTwitch()

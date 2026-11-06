@@ -1192,6 +1192,10 @@ set(SOURCE_FILES
         controllers/flags/SatorinoFlags.hpp
         widgets/dialogs/UserInfoPopupFlagsSatorino.cpp
         widgets/settingspages/SatorinoFlagsPage.cpp
+        util/SatorinoSuspiciousUsers.cpp
+        util/SatorinoSuspiciousUsers.hpp
+        controllers/flags/SatorinoSuspiciousUsers.cpp
+        controllers/flags/SatorinoSuspiciousUsers.hpp
         # satorino: end additional sources
 
         widgets/splits/ClosedSplits.cpp

@@ -44,15 +44,13 @@ private:
     void assign(const QVector<UserFlag> &records);
     std::map<std::pair<QString, QString>, UserFlag> records_;
 };
-// satorino: pure popup policy, shared by both themed placements.
+// satorino: pure local highlight policy, isolated from native suspicious status.
 struct FlagTarget {
     QString roomId;
     QString userId;
 };
 std::optional<FlagTarget> flagTarget(const QString &roomId,
                                      const QString &userId);
-enum class FlagControlPlacement { ActionsRow, ModerationBlock };
-FlagControlPlacement flagControlPlacement(bool moderationBlockPresent);
 struct FlagControlState {
     bool enabled = false;
     QString text;

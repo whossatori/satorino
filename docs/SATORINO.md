@@ -1006,3 +1006,33 @@ colour/master/mark options and all moderation actions remain unchanged.
 Four pure regression cases extend the registered SatorinoFlags suite.
 Nothing was compiled; C++ tests and Windows/live checks are **NOT RUN**.
 Report and patch are output-only in satorino-stage-g-out/batch13.
+
+## Stage G batch 14
+
+Flag user now opens Twitch's native Monitor / Restrict / removal menu using
+exactly the existing Helix addSuspiciousUser/removeSuspiciousUser command path.
+The existing manage scope is unchanged; older logins must log in again if
+Twitch reports the missing permission. Only explicit native menu selections
+make those calls. The themed LabelButton stays in the moderation block;
+the actions-row fallback is removed. Real Twitch, logged-in moderator/broadcaster
+rights, visible moderation actions and a known regular target are required.
+Self, broadcaster, moderators and unknown target roles stay hidden. Ordinary
+buffered/authored channel messages provide target-role evidence; profile ID
+alone does not. Errors are shown as tooltips, never inferred as success.
+
+A GUI-only native-status cache observes the already-existing suspicious-user
+message/update EventSub handlers and successful actions, with explicit positive
+buffered flags as a fallback. No poll, new subscription or scope is added.
+Unknown stays unknown; menus/labels reflect confirmed status. Cache limits are
+128 users per room / 1024 total, evicting oldest accepted observations; up to
+128 requests are gated globally by room/user to suppress duplicate clicks.
+Feed observations during a request take precedence over its late result.
+The isolated extra Highlight in my chat / Remove highlight entry still uses
+the existing local store, settings and layout unchanged. Remove its marked
+menu block and toggleLocalHighlight helper to retire that entry later.
+The existing handler still skips monitored message bodies in favor of IRC;
+this patch observes their status without adding duplicate chat rendering.
+Eight new pure native-policy/cache cases are registered; existing local tests
+remain, with obsolete placement coverage replaced by moderator-only visibility.
+Nothing was compiled; C++ tests and Windows/live checks are **NOT RUN**.
+Output-only report/patch: satorino-stage-g-out/batch14.

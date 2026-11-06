@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "util/SatorinoFlags.hpp"
+#include "util/SatorinoSuspiciousUsers.hpp"
 #include "util/RapidJsonSerializeQString.hpp"
 #include "Test.hpp"
 #include <QColor>
@@ -278,10 +279,9 @@ TEST(SatorinoFlags, PopupLimitFeedbackMatchesStoreAndStillAllowsRemoval)
     EXPECT_FALSE(store.toggle(record("999", "93281234"), &error));
     EXPECT_EQ(error, state.tooltip);
 }
-TEST(SatorinoFlags, PopupPlacementFollowsActualModerationBlockVisibility)
+TEST(SatorinoFlags, NativeFlagHasNoViewerOrNonTwitchFallback)
 {
-    EXPECT_EQ(flagControlPlacement(true),
-              FlagControlPlacement::ModerationBlock);
-    // Also used when mod actions are hidden for this target, even if Cross links are shown.
-    EXPECT_EQ(flagControlPlacement(false), FlagControlPlacement::ActionsRow);
+    EXPECT_TRUE(flagControlVisible(true, true, FlagTargetRole::Regular));
+    EXPECT_FALSE(flagControlVisible(true, false, FlagTargetRole::Regular));
+    EXPECT_FALSE(flagControlVisible(false, true, FlagTargetRole::Regular));
 }

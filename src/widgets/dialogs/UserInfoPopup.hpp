@@ -38,6 +38,10 @@ class QWidget;
 
 namespace chatterino {
 
+namespace satorino {
+enum class SuspiciousAction;
+}  // namespace satorino
+
 class Channel;
 using ChannelPtr = std::shared_ptr<Channel>;
 struct Message;
@@ -92,12 +96,19 @@ protected:
     void keyPressEvent(QKeyEvent *event) override;
 
 private:
-    // satorino: local-only, no native monitor/restrict calls.
-    QString localFlagTargetId() const;
-    QString localFlagRoomId() const;
-    void bindLocalFlagButton();
-    void refreshLocalFlagButton();
-    void toggleLocalFlag();
+    // satorino: native flag menu; local highlight remains an isolated extra entry.
+    QString flagTargetId() const;
+    QString flagRoomId() const;
+    bool nativeFlagVisible() const;
+    void bindNativeFlagButton();
+    void refreshNativeFlagButton();
+    void seedNativeFlagState();
+    void showNativeFlagMenu();
+    void runNativeFlagAction(satorino::SuspiciousAction action,
+                             const QString &room, const QString &user,
+                             const QString &moderator);
+    void showFlagError(const QString &error);
+    void toggleLocalHighlight();
     void registerMnemonicButton(LabelButton *button, int key,
                                 std::function<void()> action);
 
@@ -194,6 +205,7 @@ private:
 
     bool isMod_{};
     bool isBroadcaster_{};
+    bool nativeFlagRolesKnown_ = false;  // satorino: no role evidence => hidden
 
     Split *split_;
 
@@ -297,7 +309,6 @@ private:
         QCheckBox *ignoreHighlights = nullptr;
         MarkdownLabel *notesPreview = nullptr;
         LabelButton *notesAdd = nullptr;
-        LabelButton *localFlag = nullptr;  // satorino: actions-row fallback
         LabelButton *localFlagModeration = nullptr;  // satorino: slim mod row
 
         Label *noMessagesLabel = nullptr;
