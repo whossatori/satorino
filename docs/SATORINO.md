@@ -1078,3 +1078,10 @@ pure command/lookup helpers and tests. Historical help/instructions for that
 command are removed. The real feed, selected-tab scope, queue/action policy,
 dedupe/caps and silent background behavior remain. Nothing was compiled;
 remaining C++ and Windows/live checks **NOT RUN**.
+
+Part 3 shortens the visible Raids status to Raid watch on N channels (1 channel
+for one), or Raid watch off when disabled/logged out or not initialized. It
+keeps the existing unique-open-room listening snapshot and visible-page refresh
+timer. Last-raid/no-event text is removed from the line; feed details and missing
+IDs remain in its tooltip. Listening gates, subscriptions and the real action
+path are unchanged. Nothing was compiled; C++ and Windows checks **NOT RUN**.

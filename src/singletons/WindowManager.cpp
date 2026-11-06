@@ -872,7 +872,7 @@ QString WindowManager::satorinoRaidStatus() const
 {
     return this->satorinoRaids_
                ? satorino::raidStatusText(this->satorinoRaids_->statusContext())
-               : "Raid watch: initializing";
+               : "Raid watch off";
 }
 QString WindowManager::satorinoRaidDetails() const
 {

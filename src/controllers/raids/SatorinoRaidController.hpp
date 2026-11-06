@@ -43,7 +43,6 @@ private:
     qint64 enabledAtUtcMs_ = 0;
     std::uint64_t generation_ = 0;
     QString ownerId_;
-    QString lastEvent_;
     QString lastStatus_;
     RaidPolicy policy_;
     RaidFeedTracker feed_;

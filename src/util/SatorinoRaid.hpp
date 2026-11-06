@@ -120,7 +120,6 @@ struct RaidStatusContext {
     bool loggedIn = false;
     int listening = 0;
     int waitingForIds = 0;
-    QString lastEvent;
 };
 QString raidStatusText(const RaidStatusContext &context);
 QString raidStatusDetails(const RaidStatusContext &context);

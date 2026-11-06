@@ -425,18 +425,11 @@ RaidDecision RaidPolicy::decide(const RaidEvent &event,
 }
 QString raidStatusText(const RaidStatusContext &context)
 {
-    if (!context.enabled)
-        return "Raid watch: off";
-    if (!context.loggedIn)
-        return "Raid watch: not logged in";
-    QString text = QString("Raid watch: listening on %1 open channels")
-                       .arg(context.listening);
-    if (context.waitingForIds > 0)
-        text += QString("; waiting for room ID/feed on %1")
-                    .arg(context.waitingForIds);
-    text += context.lastEvent.isEmpty() ? "; no raid seen yet"
-                                        : " | " + context.lastEvent;
-    return text;
+    if (!context.enabled || !context.loggedIn)
+        return "Raid watch off";
+    const int count = std::max(0, context.listening);
+    return count == 1 ? QString("Raid watch on 1 channel")
+                      : QString("Raid watch on %1 channels").arg(count);
 }
 QString raidStatusDetails(const RaidStatusContext &context)
 {

@@ -417,24 +417,37 @@ TEST(SatorinoRaid, SharedListeningConditionUsesEitherOption)
     EXPECT_TRUE(raidListeningEnabled(false, true));
     EXPECT_TRUE(raidListeningEnabled(true, true));
 }
-TEST(SatorinoRaid, SharedFeedStatusHasNoTenChannelLimitOrEventSubDependency)
+TEST(SatorinoRaid, CompactStatusTracksLiveCountAndKeepsDetailsInTooltip)
 {
     RaidStatusContext status;
-    EXPECT_EQ(raidStatusText(status), "Raid watch: off");
-    status.enabled = true;
-    EXPECT_EQ(raidStatusText(status), "Raid watch: not logged in");
-    status.loggedIn = true;
-    status.listening = 37;
+    for (bool enabled : {false, true})
+        for (bool loggedIn : {false, true})
+        {
+            status.enabled = enabled;
+            status.loggedIn = loggedIn;
+            status.listening = 48;
+            EXPECT_EQ(raidStatusText(status), enabled && loggedIn
+                                                  ? "Raid watch on 48 channels"
+                                                  : "Raid watch off");
+        }
+    status.enabled = status.loggedIn = true;
     status.waitingForIds = 2;
-    EXPECT_TRUE(raidStatusText(status).contains("listening on 37"));
-    EXPECT_TRUE(raidStatusText(status).contains("room ID"));
-    EXPECT_TRUE(raidStatusText(status).contains("no raid seen yet"));
-    EXPECT_FALSE(raidStatusText(status).contains("EventSub"));
-    status.lastEvent = "Last raid: own -> alt at 12:00, cancelled";
-    EXPECT_TRUE(raidStatusText(status).contains(status.lastEvent));
+    // Snapshots as channels open and close, with exact singular/plural and no event suffix.
+    for (int count : {0, 1, 48, 2, 1, 0, -1})
+    {
+        status.listening = count;
+        EXPECT_EQ(raidStatusText(status),
+                  count == 1 ? QString("Raid watch on 1 channel")
+                             : QString("Raid watch on %1 channels")
+                                   .arg(count < 0 ? 0 : count));
+        EXPECT_FALSE(raidStatusText(status).contains("Last raid"));
+        EXPECT_FALSE(raidStatusText(status).contains("no raid seen"));
+        EXPECT_FALSE(raidStatusText(status).contains("room ID"));
+    }
     EXPECT_TRUE(raidStatusDetails(status).contains("raid_go_v2"));
     EXPECT_TRUE(raidStatusDetails(status).contains("countdown end"));
     EXPECT_TRUE(raidStatusDetails(status).contains("raid bar"));
+    EXPECT_TRUE(raidStatusDetails(status).contains("2 waiting for a room ID"));
 }
 TEST(SatorinoRaid, GoAndCountdownOutputsStillUseTheExistingRateCaps)
 {

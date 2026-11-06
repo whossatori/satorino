@@ -222,7 +222,6 @@ RaidStatusContext RaidController::statusContext() const
     const auto account = getApp()->getAccounts()->twitch.getCurrent();
     status.loggedIn =
         account && !account->isAnon() && !account->getOAuthToken().isEmpty();
-    status.lastEvent = this->lastEvent_;
     if (!status.enabled)
         return status;
     std::set<QString> seen;
@@ -261,7 +260,6 @@ QString RaidController::record(const QString &source,
         QString("Last raid: %1 -> %2 at %3, %4")
             .arg(name, target, QDateTime::currentDateTime().toString("HH:mm"),
                  result);
-    this->lastEvent_ = text;
     if (text != this->lastStatus_)
     {
         this->lastStatus_ = text;
