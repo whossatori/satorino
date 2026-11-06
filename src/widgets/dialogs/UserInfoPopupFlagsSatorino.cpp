@@ -7,9 +7,11 @@
 #include "providers/twitch/TwitchChannel.hpp"
 #include "messages/Message.hpp"
 #include "singletons/Settings.hpp"
-#include <QPushButton>
-#include <QSignalBlocker>
-#include <QWidget>
+#include "widgets/buttons/LabelButton.hpp"
+#include <QCursor>
+#include <QToolTip>
+#include <QString>
+#include <initializer_list>
 #include <memory>
 
 namespace chatterino {
@@ -29,13 +31,25 @@ QString UserInfoPopup::localFlagTargetId() const
             return (*it)->userID;
     return {};
 }
+QString UserInfoPopup::localFlagRoomId() const
+{
+    // satorino: the popup's message context, never the currently selected split.
+    const auto channel =
+        std::dynamic_pointer_cast<TwitchChannel>(this->underlyingChannel_);
+    return channel && channel->getType() == Channel::Type::Twitch &&
+                   !this->isKick_ && !this->isYouTube_
+               ? channel->roomId()
+               : QString{};
+}
 void UserInfoPopup::bindLocalFlagButton()
 {
-    this->ui_.localFlag->setCheckable(true);
-    this->ui_.localFlag->setMaximumHeight(26);
-    QObject::connect(this->ui_.localFlag, &QPushButton::clicked, this, [this] {
-        this->toggleLocalFlag();
-    });
+    for (auto *button : {this->ui_.localFlag, this->ui_.localFlagModeration})
+    {
+        // LabelButton enables mouse tracking: Windows frameless hit-testing must return HTCLIENT.
+        QObject::connect(button, &Button::leftClicked, this, [this] {
+            this->toggleLocalFlag();
+        });
+    }
     getSettings()->satorinoFlagsState.connect(
         [this](const QString &) {
             this->refreshLocalFlagButton();
@@ -50,39 +64,46 @@ void UserInfoPopup::bindLocalFlagButton()
 }
 void UserInfoPopup::refreshLocalFlagButton()
 {
-    if (!this->ui_.localFlag)
+    if (!this->ui_.localFlag || !this->ui_.localFlagModeration)
         return;
     const auto channel =
         std::dynamic_pointer_cast<TwitchChannel>(this->underlyingChannel_);
     const bool real = channel && channel->getType() == Channel::Type::Twitch &&
                       !this->isKick_ && !this->isYouTube_;
-    this->ui_.localFlag->setVisible(real);
-    const auto room = real ? channel->roomId() : QString{};
-    const auto id = this->localFlagTargetId();
-    const bool ready =
-        real && satorino::validFlagId(room) && satorino::validFlagId(id);
-    const bool flagged = ready && satorino::localFlags().contains(room, id);
-    const QSignalBlocker blocker(this->ui_.localFlag);
-    this->ui_.localFlag->setChecked(flagged);
-    this->ui_.localFlag->setText(flagged ? "Unflag user" : "Flag user");
-    this->ui_.localFlag->setEnabled(
-        ready && getSettings()->satorinoFlagsEnabled.getValue());
-    this->ui_.localFlag->setToolTip(
-        !getSettings()->satorinoFlagsEnabled.getValue() ? "Local flags are off"
-        : !ready ? "Waiting for channel/user ID"
-                 : "Local to this channel; nothing is sent to Twitch");
+    const bool inModeration =
+        satorino::flagControlPlacement(this->shouldShowModerationActions()) ==
+        satorino::FlagControlPlacement::ModerationBlock;
+    this->ui_.localFlag->setVisible(real && !inModeration);
+    this->ui_.localFlagModeration->setVisible(real && inModeration);
+    const auto state = satorino::flagControlState(
+        satorino::localFlags(), this->localFlagRoomId(),
+        this->localFlagTargetId(),
+        getSettings()->satorinoFlagsEnabled.getValue());
+    for (auto *button : {this->ui_.localFlag, this->ui_.localFlagModeration})
+    {
+        button->setText(state.text);
+        button->setEnabled(state.enabled);
+        button->setToolTip(state.tooltip);
+    }
 }
 void UserInfoPopup::toggleLocalFlag()
 {
-    const auto channel =
-        std::dynamic_pointer_cast<TwitchChannel>(this->underlyingChannel_);
-    if (!channel || channel->getType() != Channel::Type::Twitch)
-        return;
+    const auto target = satorino::flagTarget(this->localFlagRoomId(),
+                                             this->localFlagTargetId());
     const auto error =
-        satorino::toggleLocalFlag(channel->roomId(), this->localFlagTargetId(),
-                                  channel->getName(), this->userName_);
+        target ? satorino::toggleLocalFlag(target->roomId, target->userId,
+                                           this->underlyingChannel_->getName(),
+                                           this->userName_)
+               : QString("Waiting for channel/user ID");
+    // satorino: explicit feedback even if CompareBeforeSet suppresses a failed/no-op write.
     this->refreshLocalFlagButton();
     if (!error.isEmpty())
-        this->ui_.localFlag->setToolTip(error);
+    {
+        auto *button = this->ui_.localFlagModeration->isVisible()
+                           ? this->ui_.localFlagModeration
+                           : this->ui_.localFlag;
+        button->setToolTip(error);
+        QToolTip::showText(QCursor::pos(), error, button);
+    }
 }
 }  // namespace chatterino

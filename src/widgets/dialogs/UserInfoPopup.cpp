@@ -1597,9 +1597,8 @@ UserInfoPopup::UserInfoPopup(bool closeAutomatically, Split *split)
 
         user.emplace<LabelButton>("&Notes", this).assign(&this->ui_.notesAdd);
         // satorino: a local presentation flag, not a Twitch moderation action.
-        user.emplace<QPushButton>("Flag user", this)
+        user.emplace<LabelButton>("Flag user", this)
             .assign(&this->ui_.localFlag);
-        this->bindLocalFlagButton();
         auto usercard = user.emplace<LabelButton>("&Usercard", this)
                             .assign(&this->ui_.usercardLabel);
         auto userlogs = user.emplace<LabelButton>("&Logs", this)
@@ -1754,10 +1753,18 @@ UserInfoPopup::UserInfoPopup(bool closeAutomatically, Split *split)
     auto lineMod = layout.emplace<Line>(false);
 
     // third line
-    auto moderation = layout.emplace<QHBoxLayout>().withoutMargin();
+    // satorino: keep the stock moderation buttons, with a slim local flag row below.
+    auto moderation = layout.emplace<QVBoxLayout>().withoutMargin();
     {
         auto timeout = moderation.emplace<TimeoutWidget>().assign(
             &this->ui_.timeoutWidget);
+        // satorino: use the same theme/scaling-aware control as Timeouts and Cross.
+        auto flagRow = moderation.emplace<QHBoxLayout>().withoutMargin();
+        flagRow->addStretch(1);
+        flagRow.emplace<LabelButton>("Flag user", this)
+            .assign(&this->ui_.localFlagModeration);
+        flagRow->addStretch(1);
+        this->bindLocalFlagButton();
 
         // We can safely ignore this signal connection since this is a private signal, and
         // we only connect once
@@ -1769,6 +1776,7 @@ UserInfoPopup::UserInfoPopup(bool closeAutomatically, Split *split)
                 timeout->setModerationVisible(moderation);
                 timeout->setCrossVisible(cross);
                 timeout->setVisible(moderation || cross);
+                this->refreshLocalFlagButton();  // satorino: follow mod-block visibility
             });
         getSettings()->showCrossActionsInUnmoderatedChannels.connect(
             [this](bool, auto) {
@@ -2426,7 +2434,13 @@ void UserInfoPopup::setData(const QString &name,
                     if (self)
                         QTimer::singleShot(0, self, [self] {
                             if (self)
+                            {
                                 self->refreshLocalFlagButton();
+                                // satorino: saved flags also appear when a late room ID arrives.
+                                getApp()
+                                    ->getWindows()
+                                    ->forceLayoutChannelViews();
+                            }
                         });
                 }));
         this->twitchUserStateConnection_ =

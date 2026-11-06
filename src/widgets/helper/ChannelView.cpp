@@ -1548,6 +1548,9 @@ void ChannelView::layoutVisibleMessages(
                     .centerBadges = this->centerBadges_,
                     .selectedChannel = selectedChannel,
                     .message = *message->getMessage(),
+                    .localFlagChannel = this->sourceChannel_
+                                            ? this->sourceChannel_.get()
+                                            : this->underlyingChannel_.get(),
                 },
                 this->bufferInvalidationQueued_);
 
@@ -1603,6 +1606,9 @@ void ChannelView::updateScrollbar(const std::vector<MessageLayoutPtr> &messages,
                 .centerBadges = this->centerBadges_,
                 .selectedChannel = selectedChannel,
                 .message = *message->getMessage(),
+                .localFlagChannel = this->sourceChannel_
+                                        ? this->sourceChannel_.get()
+                                        : this->underlyingChannel_.get(),
             },
             false);
 
@@ -2928,6 +2934,10 @@ void ChannelView::wheelEvent(QWheelEvent *event)
                             .centerBadges = this->centerBadges_,
                             .selectedChannel = selectedChannel,
                             .message = *snapshot[i - 1]->getMessage(),
+                            .localFlagChannel =
+                                this->sourceChannel_
+                                    ? this->sourceChannel_.get()
+                                    : this->underlyingChannel_.get(),
                         },
                         false);
                     scrollFactor = 1;
@@ -2978,6 +2988,10 @@ void ChannelView::wheelEvent(QWheelEvent *event)
                             .centerBadges = this->centerBadges_,
                             .selectedChannel = selectedChannel,
                             .message = *snapshot[i + 1]->getMessage(),
+                            .localFlagChannel =
+                                this->sourceChannel_
+                                    ? this->sourceChannel_.get()
+                                    : this->underlyingChannel_.get(),
                         },
                         false);
 

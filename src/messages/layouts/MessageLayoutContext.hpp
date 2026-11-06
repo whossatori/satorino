@@ -108,6 +108,8 @@ struct MessageLayoutContext {
 
     Channel *selectedChannel = nullptr;
     const Message &message;
+    Channel *localFlagChannel =
+        nullptr;  // satorino: full aggregate / popup source
 };
 
 }  // namespace chatterino

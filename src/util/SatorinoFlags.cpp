@@ -147,20 +147,59 @@ bool FlagStore::toggle(UserFlag flag, QString *error)
     }
     if (this->remove(flag.roomId, flag.userId))
         return true;
-    int roomCount = 0;
-    for (const auto &[key, record] : this->records_)
-        if (record.roomId == flag.roomId)
-            ++roomCount;
-    if (this->size() >= MAX_FLAGS || roomCount >= MAX_FLAGS_PER_ROOM)
+    const auto reason = this->additionError(flag.roomId, flag.userId);
+    if (!reason.isEmpty())
     {
         if (error)
-            *error = "Local flag limit reached (500 total, 100 per channel)";
+            *error = reason;
         return false;
     }
     flag.channelLabel = label(flag.channelLabel);
     flag.userLabel = label(flag.userLabel);
     this->records_[{flag.roomId, flag.userId}] = flag;
     return true;
+}
+QString FlagStore::additionError(const QString &room, const QString &user) const
+{
+    if (!flagTarget(room, user))
+        return "Waiting for channel/user ID";
+    if (this->contains(room, user))
+        return {};  // Removing an existing flag is always allowed at capacity.
+    int roomCount = 0;
+    for (const auto &[key, record] : this->records_)
+        if (record.roomId == room)
+            ++roomCount;
+    if (this->size() >= MAX_FLAGS || roomCount >= MAX_FLAGS_PER_ROOM)
+        return "Local flag limit reached (500 total, 100 per channel)";
+    return {};
+}
+std::optional<FlagTarget> flagTarget(const QString &room, const QString &user)
+{
+    if (!validFlagId(room) || !validFlagId(user))
+        return std::nullopt;
+    return FlagTarget{room, user};
+}
+FlagControlPlacement flagControlPlacement(bool moderationBlockPresent)
+{
+    return moderationBlockPresent ? FlagControlPlacement::ModerationBlock
+                                  : FlagControlPlacement::ActionsRow;
+}
+FlagControlState flagControlState(const FlagStore &store, const QString &room,
+                                  const QString &user, bool masterEnabled)
+{
+    const bool ready = flagTarget(room, user).has_value();
+    const bool flagged = ready && store.contains(room, user);
+    const auto text = flagged ? "Unflag user" : "Flag user";
+    if (!masterEnabled)
+        return {false, text, "Local flags are off"};
+    if (!ready)
+        return {false, text, "Waiting for channel/user ID"};
+    const auto error = store.additionError(room, user);
+    // Keep a full-store control clickable so the reason can be shown at click time.
+    return {true, text,
+            error.isEmpty()
+                ? QString("Local to this channel; nothing is sent to Twitch")
+                : error};
 }
 void FlagStore::merge(const FlagStore &other)
 {

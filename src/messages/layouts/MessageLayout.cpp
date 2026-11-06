@@ -223,7 +223,10 @@ void MessageLayout::actuallyLayout(const MessageLayoutContext &ctx)
         getSettings()->satorinoFlagsEnabled.getValue()
             ? satorino::localFlagStyle(
                   *this->message_,
-                  satorino::localFlagRoom(*this->message_, ctx.selectedChannel),
+                  satorino::localFlagRoom(*this->message_,
+                                          ctx.localFlagChannel
+                                              ? ctx.localFlagChannel
+                                              : ctx.selectedChannel),
                   this->flags.has(MessageLayoutFlag::IgnoreHighlights))
             : satorino::FlagStyle{};
     this->localFlagBackground_ = localStyle.background;

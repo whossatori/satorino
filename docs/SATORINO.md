@@ -986,3 +986,23 @@ Batch 12 build fix explicitly sets .focus = true last in insertSplit's
 InsertOptions default argument, avoiding nested default-member initializer
 use before SplitContainer is complete. Other caller designators remain in
 declaration order. Nothing compiled; C++/Windows checks **NOT RUN**.
+
+## Stage G batch 13
+
+Flag controls now use the popup's theme/scaling-aware LabelButton, including
+mouse tracking required by Windows frameless HTCLIENT hit-testing. A slim
+row below the stock moderation controls is used when that block is present;
+otherwise the same control stays in the top actions row. Labels flip between
+Flag user and Unflag user synchronously. Capacity errors also display a
+visible tooltip on click; missing IDs/master-off explain disabled state.
+Keys still use the popup's underlying Twitch room and authoritative author ID.
+
+Layouts now receive the full aggregate or popup source channel for flag room
+lookup, so a synthetic usercard buffer need not rely on the registry and an
+inactive aggregate child can resolve directly. Existing setting listeners,
+generation changes and buffer invalidation cover main chat and usercards;
+a late popup room ID also forces relayout. Store bounds, persistence, priority,
+colour/master/mark options and all moderation actions remain unchanged.
+Four pure regression cases extend the registered SatorinoFlags suite.
+Nothing was compiled; C++ tests and Windows/live checks are **NOT RUN**.
+Report and patch are output-only in satorino-stage-g-out/batch13.

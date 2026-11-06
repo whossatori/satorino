@@ -34,6 +34,7 @@ public:
     bool contains(const QString &roomId, const QString &userId) const;
     // Toggle removes an existing key even at capacity. Invalid/full adds leave the store unchanged.
     bool toggle(UserFlag flag, QString *error = nullptr);
+    QString additionError(const QString &roomId, const QString &userId) const;
     bool remove(const QString &roomId, const QString &userId);
     void merge(const FlagStore &other);
     QVector<UserFlag> entries() const;
@@ -43,6 +44,22 @@ private:
     void assign(const QVector<UserFlag> &records);
     std::map<std::pair<QString, QString>, UserFlag> records_;
 };
+// satorino: pure popup policy, shared by both themed placements.
+struct FlagTarget {
+    QString roomId;
+    QString userId;
+};
+std::optional<FlagTarget> flagTarget(const QString &roomId,
+                                     const QString &userId);
+enum class FlagControlPlacement { ActionsRow, ModerationBlock };
+FlagControlPlacement flagControlPlacement(bool moderationBlockPresent);
+struct FlagControlState {
+    bool enabled = false;
+    QString text;
+    QString tooltip;
+};
+FlagControlState flagControlState(const FlagStore &store, const QString &roomId,
+                                  const QString &userId, bool masterEnabled);
 struct FlagStyle {
     bool mark = false;
     std::optional<QColor> background;

@@ -94,6 +94,7 @@ protected:
 private:
     // satorino: local-only, no native monitor/restrict calls.
     QString localFlagTargetId() const;
+    QString localFlagRoomId() const;
     void bindLocalFlagButton();
     void refreshLocalFlagButton();
     void toggleLocalFlag();
@@ -296,8 +297,8 @@ private:
         QCheckBox *ignoreHighlights = nullptr;
         MarkdownLabel *notesPreview = nullptr;
         LabelButton *notesAdd = nullptr;
-        QPushButton *localFlag =
-            nullptr;  // satorino: compact per-channel toggle
+        LabelButton *localFlag = nullptr;  // satorino: actions-row fallback
+        LabelButton *localFlagModeration = nullptr;  // satorino: slim mod row
 
         Label *noMessagesLabel = nullptr;
         ChannelView *latestMessages = nullptr;

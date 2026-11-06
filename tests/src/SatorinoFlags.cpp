@@ -13,7 +13,9 @@
 #include <QString>
 #include <pajlada/settings/setting.hpp>
 #include <pajlada/settings/settingmanager.hpp>
+#include <initializer_list>
 #include <memory>
+#include <utility>
 using namespace chatterino::satorino;
 namespace {
 UserFlag record(const QString &room = "100", const QString &user = "200",
@@ -198,4 +200,88 @@ TEST(SatorinoFlags, MergeAndLoadEnforceTotalCapAcrossRooms)
     EXPECT_EQ(loaded.size(), MAX_FLAGS);
     EXPECT_EQ(loaded.toJson(), a.toJson());
     EXPECT_TRUE(loaded.contains("8", "100"));
+}
+
+// satorino: popup decisions stay pure and use IDs from its own message context.
+TEST(SatorinoFlags, PopupTargetUsesRoomAndAuthorIdsWithoutLabelFallbacks)
+{
+    const auto target = flagTarget("100", "93281234");
+    ASSERT_TRUE(target);
+    EXPECT_EQ(target->roomId, "100");
+    EXPECT_EQ(target->userId, "93281234");
+    FlagStore store;
+    ASSERT_TRUE(store.toggle(record(target->roomId, target->userId)));
+    EXPECT_FALSE(store.contains("101", target->userId));
+    for (const auto &missing :
+         {QString{}, QString("channel"), QString("0"), QString("kick:100")})
+    {
+        EXPECT_FALSE(flagTarget(missing, target->userId));
+        EXPECT_FALSE(flagTarget(target->roomId, missing));
+    }
+}
+TEST(SatorinoFlags,
+     PopupStateTracksToggleAndMissingIdsAndMasterWithoutChangingStore)
+{
+    FlagStore store;
+    auto state = flagControlState(store, "100", "93281234", true);
+    EXPECT_TRUE(state.enabled);
+    EXPECT_EQ(state.text, "Flag user");
+    ASSERT_TRUE(store.toggle(record("100", "93281234")));
+    state = flagControlState(store, "100", "93281234", true);
+    EXPECT_TRUE(state.enabled);
+    EXPECT_EQ(state.text, "Unflag user");
+    const auto dormant = flagControlState(store, "100", "93281234", false);
+    EXPECT_FALSE(dormant.enabled);
+    EXPECT_EQ(dormant.text, "Unflag user");
+    EXPECT_EQ(dormant.tooltip, "Local flags are off");
+    for (const auto &ids : {std::make_pair(QString{}, QString("93281234")),
+                            std::make_pair(QString("100"), QString{})})
+    {
+        state = flagControlState(store, ids.first, ids.second, true);
+        EXPECT_FALSE(state.enabled);
+        EXPECT_EQ(state.text, "Flag user");
+        EXPECT_EQ(state.tooltip, "Waiting for channel/user ID");
+    }
+    EXPECT_EQ(store.size(), 1);
+    ASSERT_TRUE(store.toggle(record("100", "93281234")));
+    EXPECT_EQ(flagControlState(store, "100", "93281234", true).text,
+              "Flag user");
+}
+TEST(SatorinoFlags, PopupLimitFeedbackMatchesStoreAndStillAllowsRemoval)
+{
+    FlagStore store;
+    for (int user = 1; user <= MAX_FLAGS_PER_ROOM; ++user)
+        ASSERT_TRUE(store.toggle(record("100", QString::number(user))));
+    auto state = flagControlState(store, "100", "93281234", true);
+    // A click displays the capacity reason.
+    EXPECT_TRUE(state.enabled);
+    EXPECT_EQ(state.text, "Flag user");
+    EXPECT_TRUE(state.tooltip.contains("limit"));
+    QString error;
+    EXPECT_FALSE(store.toggle(record("100", "93281234"), &error));
+    EXPECT_EQ(error, state.tooltip);
+    state = flagControlState(store, "100", "1", true);
+    EXPECT_TRUE(state.enabled);
+    EXPECT_EQ(state.text, "Unflag user");
+    EXPECT_FALSE(state.tooltip.contains("limit"));
+    ASSERT_TRUE(store.toggle(record("100", "1")));
+    EXPECT_FALSE(flagControlState(store, "100", "93281234", true)
+                     .tooltip.contains("limit"));
+    for (int room = 101; room <= 104; ++room)
+        for (int user = 1; user <= MAX_FLAGS_PER_ROOM; ++user)
+            ASSERT_TRUE(store.toggle(
+                record(QString::number(room), QString::number(user))));
+    ASSERT_TRUE(store.toggle(record("100", "1")));
+    EXPECT_EQ(store.size(), MAX_FLAGS);
+    state = flagControlState(store, "999", "93281234", true);
+    EXPECT_TRUE(state.enabled);
+    EXPECT_FALSE(store.toggle(record("999", "93281234"), &error));
+    EXPECT_EQ(error, state.tooltip);
+}
+TEST(SatorinoFlags, PopupPlacementFollowsActualModerationBlockVisibility)
+{
+    EXPECT_EQ(flagControlPlacement(true),
+              FlagControlPlacement::ModerationBlock);
+    // Also used when mod actions are hidden for this target, even if Cross links are shown.
+    EXPECT_EQ(flagControlPlacement(false), FlagControlPlacement::ActionsRow);
 }
