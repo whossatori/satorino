@@ -195,7 +195,9 @@ void SplitContainer::insertSplit(Split *split, InsertOptions &&options)
         relativeTo->insertSplitRelative(split, direction);
     }
 
-    this->addSplit(split);
+    this->addSplit(
+        split,
+        options.focus);  // satorino: caller can suppress all focus requests
 }
 
 Split *SplitContainer::getSelectedSplit() const
@@ -210,14 +212,20 @@ Split *SplitContainer::getSelectedSplit() const
     return this->selected_;
 }
 
-void SplitContainer::addSplit(Split *split)
+void SplitContainer::addSplit(Split *split, bool focus)
 {
     assertInGuiThread();
 
     split->setParent(this);
     split->show();
-    split->setFocus(Qt::FocusReason::MouseFocusReason);
-    this->unsetCursor();
+    if (focus)  // satorino: background creation never requests focus or changes cursor
+    {
+        split->setFocus(Qt::FocusReason::MouseFocusReason);
+        this->unsetCursor();
+    }
+    else if (!this->selected_)
+        this->selected_ =
+            split;  // Selection bookkeeping without focusSplitRecursive.
     this->splits_.push_back(split);
 
     this->refreshTab();

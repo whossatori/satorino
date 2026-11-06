@@ -113,8 +113,9 @@ void SatorinoPage::initLayout(GeneralPageView &layout)
                             getSettings()->satorinoRaidsSwitchTab)
         ->conditionallyEnabledBy(getSettings()->satorinoRaidsOpenTab)
         ->setTooltip(
-            "Also selects an existing target tab. Switches only while the main "
-            "window is active and its current input is empty.")
+            "Selects the target unless the current input has an unsent draft. "
+            "While another app is active, selects silently without raising or "
+            "focusing satorino.")
         ->addKeywords({"raid", "focus", "tab"})
         ->addTo(layout);
     // satorino: one calm text line; tooltip contains the full per-watch states.

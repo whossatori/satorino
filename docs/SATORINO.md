@@ -937,3 +937,14 @@ saved. Fourteen registered pure cases cover state, missed-end expiry,
 priority, shapes, alpha and setting persistence. Nothing compiled; all
 C++ and Windows/live checks **NOT RUN**. REPORT-F11.md records evidence
 and exactly what a future verified viewer producer requires.
+
+## Stage F batch 12
+
+Commit A separates raid page selection from activation. A browser/other-app
+early send now selects the target silently, using Notebook::select(false)
+and a no-focus split insertion path; it does not focus/raise/activate a
+window. Foreground selection still focuses input and raises. Different
+unsent drafts and the master switch block both selection modes; guards
+are read again at selection time and status states the outcome/reason.
+Go/local-success/expiry still complete once. Reports are output-only.
+Compilation and Windows/live checks **NOT RUN**.

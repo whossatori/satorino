@@ -98,10 +98,16 @@ struct RaidContext {
     qint64 receivedAtUtcMs = 0;
 };
 enum class RaidAction { Ignore, OpenAndJoin, SelectExisting };
+enum class RaidSelection { None, Background, Foreground };
+RaidSelection raidSelection(bool switchOption, bool applicationActive,
+                            bool hasDraft);
+QString raidSelectionStatus(RaidSelection selection, bool switchOption,
+                            bool hasDraft);
 struct RaidDecision {
     RaidAction action = RaidAction::Ignore;
     bool switchToTab = false;
     QString reason;
+    RaidSelection selection = RaidSelection::None;
 };
 struct RaidStatusContext {
     bool enabled = false;

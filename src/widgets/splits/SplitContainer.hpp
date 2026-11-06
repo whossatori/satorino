@@ -187,6 +187,8 @@ public:
 
         Node *relativeNode{nullptr};
         std::optional<SplitDirection> direction{};
+        bool focus =
+            true;  // satorino: allow silent/background raid tab creation
     };
 
     void insertSplit(Split *split, InsertOptions &&options = InsertOptions{
@@ -242,7 +244,8 @@ private:
     void setPreferedTargetRecursive(Node *node);
     void paintSplitBorder(Node *node, QPainter *painter);
 
-    void addSplit(Split *split);
+    void addSplit(Split *split,
+                  bool focus = true);  // satorino: stock default preserved
 
     Split *getTopRightSplit(Node &node);
 

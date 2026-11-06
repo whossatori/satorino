@@ -127,11 +127,6 @@ InputState currentInput(WindowManager &windows)
     return {QGuiApplication::applicationState() == Qt::ApplicationActive,
             draft};
 }
-bool canSwitch(WindowManager &windows)
-{
-    const auto input = currentInput(windows);
-    return raidCanSwitch(input.mainActive, input.hasDraft);
-}
 }  // namespace
 RaidController::RaidController(WindowManager &windows)
     : QObject(&windows)
@@ -401,7 +396,6 @@ QString RaidController::act(const RaidEvent &inputEvent, qint64 receivedAtMs,
     const auto decision = this->policy_.decide(*event, context);
     if (decision.action == RaidAction::Ignore)
         return finish("ignored (" + decision.reason + ")");
-    const QPointer<QWidget> previousFocus = QApplication::focusWidget();
     if (decision.action == RaidAction::OpenAndJoin)
     {
         const auto channel =
@@ -413,18 +407,22 @@ QString RaidController::act(const RaidEvent &inputEvent, qint64 receivedAtMs,
             current->isAnon() || current->getUserId() != ownerId)
             return finish("ignored (channel creation failed, source closed or "
                           "account/setting changed)");
-        // appendNewSplit requests focus internally; restore the prior widget when not switching.
+        // satorino: build without even a temporary focus request, including in the background.
         targetWindow = sourceWindow;
         targetPage = sourceWindow->getNotebook().addPage(false);
-        targetSplit = targetPage->appendNewSplit(false);
+        targetSplit = new Split(targetPage);
+        targetPage->insertSplit(targetSplit, {.focus = false});
         targetSplit->setChannel(IndirectChannel(channel));
     }
-    bool switched = false;
-    // Recheck immediately before selection; never activate an external/background window.
-    if (decision.switchToTab &&
-        getSettings()->satorinoRaidsOpenTab.getValue() &&
-        getSettings()->satorinoRaidsSwitchTab.getValue() &&
-        canSwitch(this->windows_) && targetWindow && targetPage && targetSplit)
+    // Re-evaluate at selection, not countdown creation. Background selection never activates.
+    const auto currentInputState = currentInput(this->windows_);
+    const bool switchOption = getSettings()->satorinoRaidsSwitchTab.getValue();
+    auto selection = raidSelection(switchOption, currentInputState.mainActive,
+                                   currentInputState.hasDraft);
+    if (!getSettings()->satorinoRaidsOpenTab.getValue() || !targetWindow ||
+        !targetPage || !targetSplit)
+        selection = RaidSelection::None;
+    if (selection != RaidSelection::None)
     {
         // An aggregate child also counts as an existing target. Only change its
         // active input channel when the same focus/draft guard permits switching.
@@ -440,25 +438,20 @@ QString RaidController::act(const RaidEvent &inputEvent, qint64 receivedAtMs,
                     break;
                 }
         }
-        targetWindow->getNotebook().select(targetPage);
-        targetSplit->setFocus(Qt::OtherFocusReason);
-        targetWindow->raise();
-        targetWindow->activateWindow();
-        switched = true;
+        targetWindow->getNotebook().select(targetPage, false);
+        if (selection == RaidSelection::Foreground)
+        {
+            targetSplit->getInput().setFocus(Qt::OtherFocusReason);
+            targetWindow->raise();
+            targetWindow->activateWindow();
+        }
     }
-    if (!switched && decision.action == RaidAction::OpenAndJoin &&
-        previousFocus)
-        previousFocus->setFocus(Qt::OtherFocusReason);
     const auto action = decision.action == RaidAction::OpenAndJoin
                             ? QString("tab opened")
                             : QString("existing tab reused");
-    return finish(action + (switched
-                                ? "; switched"
-                                : "; not switched (" +
-                                      (decision.reason.isEmpty()
-                                           ? QString("focus/settings changed")
-                                           : decision.reason) +
-                                      ")"));
+    return finish(action + "; " +
+                  raidSelectionStatus(selection, switchOption,
+                                      currentInputState.hasDraft));
 }
 QString RaidController::simulateKnown(const ChannelPtr &source,
                                       const QString &login, const QString &id)

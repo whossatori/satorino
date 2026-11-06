@@ -79,9 +79,9 @@ TEST(SatorinoRaid,
                                             : existing
                                                 ? RaidAction::SelectExisting
                                                 : RaidAction::OpenAndJoin);
-                                        EXPECT_EQ(result.switchToTab,
-                                                  allowed && switchTab &&
-                                                      active && !draft);
+                                        EXPECT_EQ(
+                                            result.switchToTab,
+                                            allowed && switchTab && !draft);
                                     }
 }
 TEST(SatorinoRaid, RejectsSelfInvalidIdsAndInvalidLogins)
@@ -220,8 +220,7 @@ TEST(SatorinoRaid, DecisionReasonsExplainIgnoredAndUnswitchedActions)
     EXPECT_EQ(policy.decide(event(), input).reason, "target is blocked");
     input.targetBlocked = false;
     input.hasDraft = true;
-    EXPECT_EQ(policy.decide(event(), input).reason,
-              "current input has a draft");
+    EXPECT_EQ(policy.decide(event(), input).reason, "draft in current input");
     EXPECT_TRUE(policy.decide(event(), input).reason.contains("duplicate"));
     input.nowMs = 1000;
     EXPECT_TRUE(
@@ -564,5 +563,39 @@ TEST(SatorinoRaid,
     current.mainActive = false;
     current.hasDraft = false;
     RaidPolicy external;
-    EXPECT_FALSE(external.decide(event(), current).switchToTab);
+    EXPECT_EQ(external.decide(event(), current).selection,
+              RaidSelection::Background);
+}
+
+TEST(SatorinoRaid, VisibleSilentOrNoSelectionAndReasons)
+{
+    for (bool option : {false, true})
+        for (bool active : {false, true})
+            for (bool draft : {false, true})
+                for (bool existing : {false, true})
+                {
+                    RaidPolicy policy;
+                    auto c = context();
+                    c.switchToTab = option;
+                    c.mainActive = active;
+                    c.hasDraft = draft;
+                    c.targetExists = existing;
+                    const auto result = policy.decide(event(), c);
+                    const auto expected = !option || draft ? RaidSelection::None
+                                          : active ? RaidSelection::Foreground
+                                                   : RaidSelection::Background;
+                    EXPECT_EQ(result.selection, expected);
+                    EXPECT_EQ(result.action, existing
+                                                 ? RaidAction::SelectExisting
+                                                 : RaidAction::OpenAndJoin);
+                    EXPECT_EQ(
+                        raidSelectionStatus(result.selection, option, draft),
+                        !option ? "not switched: switch option off"
+                        : draft ? "not switched: draft in current input"
+                        : active
+                            ? "switched"
+                            : "selected in background (application inactive)");
+                    EXPECT_EQ(policy.decide(event(), c).action,
+                              RaidAction::Ignore);
+                }
 }

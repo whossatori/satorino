@@ -331,6 +331,24 @@ bool raidCanSwitch(bool applicationActive, bool hasDraft)
 {
     return applicationActive && !hasDraft;
 }
+RaidSelection raidSelection(bool switchOption, bool applicationActive,
+                            bool hasDraft)
+{
+    return !switchOption || hasDraft ? RaidSelection::None
+           : applicationActive       ? RaidSelection::Foreground
+                                     : RaidSelection::Background;
+}
+QString raidSelectionStatus(RaidSelection selection, bool switchOption,
+                            bool hasDraft)
+{
+    if (selection == RaidSelection::Foreground)
+        return "switched";
+    if (selection == RaidSelection::Background)
+        return "selected in background (application inactive)";
+    return !switchOption ? "not switched: switch option off"
+           : hasDraft    ? "not switched: draft in current input"
+                         : "not switched: target closed or setting changed";
+}
 RaidDecision RaidPolicy::decide(const RaidEvent &event,
                                 const RaidContext &context)
 {
@@ -387,12 +405,12 @@ RaidDecision RaidPolicy::decide(const RaidEvent &event,
         this->opened_.push_back(context.nowMs);
     return {context.targetExists ? RaidAction::SelectExisting
                                  : RaidAction::OpenAndJoin,
-            context.switchToTab &&
-                raidCanSwitch(context.mainActive, context.hasDraft),
-            !context.switchToTab  ? "switch disabled"
-            : !context.mainActive ? "application inactive"
-            : context.hasDraft    ? "current input has a draft"
-                                  : QString{}};
+            context.switchToTab && !context.hasDraft,
+            !context.switchToTab ? "switch option off"
+            : context.hasDraft   ? "draft in current input"
+                                 : QString{},
+            raidSelection(context.switchToTab, context.mainActive,
+                          context.hasDraft)};
 }
 QString raidStatusText(const RaidStatusContext &context)
 {
