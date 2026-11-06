@@ -179,9 +179,8 @@ std::size_t TrainTracker::size() const
 {
     return this->states_.size();
 }
-std::optional<HighlightedIndicator> highlightedLiveIndicator(
-    bool live, const std::optional<QColor> &game, bool gameStar,
-    bool trainsEnabled, const QVector<TrainState> &trains,
+std::optional<HighlightedIndicator> trainIndicatorStyle(
+    bool live, bool trainsEnabled, const QVector<TrainState> &trains,
     const TrainColours &colours, qint64 nowMs)
 {
     const TrainState *chosen = nullptr;
@@ -191,16 +190,13 @@ std::optional<HighlightedIndicator> highlightedLiveIndicator(
                 (!chosen ||
                  PRIORITY[index(train.type)] > PRIORITY[index(chosen->type)]))
                 chosen = &train;
-    const auto kind = liveIndicator(live, game.has_value(), chosen != nullptr);
-    if (kind == LiveIndicator::Train)
+    const auto kind = LiveIndicator::Train;
+    if (chosen)
         return HighlightedIndicator{
             kind,
             indicatorShape(kind, false, chosen->type == TrainType::GoldenKappa),
             colours.values[index(chosen->type)]};
-    if (kind == LiveIndicator::Game)
-        return HighlightedIndicator{kind, indicatorShape(kind, gameStar),
-                                    *game};
-    // Stock dot / rerun / no indicator keeps its original paint path.
+    // Right-hand game/live painting is independent of train state.
     return std::nullopt;
 }
 }  // namespace chatterino::satorino

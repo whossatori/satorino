@@ -189,54 +189,45 @@ TEST(SatorinoTrain, DefaultsAreEnabledDistinctAndGoldenIsGold)
     EXPECT_EQ(colours.values[static_cast<std::size_t>(TrainType::GoldenKappa)],
               QColor("#ffd23f"));
 }
-TEST(SatorinoTrain, TrainBeatsGameBeatsStockAndGameStarIsIndependent)
+TEST(SatorinoTrain, LeftTrainAndRightGameAreIndependent)
 {
     const auto colours = defaultTrainColours();
-    const auto game = QColor("#173f5f");
-    for (bool gameStar : {false, true})
-        for (std::size_t i = 0; i < TRAIN_TYPE_COUNT; ++i)
-        {
-            const auto type = static_cast<TrainType>(i);
-            const auto style = highlightedLiveIndicator(
-                true, game, gameStar, true, {running(type)}, colours, 2000);
-            ASSERT_TRUE(style);
-            EXPECT_EQ(style->kind, LiveIndicator::Train);
-            EXPECT_EQ(style->colour, colours.values[i]);
-            EXPECT_EQ(style->shape, type == TrainType::GoldenKappa
-                                        ? IndicatorShape::Star
-                                        : IndicatorShape::Circle);
-        }
-    const auto gameStyle = highlightedLiveIndicator(true, game, true, false,
-                                                    {running()}, colours, 2000);
-    ASSERT_TRUE(gameStyle);
-    EXPECT_EQ(gameStyle->kind, LiveIndicator::Game);
-    EXPECT_EQ(gameStyle->colour, game);
-    EXPECT_EQ(gameStyle->shape, IndicatorShape::Star);
-    EXPECT_FALSE(highlightedLiveIndicator(true, {}, false, false, {running()},
-                                          colours, 2000));
-    EXPECT_FALSE(highlightedLiveIndicator(false, game, true, true, {running()},
-                                          colours, 2000));
+    for (std::size_t i = 0; i < TRAIN_TYPE_COUNT; ++i)
+    {
+        const auto type = static_cast<TrainType>(i);
+        const auto left =
+            trainIndicatorStyle(true, true, {running(type)}, colours, 2000);
+        ASSERT_TRUE(left);
+        EXPECT_EQ(left->kind, LiveIndicator::Train);
+        EXPECT_EQ(left->colour, colours.values[i]);
+        EXPECT_EQ(left->shape, type == TrainType::GoldenKappa
+                                   ? IndicatorShape::Star
+                                   : IndicatorShape::Circle);
+        EXPECT_EQ(liveIndicator(true, true), LiveIndicator::Game);
+        EXPECT_EQ(indicatorShape(LiveIndicator::Game, false),
+                  IndicatorShape::Circle);
+        EXPECT_EQ(indicatorShape(LiveIndicator::Game, true),
+                  IndicatorShape::Star);
+    }
+    EXPECT_FALSE(trainIndicatorStyle(true, false, {running()}, colours, 2000));
+    EXPECT_FALSE(trainIndicatorStyle(false, true, {running()}, colours, 2000));
     EXPECT_EQ(liveIndicator(true, false), LiveIndicator::Dot);
 }
-TEST(SatorinoTrain, GoldenWinsAcrossAggregateChildrenAndExpiryFallsBackToGame)
+TEST(SatorinoTrain, GoldenAcrossAggregateChildrenAndExpiryOnlyRemovesLeft)
 {
     auto colours = defaultTrainColours();
     const QColor exact(11, 37, 81, 65);
     colours.values[static_cast<std::size_t>(TrainType::GoldenKappa)] = exact;
-    const auto style =
-        highlightedLiveIndicator(true, QColor("red"), false, true,
-                                 {running(), running(TrainType::Treasure),
-                                  running(TrainType::GoldenKappa)},
-                                 colours, 2000);
-    ASSERT_TRUE(style);
-    EXPECT_EQ(style->colour,
-              exact);  // RGB and alpha stay exact, with no state shading.
-    EXPECT_EQ(style->shape, IndicatorShape::Star);
-    const auto expired = highlightedLiveIndicator(
-        true, QColor("red"), false, true, {running()}, colours, 301000);
-    ASSERT_TRUE(expired);
-    EXPECT_EQ(expired->kind, LiveIndicator::Game);
-    EXPECT_EQ(expired->shape, IndicatorShape::Circle);
+    const auto left =
+        trainIndicatorStyle(true, true,
+                            {running(), running(TrainType::Treasure),
+                             running(TrainType::GoldenKappa)},
+                            colours, 2000);
+    ASSERT_TRUE(left);
+    EXPECT_EQ(left->colour, exact);
+    EXPECT_EQ(left->shape, IndicatorShape::Star);
+    EXPECT_FALSE(trainIndicatorStyle(true, true, {running()}, colours, 301000));
+    EXPECT_EQ(liveIndicator(true, true), LiveIndicator::Game);
 }
 TEST(SatorinoTrain, PaletteRoundTripsEveryTypeAndAlphaWithoutShading)
 {

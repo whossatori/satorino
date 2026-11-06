@@ -148,9 +148,8 @@ private:
     void paintPin(QPainter &painter) const;
     // satorino: optional colour, preserving stock dot geometry.
     std::optional<QColor> gameIndicatorColour() const;
-    // satorino: train priority, independent star rules and producer repaint hook.
-    std::optional<satorino::HighlightedIndicator> highlightedLiveIndicator()
-        const;
+    // satorino: independent left train indicator and producer repaint hook.
+    std::optional<satorino::HighlightedIndicator> trainIndicatorStyle() const;
     void bindTrainIndicator();
     bool pinned_ = false;
     QAction *pinTabAction_{};

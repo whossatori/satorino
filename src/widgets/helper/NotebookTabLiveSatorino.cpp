@@ -77,23 +77,12 @@ void NotebookTab::bindTrainIndicator()
                 this->update();
         });
 }
-std::optional<satorino::HighlightedIndicator>
-    NotebookTab::highlightedLiveIndicator() const
+std::optional<satorino::HighlightedIndicator> NotebookTab::trainIndicatorStyle()
+    const
 {
-    const auto game = this->gameIndicatorColour();
-    // Disabled/unavailable means only the pre-existing game/dot path runs.
     if (!this->isLive_ || !getSettings()->satorinoLiveTrainEnabled.getValue() ||
         !satorino::trainProducer().available())
-    {
-        if (game)
-            return satorino::HighlightedIndicator{
-                satorino::LiveIndicator::Game,
-                satorino::indicatorShape(
-                    satorino::LiveIndicator::Game,
-                    getSettings()->satorinoLiveGameStar.getValue()),
-                *game};
         return std::nullopt;
-    }
     const auto now = QDateTime::currentMSecsSinceEpoch();
     QVector<satorino::TrainState> trains;
     auto *container = dynamic_cast<SplitContainer *>(this->page);
@@ -121,8 +110,8 @@ std::optional<satorino::HighlightedIndicator>
                 collect(channel);
         }
     }
-    return satorino::highlightedLiveIndicator(
-        this->isLive_, game, getSettings()->satorinoLiveGameStar.getValue(),
-        true, trains, getSettings()->satorinoLiveTrainColours.getValue(), now);
+    return satorino::trainIndicatorStyle(
+        this->isLive_, true, trains,
+        getSettings()->satorinoLiveTrainColours.getValue(), now);
 }
 }  // namespace chatterino

@@ -948,3 +948,11 @@ unsent drafts and the master switch block both selection modes; guards
 are read again at selection time and status states the outcome/reason.
 Go/local-success/expiry still complete once. Reports are output-only.
 Compilation and Windows/live checks **NOT RUN**.
+
+Commit B moves only trains to a horizontally mirrored left anchor. Right
+stock/game indicators remain independent and can coexist with a left train.
+The same stock size/vertical anchor, exact RGBA and star/floor helpers are
+used. Collisions nudge the left marker above pin/title ink; only tab edges
+can reduce a star below its floor. An impossible/degenerate fit is omitted
+instead of overlapping. NoDataTrainProducer/settings remain unchanged.
+Geometry/model tests updated; compilation/Windows checks **NOT RUN**.

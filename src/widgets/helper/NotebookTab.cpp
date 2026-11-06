@@ -1312,8 +1312,14 @@ void NotebookTab::paintEvent(QPaintEvent *)
         // satorino: one exact stock rectangle for every indicator kind/shape.
         const auto liveIndicatorRect = satorino::indicatorRect(
             this->rect(), scale, this->tabLocation_, this->selected_);
-        if (const auto highlighted = this->highlightedLiveIndicator())
+        if (const auto colour = this->gameIndicatorColour())
         {
+            const satorino::HighlightedIndicator highlighted{
+                satorino::LiveIndicator::Game,
+                satorino::indicatorShape(
+                    satorino::LiveIndicator::Game,
+                    getSettings()->satorinoLiveGameStar.getValue()),
+                *colour};
             // satorino: exact chosen colour; use the actual title ink and visible close/pin glyph bounds.
             QVector<QRectF> obstacles;
             // satorino: position tight glyph ink using the same alignment/baseline as drawText.
@@ -1340,7 +1346,7 @@ void NotebookTab::paintEvent(QPaintEvent *)
             {
                 const int inset = static_cast<int>(scale * 4);
                 // satorino: reserve the star floor by moving only the X ink within its hit box.
-                if (highlighted->shape == satorino::IndicatorShape::Star)
+                if (highlighted.shape == satorino::IndicatorShape::Star)
                     starCloseGlyph = satorino::starSafeCloseGlyph(
                         this->getXRect(), liveIndicatorRect, scale,
                         1.0 / this->devicePixelRatioF());
@@ -1353,14 +1359,62 @@ void NotebookTab::paintEvent(QPaintEvent *)
                 liveIndicatorRect, QRectF(this->rect()), obstacles,
                 painter.pen().widthF(), 1.0 / this->devicePixelRatioF());
             satorino::paintHighlightedIndicator(painter, liveIndicatorRect,
-                                                highlighted->colour, QColor{},
-                                                highlighted->shape, starRadius);
+                                                highlighted.colour, QColor{},
+                                                highlighted.shape, starRadius);
         }
         else
         {
             painter.drawEllipse(liveIndicatorRect);
         }
     }
+
+    // satorino: left train coexists with the untouched right-hand live/game indicator.
+    if (getSettings()->showTabLive)
+        if (const auto train = this->trainIndicatorStyle())
+        {
+            const auto rightRect = satorino::indicatorRect(
+                this->rect(), scale, this->tabLocation_, this->selected_);
+            const auto rightRadius =
+                (std::min(rightRect.width(), rightRect.height()) + 1) / 2.0 *
+                (this->gameIndicatorColour() &&
+                         getSettings()->satorinoLiveGameStar.getValue()
+                     ? satorino::INDICATOR_STAR_FACTOR
+                     : 1.0);
+            const auto rightCentre = QRectF(rightRect).center();
+            QVector<QRectF> obstacles{QRectF(rightCentre.x() - rightRadius,
+                                             rightCentre.y() - rightRadius,
+                                             2 * rightRadius, 2 * rightRadius)};
+            const int textX =
+                textRect.left() + (alignment.testFlag(Qt::AlignHCenter)
+                                       ? (textRect.width() - width) / 2
+                                       : 0);
+            const int baseline = textRect.top() +
+                                 (textRect.height() - metrics.height()) / 2 +
+                                 metrics.ascent();
+            auto ink = QRectF(metrics.tightBoundingRect(this->getTitle())
+                                  .translated(textX, baseline));
+            if (this->isPinned())
+                ink = ink.intersected(QRectF(textRect));
+            obstacles.push_back(ink);
+            if (this->isPinned())
+                obstacles.push_back(
+                    satorino::pinnedTabGlyphBounds(this->getXRect(), scale));
+            else if (this->shouldDrawXButton())
+            {
+                const int inset = static_cast<int>(4 * scale);
+                obstacles.push_back(
+                    QRectF(starCloseGlyph.value_or(this->getXRect().adjusted(
+                               inset, inset, -inset, -inset)))
+                        .adjusted(-0.5, -0.5, 0.5, 0.5));
+            }
+            if (const auto geometry = satorino::trainIndicatorGeometry(
+                    this->rect(), scale, this->tabLocation_, this->selected_,
+                    train->shape, obstacles, 1,
+                    1.0 / this->devicePixelRatioF()))
+                satorino::paintHighlightedIndicator(
+                    painter, geometry->rect, train->colour, QColor{},
+                    train->shape, geometry->radius);
+        }
 
     // set the pen color
     painter.setPen(colors.text);

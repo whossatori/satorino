@@ -87,8 +87,7 @@ private:
     bool enabled_ = TRAIN_ENABLED_DEFAULT;
     std::map<QString, TrainState> states_;
 };
-std::optional<HighlightedIndicator> highlightedLiveIndicator(
-    bool live, const std::optional<QColor> &game, bool gameStar,
-    bool trainsEnabled, const QVector<TrainState> &trains,
+std::optional<HighlightedIndicator> trainIndicatorStyle(
+    bool live, bool trainsEnabled, const QVector<TrainState> &trains,
     const TrainColours &colours, qint64 nowMs);
 }  // namespace chatterino::satorino
