@@ -84,24 +84,31 @@ std::optional<TrainIndicatorGeometry> trainIndicatorGeometry(
             obstacle.bottom() > original.y() - floor - clearance)
             above = std::min(above, obstacle.top() - floor - clearance);
     rect.translate(0, static_cast<int>(std::floor(above - original.y())));
-    const auto centre = QRectF(rect).center();
-    const auto radius = shape == IndicatorShape::Star
-                            ? indicatorStarRadius(rect, QRectF(tab), obstacles,
-                                                  penWidth, clearance)
-                            : dotRadius;
-    const QRectF bounds(centre.x() - radius, centre.y() - radius, 2 * radius,
-                        2 * radius);
-    if (radius <= 0 || !QRectF(tab).contains(bounds))
-        return std::nullopt;
-    for (const auto &obstacle : obstacles)
-        if (!obstacle.isEmpty() &&
-            bounds.intersects(obstacle.adjusted(-clearance, -clearance,
-                                                clearance, clearance)))
-        {
-            // No space even at the tab-edge clamp: never paint over ink.
+    // A radial obstacle distance can still leave its enclosing box touching a
+    // diagonal corner. Retry upward by whole pixels until both checks agree.
+    for (int attempt = 0; attempt < tab.height(); ++attempt)
+    {
+        const auto centre = QRectF(rect).center();
+        const auto radius =
+            shape == IndicatorShape::Star
+                ? indicatorStarRadius(rect, QRectF(tab), obstacles, penWidth,
+                                      clearance)
+                : dotRadius;
+        const QRectF bounds(centre.x() - radius, centre.y() - radius,
+                            2 * radius, 2 * radius);
+        if (radius <= 0 || !QRectF(tab).contains(bounds))
             return std::nullopt;
-        }
-    return TrainIndicatorGeometry{rect, radius, bounds};
+        const bool touches = std::any_of(
+            obstacles.begin(), obstacles.end(), [&](const QRectF &obstacle) {
+                return !obstacle.isEmpty() &&
+                       bounds.intersects(obstacle.adjusted(
+                           -clearance, -clearance, clearance, clearance));
+            });
+        if (!touches)
+            return TrainIndicatorGeometry{rect, radius, bounds};
+        rect.translate(0, -1);
+    }
+    return std::nullopt;
 }
 std::array<QPointF, 10> indicatorStar(const QPointF &centre, qreal outerRadius,
                                       qreal innerRatio)

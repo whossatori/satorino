@@ -976,3 +976,8 @@ is added; native monitor/restrict research is in the output report only.
 Nine registered pure tests cover store keys, bounds, merge/cleanup, JSON,
 priority/defaults and settings persistence. Nothing compiled; C++ tests
 and Windows/runtime checks **NOT RUN**.
+
+Commit D corrects a DPR-2 diagonal pin-corner case: if a radial fit still
+touches the conservative ink bounds, try another whole pixel upward before
+omitting the train. The original mirror x and star floor/edge rules remain.
+A specific regression fixture was added; compilation/tests **NOT RUN**.

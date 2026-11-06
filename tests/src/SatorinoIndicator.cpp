@@ -486,3 +486,16 @@ TEST(SatorinoIndicator, LeftStarFloorCanOnlyBeReducedByTabEdges)
     EXPECT_EQ(geometry->rect, QRect(3, 2, 4, 4));
     EXPECT_DOUBLE_EQ(geometry->radius, 3);
 }
+
+TEST(SatorinoIndicator, DiagonalPinCornerRetriesUpwardAtDprTwo)
+{
+    const QRect tab(0, 0, 180, 28);
+    const auto pin = pinnedTabGlyphBounds(pinnedTabRect(tab, 1, false), 1);
+    const auto geometry = trainIndicatorGeometry(
+        tab, 1, Top, true, IndicatorShape::Star, {pin}, 1, 0.5);
+    ASSERT_TRUE(geometry);
+    EXPECT_EQ(geometry->rect, QRect(3, 2, 4, 4));
+    EXPECT_DOUBLE_EQ(geometry->radius, 3.5);
+    EXPECT_FALSE(
+        geometry->paintedBounds.intersects(pin.adjusted(-0.5, -0.5, 0.5, 0.5)));
+}
