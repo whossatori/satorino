@@ -1036,3 +1036,13 @@ Eight new pure native-policy/cache cases are registered; existing local tests
 remain, with obsolete placement coverage replaced by moderator-only visibility.
 Nothing was compiled; C++ tests and Windows/live checks are **NOT RUN**.
 Output-only report/patch: satorino-stage-g-out/batch14.
+
+## Stage G batch 15
+
+Part 1 gates raid tab actions at go/deadline arrival and again after queued
+dispatch, using every window's selected page and all its splits/aggregate
+children. Hidden-tab sources do not queue an action or touch policy dedupe/
+rate caps. Countdown/feed/listening remain unchanged; eligible raids retain
+existing focus/background/draft/settings behavior. /satorino-testraid shares
+the scope rule, including after its existing optional lookup. Four pure
+regression cases added; nothing was compiled, C++/Windows checks **NOT RUN**.

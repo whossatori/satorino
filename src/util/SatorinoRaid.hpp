@@ -96,9 +96,19 @@ struct RaidContext {
     qint64 nowUtcMs = 0;
     qint64 enabledAtUtcMs = 0;
     qint64 receivedAtUtcMs = 0;
+    bool sourceSelected = false;  // satorino: arrival-time selected-tab scope
 };
 enum class RaidAction { Ignore, OpenAndJoin, SelectExisting };
 enum class RaidSelection { None, Background, Foreground };
+// satorino: tab scope controls the entire action, independently of focus/draft selection.
+struct RaidScopeDecision {
+    bool act;
+    RaidSelection selection;
+};
+RaidScopeDecision raidScopeDecision(bool sourceSelected,
+                                    RaidSelection existingSelection);
+bool raidSourceInSelectedTabs(const QString &source,
+                              const std::set<QString> &selectedSources);
 RaidSelection raidSelection(bool switchOption, bool applicationActive,
                             bool hasDraft);
 QString raidSelectionStatus(RaidSelection selection, bool switchOption,

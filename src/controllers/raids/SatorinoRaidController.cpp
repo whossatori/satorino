@@ -93,6 +93,22 @@ void visitOpen(WindowManager &windows, const Visitor &visit)
         }
     }
 }
+// satorino: any window's selected page counts, including all aggregate children.
+std::set<QString> selectedSources(WindowManager &windows,
+                                  const std::shared_ptr<TwitchAccount> &account)
+{
+    std::set<QString> selected;
+    visitOpen(windows, [&](Window *window, SplitContainer *page, Split *,
+                           const auto &channel) {
+        if (window->getNotebook().getSelectedPage() == page)
+        {
+            const auto id = sourceId(channel, account);
+            if (validRaidId(id))
+                selected.insert(id);
+        }
+    });
+    return selected;
+}
 struct InputState {
     bool mainActive = false;
     bool hasDraft = false;
@@ -328,6 +344,15 @@ void RaidController::deadlineExpired()
 QString RaidController::queueAction(const RaidEvent &event, qint64 receivedAtMs,
                                     const QString &trigger)
 {
+    const auto account = getApp()->getAccounts()->twitch.getCurrent();
+    if (!raidScopeDecision(
+             raidSourceInSelectedTabs(event.sourceId,
+                                      selectedSources(this->windows_, account)),
+             RaidSelection::None)
+             .act)
+        return this->record(
+            event.sourceId, event,
+            "ignored (source is not displayed in a selected tab)");
     // Same zero-delay GUI queue as /satorino-testraid: postMessageSend clears the
     // submitted input before the action reads it. The feed has already completed
     // this raid, so go/local success/expiry cannot queue another action.
@@ -358,13 +383,21 @@ QString RaidController::act(const RaidEvent &inputEvent, qint64 receivedAtMs,
         return finish("ignored (not logged in)");
     if (account->getUserId() != ownerId)
         return finish("ignored (account changed)");
+    // satorino: recheck after queued dispatch, before target creation and policy bookkeeping.
+    if (!raidScopeDecision(
+             raidSourceInSelectedTabs(event->sourceId,
+                                      selectedSources(this->windows_, account)),
+             RaidSelection::None)
+             .act)
+        return finish("ignored (source is not displayed in a selected tab)");
     QPointer<Window> sourceWindow;
     QPointer<Window> targetWindow;
     QPointer<SplitContainer> targetPage;
     QPointer<Split> targetSplit;
     visitOpen(this->windows_, [&](Window *window, SplitContainer *page,
                                   Split *split, const auto &channel) {
-        if (sourceId(channel, account) == event->sourceId && !sourceWindow)
+        if (sourceId(channel, account) == event->sourceId && !sourceWindow &&
+            window->getNotebook().getSelectedPage() == page)
         {
             sourceWindow = window;
         }
@@ -386,6 +419,8 @@ QString RaidController::act(const RaidEvent &inputEvent, qint64 receivedAtMs,
         account->blockedUserLogins().contains(event->targetLogin);
     context.loggedIn = !account->isAnon();
     context.sourceOpen = sourceWindow != nullptr;
+    context.sourceSelected =
+        sourceWindow != nullptr;  // satorino: selected source window
     const auto input = currentInput(this->windows_);
     context.mainActive = input.mainActive;
     context.hasDraft = input.hasDraft;
@@ -488,6 +523,14 @@ QString RaidController::simulate(const ChannelPtr &source,
         return "Raid test ignored: not logged in or account changed";
     if (!source || source->getType() != Channel::Type::Twitch)
         return "Raid test requires the current real Twitch channel";
+    const auto twitch = std::dynamic_pointer_cast<TwitchChannel>(source);
+    if (!twitch ||
+        !raidScopeDecision(
+             raidSourceInSelectedTabs(sourceId(twitch, account),
+                                      selectedSources(this->windows_, account)),
+             RaidSelection::None)
+             .act)
+        return "Raid test ignored: source is not displayed in a selected tab";
     QString error;
     const auto command = parseRaidTestCommand(
         QStringList{"/satorino-testraid", targetLogin} +

@@ -22,7 +22,8 @@ RaidEvent event(const QString &target = "200", qint64 at = 1000000)
 RaidContext context(qint64 now = 0)
 {
     RaidContext input;
-    input.enabled = input.loggedIn = input.sourceOpen = input.mainActive = true;
+    input.enabled = input.loggedIn = input.sourceOpen = input.mainActive =
+        input.sourceSelected = true;
     input.nowMs = now;
     input.nowUtcMs = 1000000 + now;
     input.enabledAtUtcMs = 1000000;
@@ -598,4 +599,83 @@ TEST(SatorinoRaid, VisibleSilentOrNoSelectionAndReasons)
                     EXPECT_EQ(policy.decide(event(), c).action,
                               RaidAction::Ignore);
                 }
+}
+
+TEST(SatorinoRaid,
+     SelectedTabScopePreservesExistingSelectionOrSkipsEntireAction)
+{
+    for (const auto selection : {RaidSelection::None, RaidSelection::Background,
+                                 RaidSelection::Foreground})
+    {
+        const auto watched = raidScopeDecision(true, selection);
+        EXPECT_TRUE(watched.act);
+        EXPECT_EQ(watched.selection, selection);
+        const auto hidden = raidScopeDecision(false, selection);
+        EXPECT_FALSE(hidden.act);
+        EXPECT_EQ(hidden.selection, RaidSelection::None);
+    }
+}
+TEST(SatorinoRaid,
+     SelectedSourcesIncludeOtherSplitsAndAggregateChildrenAcrossWindows)
+{
+    // Flattened selected-page fixture: split 100, aggregate children 101/102,
+    // and a secondary window's selected split 103. Hidden-page 104 is absent.
+    const std::set<QString> selected{"100", "101", "102", "103"};
+    for (const auto &source : selected)
+        EXPECT_TRUE(raidSourceInSelectedTabs(source, selected));
+    EXPECT_FALSE(raidSourceInSelectedTabs("104", selected));
+    EXPECT_FALSE(raidSourceInSelectedTabs("", selected));
+}
+TEST(SatorinoRaid, ScopeIsReadAtGoOrDeadlineInsteadOfCountdownStart)
+{
+    for (bool deadline : {false, true})
+        for (bool selectedAtStart : {false, true})
+        {
+            RaidFeedTracker tracker;
+            ASSERT_EQ(
+                tracker.observe(payload("raid_update_v2"), 1000000).action,
+                RaidFeedAction::Wait);
+            const auto arrival = deadline ? 1090000 : 1000100;
+            RaidFeedResult fired;
+            if (deadline)
+            {
+                const auto expired = tracker.expire(arrival);
+                ASSERT_EQ(expired.size(), 1);
+                fired = expired.front();
+            }
+            else
+                fired = tracker.observe(payload(), arrival);
+            ASSERT_TRUE(fired.event);
+            auto c = context(arrival - 1000000);
+            c.sourceSelected =
+                !selectedAtStart;  // Switch away or to source during countdown.
+            RaidPolicy policy;
+            const auto result = policy.decide(*fired.event, c);
+            EXPECT_EQ(result.action, c.sourceSelected ? RaidAction::OpenAndJoin
+                                                      : RaidAction::Ignore);
+        }
+}
+TEST(SatorinoRaid, IgnoredScopeConsumesNeitherDedupeNorGapNorTenMinuteSlots)
+{
+    RaidPolicy policy;
+    auto hidden = context();
+    hidden.sourceSelected = false;
+    for (int i = 0; i < 20; ++i)
+        EXPECT_EQ(policy.decide(event(QString::number(200 + i)), hidden).action,
+                  RaidAction::Ignore);
+    // Same pair at the same instant must still be accepted: no dedupe or gap consumed.
+    EXPECT_EQ(policy.decide(event(), context()).action,
+              RaidAction::OpenAndJoin);
+    for (int i = 1; i < 5; ++i)
+    {
+        const auto at = static_cast<qint64>(i) * RAID_NEW_TAB_GAP_MS;
+        EXPECT_EQ(policy
+                      .decide(event(QString::number(200 + i), 1000000 + at),
+                              context(at))
+                      .action,
+                  RaidAction::OpenAndJoin);
+    }
+    const auto at = 5 * RAID_NEW_TAB_GAP_MS;
+    EXPECT_EQ(policy.decide(event("999", 1000000 + at), context(at)).action,
+              RaidAction::Ignore);
 }

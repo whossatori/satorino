@@ -338,6 +338,17 @@ RaidSelection raidSelection(bool switchOption, bool applicationActive,
            : applicationActive       ? RaidSelection::Foreground
                                      : RaidSelection::Background;
 }
+RaidScopeDecision raidScopeDecision(bool sourceSelected,
+                                    RaidSelection existingSelection)
+{
+    return {sourceSelected,
+            sourceSelected ? existingSelection : RaidSelection::None};
+}
+bool raidSourceInSelectedTabs(const QString &source,
+                              const std::set<QString> &selectedSources)
+{
+    return validRaidId(source) && selectedSources.contains(source);
+}
 QString raidSelectionStatus(RaidSelection selection, bool switchOption,
                             bool hasDraft)
 {
@@ -355,6 +366,13 @@ RaidDecision RaidPolicy::decide(const RaidEvent &event,
     const auto ignore = [](const QString &reason) {
         return RaidDecision{RaidAction::Ignore, false, reason};
     };
+    const auto scope =
+        raidScopeDecision(context.sourceSelected,
+                          raidSelection(context.switchToTab, context.mainActive,
+                                        context.hasDraft));
+    // satorino: reject before dedupe pruning/insertion or cap bookkeeping.
+    if (!scope.act)
+        return ignore("source is not displayed in a selected tab");
     if (!context.enabled)
         return ignore("setting off");
     if (!context.loggedIn)
@@ -409,8 +427,7 @@ RaidDecision RaidPolicy::decide(const RaidEvent &event,
             !context.switchToTab ? "switch option off"
             : context.hasDraft   ? "draft in current input"
                                  : QString{},
-            raidSelection(context.switchToTab, context.mainActive,
-                          context.hasDraft)};
+            scope.selection};
 }
 QString raidStatusText(const RaidStatusContext &context)
 {
