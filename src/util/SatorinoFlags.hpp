@@ -26,6 +26,9 @@ struct UserFlag {
     bool operator==(const UserFlag &) const = default;
 };
 bool validFlagId(const QString &id);
+// satorino: shared pure room key check for local and native presentation.
+QString flagRoomKey(const QString &messageChannel,
+                    const QString &contextChannel, const QString &roomId);
 class FlagStore
 {
 public:

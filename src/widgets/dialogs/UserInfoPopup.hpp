@@ -222,6 +222,8 @@ private:
     QString nameHistoryLogin_;
     std::vector<TwitchNameHistoryEntry> nameHistoryEntries_;
     QPointer<QMenu> nameHistoryMenu_;
+    QPointer<QMenu>
+        nativeFlagMenu_;  // satorino: close immediately when master is disabled
     uint64_t nameHistoryRequestGeneration_ = 0;
     bool nameHistoryLoading_ = false;
     bool nameHistoryLoaded_ = false;

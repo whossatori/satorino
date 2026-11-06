@@ -4,12 +4,56 @@
 
 #include "util/SatorinoSuspiciousUsers.hpp"
 #include "util/SatorinoFlags.hpp"
+#include "controllers/highlights/types/Common.hpp"  // satorino: same mention boundaries
+#include <QRegularExpression>
 #include <algorithm>
 
 namespace chatterino::satorino {
-bool flagControlVisible(bool realTwitch, bool canModerate, FlagTargetRole role)
+bool flagControlVisible(bool realTwitch, bool canModerate, FlagTargetRole role,
+                        bool masterEnabled)
 {
-    return realTwitch && canModerate && role == FlagTargetRole::Regular;
+    return masterEnabled && realTwitch && canModerate &&
+           role == FlagTargetRole::Regular;
+}
+SuspiciousState nativeFlagState(SuspiciousState cached, bool monitoredMessage,
+                                bool restrictedMessage)
+{
+    // Confirmed None must clear even old message flags after Stop monitoring.
+    if (cached != SuspiciousState::Unknown)
+        return cached;
+    return restrictedMessage  ? SuspiciousState::Restricted
+           : monitoredMessage ? SuspiciousState::Monitored
+                              : SuspiciousState::Unknown;
+}
+bool nativeFlagMentions(const QString &text, const QString &login)
+{
+    if (login.isEmpty())
+        return false;
+    const QRegularExpression pattern(
+        highlights::REGEX_START_BOUNDARY.toString() +
+            QRegularExpression::escape(login) +
+            highlights::REGEX_END_BOUNDARY.toString(),
+        QRegularExpression::UseUnicodePropertiesOption |
+            QRegularExpression::CaseInsensitiveOption);
+    return pattern.match(text).hasMatch();
+}
+FlagStyle nativeFlagStyle(SuspiciousState state, bool masterEnabled,
+                          bool ordinary, bool higherPriority,
+                          bool ignoreHighlights, const QColor &monitored,
+                          const QColor &restricted)
+{
+    if (!masterEnabled || !ordinary ||
+        (state != SuspiciousState::Monitored &&
+         state != SuspiciousState::Restricted))
+        return {};
+    auto colour = state == SuspiciousState::Restricted ? restricted : monitored;
+    if (!colour.isValid())
+        colour = QColor(state == SuspiciousState::Restricted
+                            ? NATIVE_RESTRICTED_COLOUR_DEFAULT
+                            : NATIVE_MONITORED_COLOUR_DEFAULT);
+    return {true, !higherPriority && !ignoreHighlights
+                      ? std::optional<QColor>(colour)
+                      : std::nullopt};
 }
 QString suspiciousControlLabel(SuspiciousState state)
 {

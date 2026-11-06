@@ -1065,3 +1065,26 @@ persistence, message layouts and both popup/native menus are unchanged.
 The obsolete author-context local flag toggle is also removed, so individual
 highlights can now be removed only through the popup's Remove highlight entry; there is no settings list or bulk-clear action. Nothing was
 compiled; C++ and Windows/runtime checks **NOT RUN**.
+
+## Stage G batch 16
+
+Part 1 adds native monitored/restricted presentation to ordinary authored
+messages using the existing room/user status cache and shared local flag room
+resolver. One U+2691 prefix is reused; monitored orange (#66ff9500) and
+restricted red (#66ff3b30) backgrounds preserve alpha. Native colour wins over
+ordinary/local highlights, while mentions, redeems and protected system styles
+keep priority; ignored highlights suppress colour but retain the mark. Existing
+low-trust summaries/system messages and their rendering are unchanged.
+
+Local user highlights now starts with Monitored user tools (default on,
+/satorino/flags/native/enabled), then Monitored colour and Restricted colour
+pickers; the existing local controls follow unchanged. Native master off hides
+the popup control/menu and native message presentation live, without clearing
+the cache or saved local highlights. Stored local highlights keep their own
+master/mark/colour behavior; they cannot be toggled from that hidden popup menu.
+Settings and native cache signals force existing main/usercard/history layouts
+to rebuild. Pre-existing monitored users are learned from their next existing
+suspicious-user message/update event; earlier buffered ordinary messages stay
+unknown until such evidence arrives, then repaint. No extra role check, feed,
+poll or request is added. Six pure regression cases added to the registered
+native suite. Nothing was compiled; C++ and Windows/live checks **NOT RUN**.

@@ -35,10 +35,9 @@ QString localFlagRoom(const Message &message, Channel *context)
         return {};
     const auto match = [&message](Channel *channel) -> QString {
         auto *twitch = dynamic_cast<TwitchChannel *>(channel);
-        return twitch && channel->getType() == Channel::Type::Twitch &&
-                       channel->getName().compare(message.channelName,
-                                                  Qt::CaseInsensitive) == 0
-                   ? twitch->roomId()
+        return twitch && channel->getType() == Channel::Type::Twitch
+                   ? flagRoomKey(message.channelName, channel->getName(),
+                                 twitch->roomId())
                    : QString{};
     };
     if (auto *multi = dynamic_cast<MultiChannel *>(context))

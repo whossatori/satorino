@@ -78,7 +78,7 @@ bool UserInfoPopup::nativeFlagVisible() const
         account && !account->isAnon() &&
             satorino::validFlagId(account->getUserId()) && channel &&
             channel->hasModRights() && this->shouldShowModerationActions(),
-        role);
+        role, getSettings()->satorinoNativeFlagsEnabled.getValue());
 }
 void UserInfoPopup::bindNativeFlagButton()
 {
@@ -90,6 +90,13 @@ void UserInfoPopup::bindNativeFlagButton()
             if (room == this->flagRoomId() && user == this->flagTargetId())
                 this->refreshNativeFlagButton();
         });
+    getSettings()->satorinoNativeFlagsEnabled.connect(
+        [this](bool enabled) {
+            if (!enabled && this->nativeFlagMenu_)
+                this->nativeFlagMenu_->close();
+            this->refreshNativeFlagButton();
+        },
+        this->signalHolder_, false);
     this->refreshNativeFlagButton();
 }
 void UserInfoPopup::seedNativeFlagState()
@@ -165,6 +172,8 @@ void UserInfoPopup::showNativeFlagMenu()
     auto *button = this->ui_.localFlagModeration;
     // Same app-themed QMenu as the usercard's role/name menus; inherit scaled font.
     auto *menu = new QMenu(this);
+    this->nativeFlagMenu_ =
+        menu;  // satorino: master can close a currently open menu
     menu->setFont(button->font());
     menu->setAttribute(Qt::WA_DeleteOnClose);
     const bool pinned = this->ensurePinned();

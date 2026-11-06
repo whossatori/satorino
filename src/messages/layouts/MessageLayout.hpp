@@ -102,6 +102,8 @@ private:
     std::unique_ptr<MessageElement> localFlagMark_;
     MessageLayoutContainer container_;
     std::optional<QColor> localFlagBackground_;
+    std::optional<QColor>
+        nativeFlagBackground_;  // satorino: higher than ordinary/local highlights
     std::unique_ptr<QPixmap> buffer_;
     bool bufferValid_ = false;
 

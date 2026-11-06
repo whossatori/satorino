@@ -24,6 +24,7 @@
 #include "singletons/Toasts.hpp"
 #include "util/SatorinoGamesSettings.hpp"  // satorino: registered JSON game list
 #include "util/SatorinoFlags.hpp"          // satorino: local-only flag defaults
+#include "util/SatorinoSuspiciousUsers.hpp"  // satorino: native presentation defaults
 #include "util/RapidJsonSerializeQString.hpp"  // IWYU pragma: keep
 #include "util/serialize/List.hpp"             // IWYU pragma: keep
 #include "widgets/NotebookEnums.hpp"
@@ -1367,6 +1368,16 @@ public:
                                           satorino::FLAGS_COLOUR_DEFAULT};
     QStringSetting satorinoFlagsState = {"/satorino/flags/state",
                                          R"({"version":1,"entries":[]})"};
+    // satorino: native tools/presentation master; never changes subscriptions or stored local flags.
+    BoolSetting satorinoNativeFlagsEnabled = {
+        "/satorino/flags/native/enabled",
+        satorino::NATIVE_FLAGS_ENABLED_DEFAULT};
+    QStringSetting satorinoNativeMonitoredColour = {
+        "/satorino/flags/native/monitoredColour",
+        satorino::NATIVE_MONITORED_COLOUR_DEFAULT};
+    QStringSetting satorinoNativeRestrictedColour = {
+        "/satorino/flags/native/restrictedColour",
+        satorino::NATIVE_RESTRICTED_COLOUR_DEFAULT};
     // satorino: outgoing raids open chats only; no automatic messages.
     BoolSetting satorinoRaidsOpenTab = {"/satorino/raids/openTab", false};
     BoolSetting satorinoRaidsSwitchTab = {"/satorino/raids/switchTab", true};

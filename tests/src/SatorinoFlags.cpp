@@ -281,7 +281,9 @@ TEST(SatorinoFlags, PopupLimitFeedbackMatchesStoreAndStillAllowsRemoval)
 }
 TEST(SatorinoFlags, NativeFlagHasNoViewerOrNonTwitchFallback)
 {
-    EXPECT_TRUE(flagControlVisible(true, true, FlagTargetRole::Regular));
-    EXPECT_FALSE(flagControlVisible(true, false, FlagTargetRole::Regular));
-    EXPECT_FALSE(flagControlVisible(false, true, FlagTargetRole::Regular));
+    EXPECT_TRUE(flagControlVisible(true, true, FlagTargetRole::Regular, true));
+    EXPECT_FALSE(
+        flagControlVisible(true, false, FlagTargetRole::Regular, true));
+    EXPECT_FALSE(
+        flagControlVisible(false, true, FlagTargetRole::Regular, true));
 }

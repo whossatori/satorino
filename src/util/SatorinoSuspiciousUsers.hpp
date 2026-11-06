@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 #pragma once
+#include "util/SatorinoFlags.hpp"
 #include <QString>
 #include <QtGlobal>
 #include <cstddef>
@@ -16,7 +17,18 @@ namespace chatterino::satorino {
 enum class SuspiciousState { Unknown, None, Monitored, Restricted };
 enum class SuspiciousAction { Monitor, Restrict, Remove };
 enum class FlagTargetRole { Unknown, Regular, Self, Broadcaster, Moderator };
-bool flagControlVisible(bool realTwitch, bool canModerate, FlagTargetRole role);
+inline constexpr bool NATIVE_FLAGS_ENABLED_DEFAULT = true;
+inline constexpr auto NATIVE_MONITORED_COLOUR_DEFAULT = "#66ff9500";
+inline constexpr auto NATIVE_RESTRICTED_COLOUR_DEFAULT = "#66ff3b30";
+bool flagControlVisible(bool realTwitch, bool canModerate, FlagTargetRole role,
+                        bool masterEnabled);
+SuspiciousState nativeFlagState(SuspiciousState cached, bool monitoredMessage,
+                                bool restrictedMessage);
+bool nativeFlagMentions(const QString &text, const QString &login);
+FlagStyle nativeFlagStyle(SuspiciousState state, bool masterEnabled,
+                          bool ordinary, bool higherPriority,
+                          bool ignoreHighlights, const QColor &monitored,
+                          const QColor &restricted);
 QString suspiciousControlLabel(SuspiciousState state);
 std::vector<SuspiciousAction> suspiciousMenuActions(SuspiciousState state);
 QString suspiciousActionLabel(SuspiciousAction action, SuspiciousState state,

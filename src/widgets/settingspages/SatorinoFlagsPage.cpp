@@ -24,6 +24,57 @@ void SatorinoPage::addLocalFlags(GeneralPageView &layout)
         "Local to this device and channel. Flags never "
         "report or restrict users on Twitch. Remove individual "
         "highlights with Remove highlight in the user's popup flag menu.");
+    // satorino: native presentation controls precede the unchanged local highlight options.
+    SettingWidget::checkbox("Monitored user tools",
+                            getSettings()->satorinoNativeFlagsEnabled)
+        ->addKeywords({"monitored", "restricted", "native", "flag"})
+        ->addTo(layout);
+    const auto addNativeColour = [this, &layout](const QString &label,
+                                                 QStringSetting &setting,
+                                                 const QString &fallback) {
+        auto *row = new QWidget;
+        auto *box = new QHBoxLayout(row);
+        box->setContentsMargins(0, 0, 0, 0);
+        auto *button = new QPushButton(label);
+        box->addWidget(button);
+        box->addStretch(1);
+        getSettings()->satorinoNativeFlagsEnabled.connect(
+            [button](bool enabled) {
+                button->setEnabled(enabled);
+            },
+            this->managedConnections_);
+        setting.connect(
+            [button, fallback](const QString &value) {
+                const QColor parsed(value);
+                const QColor colour =
+                    parsed.isValid() ? parsed : QColor(fallback);
+                button->setStyleSheet(
+                    QString("background-color: rgba(%1,%2,%3,%4);")
+                        .arg(colour.red())
+                        .arg(colour.green())
+                        .arg(colour.blue())
+                        .arg(colour.alpha()));
+            },
+            this->managedConnections_);
+        QObject::connect(button, &QPushButton::clicked, this,
+                         [this, option = &setting, label, fallback] {
+                             const QPointer<SatorinoPage> guard(this);
+                             const QColor stored(option->getValue());
+                             const auto chosen = QColorDialog::getColor(
+                                 stored.isValid() ? stored : QColor(fallback),
+                                 this, label, QColorDialog::ShowAlphaChannel);
+                             if (guard && chosen.isValid())
+                                 option->setValue(chosen.name(QColor::HexArgb));
+                         });
+        layout.addWidget(row, {label, "monitored", "restricted", "colour"});
+    };
+    addNativeColour("Monitored colour",
+                    getSettings()->satorinoNativeMonitoredColour,
+                    satorino::NATIVE_MONITORED_COLOUR_DEFAULT);
+    addNativeColour("Restricted colour",
+                    getSettings()->satorinoNativeRestrictedColour,
+                    satorino::NATIVE_RESTRICTED_COLOUR_DEFAULT);
+
     SettingWidget::checkbox("Enable local user flags",
                             getSettings()->satorinoFlagsEnabled)
         ->addKeywords({"flag", "user", "highlight"})

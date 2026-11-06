@@ -5,6 +5,7 @@
 #include "messages/layouts/MessageLayout.hpp"
 
 #include "Application.hpp"
+#include "controllers/flags/SatorinoSuspiciousUsers.hpp"  // satorino: native message presentation
 #include "controllers/flags/SatorinoFlags.hpp"  // satorino: per-channel local presentation
 #include "controllers/highlights/types/AutomodCaughtHighlight.hpp"
 #include "messages/layouts/MessageLayoutContainer.hpp"
@@ -218,19 +219,22 @@ void MessageLayout::actuallyLayout(const MessageLayoutContext &ctx)
                                  this->emoteScale_, this->badgeScale_,
                                  this->centerBadges_, messageFlags);
 
-    // satorino: IDs come from this message's real room, including aggregate/history contexts.
+    // satorino: one shared room key and one prefix for native + local presentation.
+    const auto room =
+        (getSettings()->satorinoFlagsEnabled.getValue() ||
+         getSettings()->satorinoNativeFlagsEnabled.getValue())
+            ? satorino::localFlagRoom(
+                  *this->message_, ctx.localFlagChannel ? ctx.localFlagChannel
+                                                        : ctx.selectedChannel)
+            : QString{};
+    const bool ignore = this->flags.has(MessageLayoutFlag::IgnoreHighlights);
     const auto localStyle =
-        getSettings()->satorinoFlagsEnabled.getValue()
-            ? satorino::localFlagStyle(
-                  *this->message_,
-                  satorino::localFlagRoom(*this->message_,
-                                          ctx.localFlagChannel
-                                              ? ctx.localFlagChannel
-                                              : ctx.selectedChannel),
-                  this->flags.has(MessageLayoutFlag::IgnoreHighlights))
-            : satorino::FlagStyle{};
+        satorino::localFlagStyle(*this->message_, room, ignore);
+    const auto nativeStyle =
+        satorino::nativeFlagStyleForMessage(*this->message_, room, ignore);
     this->localFlagBackground_ = localStyle.background;
-    bool markPending = localStyle.mark;
+    this->nativeFlagBackground_ = nativeStyle.background;
+    bool markPending = localStyle.mark || nativeStyle.mark;
     if (markPending && !this->localFlagMark_)
         this->localFlagMark_ = std::make_unique<TextElement>(
             QString::fromUtf8("⚑"), MessageElementFlag::Username,
@@ -447,8 +451,13 @@ void MessageLayout::updateBuffer(QPixmap *buffer,
         return ctx.messageColors.regularBg;
     }();
 
-    if (this->message_->flags.has(MessageFlag::Highlighted) &&
-        !this->flags.has(MessageLayoutFlag::IgnoreHighlights))
+    // satorino: native colour outranks ordinary highlights/local colour; its chooser
+    // excludes mentions, redeems, warnings/debug and restricted/system summaries.
+    if (this->nativeFlagBackground_)
+        backgroundColor =
+            blendColors(backgroundColor, *this->nativeFlagBackground_);
+    else if (this->message_->flags.has(MessageFlag::Highlighted) &&
+             !this->flags.has(MessageLayoutFlag::IgnoreHighlights))
     {
         // NOTE: As we move more things into Highlighted, and less things to use custom flags for their color,
         // they will start respecting the IgnoreHighlights flag. Keep this in mind.

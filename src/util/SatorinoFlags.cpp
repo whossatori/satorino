@@ -44,6 +44,16 @@ bool validFlagId(const QString &id)
                return c >= u'0' && c <= u'9';
            });
 }
+QString flagRoomKey(const QString &messageChannel,
+                    const QString &contextChannel, const QString &roomId)
+{
+    return !messageChannel.isEmpty() &&
+                   messageChannel.compare(contextChannel,
+                                          Qt::CaseInsensitive) == 0 &&
+                   validFlagId(roomId)
+               ? roomId
+               : QString{};
+}
 FlagStore FlagStore::fromJson(const QString &json)
 {
     FlagStore store;

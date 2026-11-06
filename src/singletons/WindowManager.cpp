@@ -8,6 +8,7 @@
 #include "common/Args.hpp"
 #include "common/Channel.hpp"
 #include "common/QLogging.hpp"
+#include "controllers/flags/SatorinoSuspiciousUsers.hpp"  // satorino: native status relayout
 #include "controllers/raids/SatorinoRaidController.hpp"  // satorino: outgoing raid tabs
 #ifndef Q_OS_MACOS
 #    include "controllers/tray/TrayController.hpp"
@@ -242,6 +243,17 @@ WindowManager::WindowManager(const Args &appArgs_, const Paths &paths,
     this->forceLayoutChannelViewsListener.add(settings.satorinoFlagsEnabled);
     this->forceLayoutChannelViewsListener.add(settings.satorinoFlagsMark);
     this->forceLayoutChannelViewsListener.add(settings.satorinoFlagsColour);
+    this->forceLayoutChannelViewsListener.add(
+        settings.satorinoNativeFlagsEnabled);
+    this->forceLayoutChannelViewsListener.add(
+        settings.satorinoNativeMonitoredColour);
+    this->forceLayoutChannelViewsListener.add(
+        settings.satorinoNativeRestrictedColour);
+    // satorino: feed/own-action updates invalidate all visible/history and usercard buffers.
+    this->signalHolder.managedConnect(satorino::nativeSuspiciousUsersChanged(),
+                                      [this](const QString &, const QString &) {
+                                          this->forceLayoutChannelViews();
+                                      });
     this->forceLayoutChannelViewsListener.add(settings.colorUsernames);
     this->forceLayoutChannelViewsListener.add(settings.boldUsernames);
     this->forceLayoutChannelViewsListener.add(
