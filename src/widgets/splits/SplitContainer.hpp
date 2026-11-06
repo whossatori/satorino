@@ -196,6 +196,8 @@ public:
                                        .relativeSplit = nullptr,
                                        .relativeNode = nullptr,
                                        .direction = std::nullopt,
+                                       // satorino: explicit focus default
+                                       .focus = true,
                                    });
 
     Split *getSelectedSplit() const;
