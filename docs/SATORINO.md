@@ -911,3 +911,14 @@ go/cancel/reorder/countdown, listening, status, lookup and existing policy.
 The obsolete EventSub dispatch suite is removed. No app source files or
 dependencies were added. Nothing compiled; C++ tests, Windows UI, live feed
 and live lookup are **NOT RUN**. See REPORT-F10.md / batch10 output evidence.
+
+## Stage F batch 11
+
+Commit A queues completed raid actions through the same zero-delay GUI path
+as the local test command, after submitted input clearing. Exact scoped
+submission text is not an unsent draft; different text and unsent commands
+still block. The guard checks application foreground (including in-app
+popups), current drafts and settings again at switching time. Local early
+send success, remote go and countdown expiry share one completion/dedupe
+path. No send operation is added. Nothing compiled; tests and Windows
+checks **NOT RUN**. See REPORT-F11.md for the source path/limits.

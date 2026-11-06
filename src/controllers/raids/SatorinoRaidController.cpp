@@ -29,6 +29,7 @@
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QJsonObject>
+#include <QGuiApplication>
 #include <QLoggingCategory>
 #include <QMetaObject>
 #include <QPointer>
@@ -106,13 +107,30 @@ InputState currentInput(WindowManager &windows)
         return {};
     auto *page = main->getNotebook().getSelectedPage();
     auto *split = page ? page->getSelectedSplit() : nullptr;
-    return {main->isActiveWindow(),
-            split && !split->getInput().getInputText().isEmpty()};
+    // Child controls, menus and other in-app windows need not make Main active.
+    // ApplicationInactive still blocks when another application owns the foreground.
+    bool draft =
+        split && raidHasUnsentDraft(split->getInput().getInputText(),
+                                    split->getInput().submittingInputText());
+    for (auto *window : windows.windows())
+        if (window != main && window->isActiveWindow())
+        {
+            auto *activePage = window->getNotebook().getSelectedPage();
+            auto *activeSplit =
+                activePage ? activePage->getSelectedSplit() : nullptr;
+            draft =
+                draft || (activeSplit &&
+                          raidHasUnsentDraft(
+                              activeSplit->getInput().getInputText(),
+                              activeSplit->getInput().submittingInputText()));
+        }
+    return {QGuiApplication::applicationState() == Qt::ApplicationActive,
+            draft};
 }
 bool canSwitch(WindowManager &windows)
 {
     const auto input = currentInput(windows);
-    return input.mainActive && !input.hasDraft;
+    return raidCanSwitch(input.mainActive, input.hasDraft);
 }
 }  // namespace
 RaidController::RaidController(WindowManager &windows)
@@ -273,7 +291,7 @@ QString RaidController::receive(const QJsonObject &payload, qint64 receivedAtMs)
     const auto outcome = this->feed_.observe(payload, receivedAtMs);
     this->scheduleDeadline();
     if (outcome.action == RaidFeedAction::Fire && outcome.event)
-        return this->act(*outcome.event, receivedAtMs, outcome.reason, false);
+        return this->queueAction(*outcome.event, receivedAtMs, outcome.reason);
     return this->record(outcome.sourceId, outcome.event,
                         outcome.action == RaidFeedAction::Cancelled
                             ? "cancelled"
@@ -309,8 +327,22 @@ void RaidController::deadlineExpired()
     const auto now = QDateTime::currentMSecsSinceEpoch();
     for (const auto &outcome : this->feed_.expire(now))
         if (outcome.event)
-            this->act(*outcome.event, now, outcome.reason, false);
+            this->queueAction(*outcome.event, now, outcome.reason);
     this->scheduleDeadline();
+}
+QString RaidController::queueAction(const RaidEvent &event, qint64 receivedAtMs,
+                                    const QString &trigger)
+{
+    // Same zero-delay GUI queue as /satorino-testraid: postMessageSend clears the
+    // submitted input before the action reads it. The feed has already completed
+    // this raid, so go/local success/expiry cannot queue another action.
+    const auto generation = this->generation_;
+    QTimer::singleShot(
+        0, this, [this, event, receivedAtMs, trigger, generation] {
+            if (generation == this->generation_ && !isAppAboutToQuit())
+                this->act(event, receivedAtMs, trigger, false);
+        });
+    return this->record(event.sourceId, event, trigger + "; tab action queued");
 }
 QString RaidController::act(const RaidEvent &inputEvent, qint64 receivedAtMs,
                             const QString &trigger, bool synthetic)
@@ -369,6 +401,7 @@ QString RaidController::act(const RaidEvent &inputEvent, qint64 receivedAtMs,
     const auto decision = this->policy_.decide(*event, context);
     if (decision.action == RaidAction::Ignore)
         return finish("ignored (" + decision.reason + ")");
+    const QPointer<QWidget> previousFocus = QApplication::focusWidget();
     if (decision.action == RaidAction::OpenAndJoin)
     {
         const auto channel =
@@ -381,13 +414,10 @@ QString RaidController::act(const RaidEvent &inputEvent, qint64 receivedAtMs,
             return finish("ignored (channel creation failed, source closed or "
                           "account/setting changed)");
         // appendNewSplit requests focus internally; restore the prior widget when not switching.
-        const QPointer<QWidget> focus = QApplication::focusWidget();
         targetWindow = sourceWindow;
         targetPage = sourceWindow->getNotebook().addPage(false);
         targetSplit = targetPage->appendNewSplit(false);
         targetSplit->setChannel(IndirectChannel(channel));
-        if (!decision.switchToTab && focus)
-            focus->setFocus(Qt::OtherFocusReason);
     }
     bool switched = false;
     // Recheck immediately before selection; never activate an external/background window.
@@ -416,6 +446,9 @@ QString RaidController::act(const RaidEvent &inputEvent, qint64 receivedAtMs,
         targetWindow->activateWindow();
         switched = true;
     }
+    if (!switched && decision.action == RaidAction::OpenAndJoin &&
+        previousFocus)
+        previousFocus->setFocus(Qt::OtherFocusReason);
     const auto action = decision.action == RaidAction::OpenAndJoin
                             ? QString("tab opened")
                             : QString("existing tab reused");

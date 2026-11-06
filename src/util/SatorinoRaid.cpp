@@ -322,6 +322,15 @@ void RaidFeedTracker::retain(const std::set<QString> &sources)
         return !sources.contains(entry.first.first);
     });
 }
+bool raidHasUnsentDraft(const QString &current, const QString &submitting)
+{
+    return !current.isEmpty() &&
+           (submitting.isEmpty() || current != submitting);
+}
+bool raidCanSwitch(bool applicationActive, bool hasDraft)
+{
+    return applicationActive && !hasDraft;
+}
 RaidDecision RaidPolicy::decide(const RaidEvent &event,
                                 const RaidContext &context)
 {
@@ -378,9 +387,10 @@ RaidDecision RaidPolicy::decide(const RaidEvent &event,
         this->opened_.push_back(context.nowMs);
     return {context.targetExists ? RaidAction::SelectExisting
                                  : RaidAction::OpenAndJoin,
-            context.switchToTab && context.mainActive && !context.hasDraft,
+            context.switchToTab &&
+                raidCanSwitch(context.mainActive, context.hasDraft),
             !context.switchToTab  ? "switch disabled"
-            : !context.mainActive ? "main window inactive"
+            : !context.mainActive ? "application inactive"
             : context.hasDraft    ? "current input has a draft"
                                   : QString{}};
 }

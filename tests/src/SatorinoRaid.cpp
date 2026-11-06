@@ -511,3 +511,58 @@ TEST(SatorinoRaid, UnreasonableCountdownCannotCauseAnEarlyFallback)
     EXPECT_TRUE(feed.expire(2000000).isEmpty());
     EXPECT_EQ(feed.observe(payload(), 1001000).action, RaidFeedAction::Fire);
 }
+
+TEST(SatorinoRaid, SubmittedInputIsScopedAndDifferentDraftAlwaysBlocks)
+{
+    EXPECT_FALSE(raidHasUnsentDraft("", "/raidsend"));
+    EXPECT_FALSE(raidHasUnsentDraft("/raidsend", "/raidsend"));
+    EXPECT_FALSE(raidHasUnsentDraft("/alias-send", "/alias-send"));
+    EXPECT_TRUE(raidHasUnsentDraft("a real draft", "/raidsend"));
+    EXPECT_TRUE(raidHasUnsentDraft(
+        "/raidsend"));  // An unsent command has no exemption.
+    EXPECT_TRUE(raidHasUnsentDraft("/raidsend ", "/raidsend"));
+    EXPECT_TRUE(
+        raidCanSwitch(true, raidHasUnsentDraft("/raidsend", "/raidsend")));
+    EXPECT_FALSE(
+        raidCanSwitch(true, raidHasUnsentDraft("new draft", "/raidsend")));
+    EXPECT_FALSE(
+        raidCanSwitch(false, false));  // Another application owns focus.
+}
+TEST(SatorinoRaid, EarlyLocalSuccessThenGoAndExpiryFireOnlyOnce)
+{
+    for (bool successFirst : {false, true})
+    {
+        RaidFeedTracker tracker;
+        EXPECT_EQ(tracker.observe(payload("raid_update_v2"), 1000000).action,
+                  RaidFeedAction::Wait);
+        const auto localSuccess =
+            payload();  // clearActiveRaid(true) maps saved target to go.
+        const auto remoteGo = payload();
+        EXPECT_EQ(
+            tracker.observe(successFirst ? localSuccess : remoteGo, 1001000)
+                .action,
+            RaidFeedAction::Fire);
+        EXPECT_EQ(
+            tracker.observe(successFirst ? remoteGo : localSuccess, 1001001)
+                .action,
+            RaidFeedAction::Ignore);
+        EXPECT_TRUE(tracker.expire(1100000).isEmpty());
+    }
+}
+TEST(SatorinoRaid,
+     SwitchDecisionReadsCurrentInputAfterSubmissionAndAtActionTime)
+{
+    // The queued early send runs after input clearing, not with a countdown-time snapshot.
+    auto current = context();
+    current.hasDraft = raidHasUnsentDraft("", "");
+    RaidPolicy early;
+    EXPECT_TRUE(early.decide(event(), current).switchToTab);
+    current.hasDraft = raidHasUnsentDraft("a new unsent message", "");
+    RaidPolicy different;
+    EXPECT_FALSE(different.decide(event(), current).switchToTab);
+    EXPECT_FALSE(raidCanSwitch(current.mainActive, current.hasDraft));
+    current.mainActive = false;
+    current.hasDraft = false;
+    RaidPolicy external;
+    EXPECT_FALSE(external.decide(event(), current).switchToTab);
+}

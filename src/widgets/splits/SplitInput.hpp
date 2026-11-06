@@ -62,6 +62,11 @@ public:
 
     bool isEditFirstWord() const;
     QString getInputText() const;
+    // satorino: scoped to actual submission; an identical unsent /command stays a draft.
+    const QString &submittingInputText() const
+    {
+        return this->submittingInputText_;
+    }
     void insertText(const QString &text);
 
     void setReply(MessagePtr target, std::weak_ptr<Channel> channel);
@@ -363,6 +368,7 @@ protected:
     bool inHistorySearch = false;
 
 private:
+    QString submittingInputText_;  // satorino: reset on every submission exit
     void handleImagePaste(const QMimeData *source);
 
     void startHistorySearch(bool backwards, bool loop);

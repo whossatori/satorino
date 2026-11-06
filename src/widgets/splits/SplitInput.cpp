@@ -68,6 +68,7 @@
 #include <QProgressBar>
 #include <QPushButton>
 #include <QSignalBlocker>
+#include <QScopedValueRollback>  // satorino: exact input submission lifetime
 #include <QSizePolicy>
 #include <QWheelEvent>
 #include <qwindow.h>
@@ -1564,6 +1565,9 @@ QString SplitInput::handleSendMessage(const std::vector<QString> &arguments)
         return "";
     }
 
+    // satorino: only this executing submission may be ignored by the raid draft guard.
+    const QScopedValueRollback<QString> submitting(this->submittingInputText_,
+                                                   this->getInputText());
     if (!c->isTwitchOrKickChannel() || this->replyTarget_ == nullptr)
     {
         QString sendMessage =

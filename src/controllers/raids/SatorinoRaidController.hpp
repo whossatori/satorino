@@ -28,6 +28,8 @@ public:
                      const QString &targetId);
     RaidStatusContext statusContext() const;
 private:
+    QString queueAction(const RaidEvent &event, qint64 receivedAtMs,
+                        const QString &trigger);
     QString act(const RaidEvent &event, qint64 receivedAtMs,
                 const QString &trigger, bool synthetic);
     QString record(const QString &sourceId,

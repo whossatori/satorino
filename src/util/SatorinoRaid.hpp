@@ -31,6 +31,9 @@ struct RaidEvent {
 bool validRaidId(const QString &id);
 bool validRaidLogin(const QString &login);
 bool raidListeningEnabled(bool showBar, bool openTab);
+// An exact, currently executing submission is not an unsent draft. Never infer from /command text.
+bool raidHasUnsentDraft(const QString &current, const QString &submitting = {});
+bool raidCanSwitch(bool applicationActive, bool hasDraft);
 std::optional<QJsonObject> normaliseRaidFeed(const QString &topic,
                                              const QJsonObject &message);
 QString raidFeedId(const QJsonObject &payload);
@@ -86,7 +89,8 @@ struct RaidContext {
     bool loggedIn = false;
     bool twitch = true;
     bool sourceOpen = false;
-    bool mainActive = false;
+    bool mainActive =
+        false;  // Application foreground, including its popups/secondary windows.
     bool hasDraft = false;
     qint64 nowMs = 0;
     qint64 nowUtcMs = 0;
