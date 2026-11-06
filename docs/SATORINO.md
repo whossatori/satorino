@@ -1,5 +1,9 @@
 # Satorino fork notes
 
+Hype train indicators were removed fully in **Stage G batch 15**. Train
+references in the earlier stage sections below are historical, not current
+features. Game live dots/stars, pins and redeem stars remain.
+
 This file tracks every place where satorino **intentionally** diverges from
 its upstream `leafyzito/leafyrino` (branch `leafyrino`). Read it before and
 after every upstream sync. The upstream chain is:
@@ -633,7 +637,7 @@ game name or ID per line; matching normalizes Unicode and folds case.
 A matching live Twitch channel in any split/aggregate paints an original
 controller glyph in the existing live-indicator corner, using its theme color
 and DPI scale. Other channels retain stock dots. No tab size hints change.
-The pure priority enum reserves train > game > dot; no train/star feature is
+The historical pure priority enum reserved train > game > dot; no train/star feature was
 implemented. Existing stream-status signals and setting changes repaint tabs.
 
 Existing TwitchLiveController polling (30 seconds, batches of 100, initial
@@ -676,7 +680,7 @@ controller glyph. Dot size, position, stock/rerun/offline paths and tab layout
 are unchanged. A matching dot gets the selected game's opaque colour and a
 thin contrasting outline in the same ellipse. Across splits and aggregates,
 the first matching entry in the user's game list wins. The pure priority stays
-train > game > dot; a regular/golden-kappa/other colour table is reserved only.
+train > game > dot; a regular/golden-kappa/other colour table was reserved only.
 There is no train detection, train colour UI or active train colour producer.
 
 Live status now has a searchable game picker using the existing Helix
@@ -721,7 +725,7 @@ default on at /satorino/live/gameStar. The existing per-game swatch controls
 both shapes (Dot / star colour). Shape and colour changes repaint tabs live.
 An original ten-vertex five-point QPainterPath star stays within the same
 stock painted box without a pen blunting its tips; it is not enlarged into
-compact title/close/pin space. The pure Circle/Star selector reserves Train without activating
+compact title/close/pin space. The historical pure Circle/Star selector reserved Train without activating
 train detection or train UI. Unmatched live, rerun and offline paths stay stock;
 tab size hints, layout, geometry and title/close/pin drawing are untouched.
 
@@ -928,7 +932,7 @@ GUI producer interface, Train > Game > Dot styling in the existing shared
 paint path and a compact train-colour table. Only Golden Kappa uses the
 star; game-star stays independent, stock geometry and exact RGBA remain.
 /satorino/live/train/enabled defaults true; colours persist as a typed
-JSON object under /satorino/live/train/colours. The current producer is
+JSON object under /satorino/live/train/colours. The producer at that stage was
 explicitly NoData: settings say train data is not available. Research did
 not establish a current viewer feed exposing reliable special-train types;
 no EventSub scope, speculative PubSub/GQL parser, timer or listener was
@@ -1046,3 +1050,10 @@ rate caps. Countdown/feed/listening remain unchanged; eligible raids retain
 existing focus/background/draft/settings behavior. /satorino-testraid shares
 the scope rule, including after its existing optional lookup. Four pure
 regression cases added; nothing was compiled, C++/Windows checks **NOT RUN**.
+
+Part 2 removes the hype train state/palette/producer, settings and left tab
+paint/geometry, including their dedicated files and tests. Historical sections
+above describe the removed stages only. Shared indicatorRect/star/paint and
+pin helpers and the right-hand game/dot paint geometry are unchanged. Old
+saved train keys are ignored; no migration or reader remains. Nothing was
+compiled; remaining game/pin/redeem C++ and Windows checks **NOT RUN**.

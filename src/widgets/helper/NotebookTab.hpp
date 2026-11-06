@@ -5,7 +5,6 @@
 #pragma once
 
 #include "common/Common.hpp"
-#include "util/SatorinoIndicator.hpp"  // satorino: shared train/game paint style
 #include "widgets/buttons/Button.hpp"
 #include "widgets/helper/ChannelView.hpp"
 #include "widgets/Notebook.hpp"
@@ -148,9 +147,6 @@ private:
     void paintPin(QPainter &painter) const;
     // satorino: optional colour, preserving stock dot geometry.
     std::optional<QColor> gameIndicatorColour() const;
-    // satorino: independent left train indicator and producer repaint hook.
-    std::optional<satorino::HighlightedIndicator> trainIndicatorStyle() const;
-    void bindTrainIndicator();
     bool pinned_ = false;
     QAction *pinTabAction_{};
     QAction *closeTabAction_{};

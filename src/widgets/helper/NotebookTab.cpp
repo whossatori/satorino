@@ -200,7 +200,6 @@ NotebookTab::NotebookTab(Notebook *notebook)
             this->tabSizeChanged();
         },
         this->managedConnections_);
-    this->bindTrainIndicator();  // satorino: producer/settings repaint, no geometry changes
     // satorino: ordered game/colour edits repaint only; tab geometry is unchanged.
     getSettings()->satorinoLiveGamesV2.connect(
         [this] {
@@ -1367,54 +1366,6 @@ void NotebookTab::paintEvent(QPaintEvent *)
             painter.drawEllipse(liveIndicatorRect);
         }
     }
-
-    // satorino: left train coexists with the untouched right-hand live/game indicator.
-    if (getSettings()->showTabLive)
-        if (const auto train = this->trainIndicatorStyle())
-        {
-            const auto rightRect = satorino::indicatorRect(
-                this->rect(), scale, this->tabLocation_, this->selected_);
-            const auto rightRadius =
-                (std::min(rightRect.width(), rightRect.height()) + 1) / 2.0 *
-                (this->gameIndicatorColour() &&
-                         getSettings()->satorinoLiveGameStar.getValue()
-                     ? satorino::INDICATOR_STAR_FACTOR
-                     : 1.0);
-            const auto rightCentre = QRectF(rightRect).center();
-            QVector<QRectF> obstacles{QRectF(rightCentre.x() - rightRadius,
-                                             rightCentre.y() - rightRadius,
-                                             2 * rightRadius, 2 * rightRadius)};
-            const int textX =
-                textRect.left() + (alignment.testFlag(Qt::AlignHCenter)
-                                       ? (textRect.width() - width) / 2
-                                       : 0);
-            const int baseline = textRect.top() +
-                                 (textRect.height() - metrics.height()) / 2 +
-                                 metrics.ascent();
-            auto ink = QRectF(metrics.tightBoundingRect(this->getTitle())
-                                  .translated(textX, baseline));
-            if (this->isPinned())
-                ink = ink.intersected(QRectF(textRect));
-            obstacles.push_back(ink);
-            if (this->isPinned())
-                obstacles.push_back(
-                    satorino::pinnedTabGlyphBounds(this->getXRect(), scale));
-            else if (this->shouldDrawXButton())
-            {
-                const int inset = static_cast<int>(4 * scale);
-                obstacles.push_back(
-                    QRectF(starCloseGlyph.value_or(this->getXRect().adjusted(
-                               inset, inset, -inset, -inset)))
-                        .adjusted(-0.5, -0.5, 0.5, 0.5));
-            }
-            if (const auto geometry = satorino::trainIndicatorGeometry(
-                    this->rect(), scale, this->tabLocation_, this->selected_,
-                    train->shape, obstacles, 1,
-                    1.0 / this->devicePixelRatioF()))
-                satorino::paintHighlightedIndicator(
-                    painter, geometry->rect, train->colour, QColor{},
-                    train->shape, geometry->radius);
-        }
 
     // set the pen color
     painter.setPen(colors.text);

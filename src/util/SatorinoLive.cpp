@@ -41,12 +41,11 @@ bool gameMatches(const QString &list, const QString &name, const QString &id)
            (!id.trimmed().isEmpty() && entries.contains(canonical(id)));
 }
 
-LiveIndicator liveIndicator(bool live, bool game, bool train)
+LiveIndicator liveIndicator(bool live, bool game)
 {
-    return !live   ? LiveIndicator::None
-           : train ? LiveIndicator::Train
-           : game  ? LiveIndicator::Game
-                   : LiveIndicator::Dot;
+    return !live  ? LiveIndicator::None
+           : game ? LiveIndicator::Game
+                  : LiveIndicator::Dot;
 }
 
 QString normalizedLogin(const QString &login)

@@ -5,15 +5,12 @@
 #pragma once
 
 #include "util/SatorinoLive.hpp"
-#include "util/SatorinoTrain.hpp"
 
 #include <QColor>
 #include <QJsonArray>
 #include <QString>
 #include <QVector>
 
-#include <array>
-#include <cstddef>
 #include <optional>
 
 namespace chatterino::satorino {
@@ -45,18 +42,12 @@ bool learnGame(GameList &games, const QString &id, const QString &name,
                const QString &boxArtUrl = {});
 QString gameBoxArtUrl(QString url, int width = 52, int height = 72);
 
-// satorino: share one type/colour index with the train model and settings.
-using TrainColourKind = TrainType;
 struct IndicatorColours {
     QColor stock;
     std::optional<QColor> game;
-    std::array<std::optional<QColor>,
-               static_cast<std::size_t>(TrainColourKind::Count)>
-        trains{};
 };
-std::optional<QColor> indicatorColour(
-    LiveIndicator kind, const IndicatorColours &colours,
-    TrainColourKind train = TrainColourKind::Regular);
+std::optional<QColor> indicatorColour(LiveIndicator kind,
+                                      const IndicatorColours &colours);
 QColor dotOutline(const QColor &fill);
 
 struct GameSearchRequest {

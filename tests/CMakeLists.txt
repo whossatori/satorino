@@ -93,7 +93,6 @@ set(test_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/src/SatorinoRaid.cpp # satorino: shared raid feed, policy, cancellation, status and command lookup
     ${CMAKE_CURRENT_LIST_DIR}/src/SatorinoFlags.cpp # satorino: local room/user store, bounds, merge, priority and persistence
     ${CMAKE_CURRENT_LIST_DIR}/src/SatorinoSuspiciousUsers.cpp # satorino: native visibility, menus, bounded state and in-flight guards
-    ${CMAKE_CURRENT_LIST_DIR}/src/SatorinoTrain.cpp # satorino: state/expiry, palette/shape/priority, producer availability and settings persistence
     ${CMAKE_CURRENT_LIST_DIR}/src/SatorinoIndicator.cpp # satorino: shared geometry, full fill, star shape and colour regression
     ${CMAKE_CURRENT_LIST_DIR}/src/RedeemPin.cpp # satorino: pin tooltip, broadcaster identity and passive star geometry
     # Add your new file above this line!

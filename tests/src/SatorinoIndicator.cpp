@@ -241,16 +241,11 @@ TEST(SatorinoIndicator, ShapeChooserUsesOptionOnlyForGameKind)
                 EXPECT_EQ(indicatorShape(kind, enabled),
                           live && match && enabled ? IndicatorShape::Star
                                                    : IndicatorShape::Circle);
-                EXPECT_EQ(
-                    indicatorShape(liveIndicator(live, match, true), enabled),
-                    IndicatorShape::Circle);
             }
-    EXPECT_EQ(indicatorShape(LiveIndicator::Train, true),
-              IndicatorShape::Circle);
 }
 TEST(SatorinoIndicator, ColoursStillResolveByPriorityIndependentlyOfShape)
 {
-    IndicatorColours colours{QColor(Qt::red), QColor(Qt::cyan), {}};
+    IndicatorColours colours{QColor(Qt::red), QColor(Qt::cyan)};
     for (bool enabled : {false, true})
     {
         EXPECT_EQ(indicatorShape(LiveIndicator::Game, enabled),
@@ -258,8 +253,6 @@ TEST(SatorinoIndicator, ColoursStillResolveByPriorityIndependentlyOfShape)
         EXPECT_EQ(indicatorColour(LiveIndicator::Game, colours), colours.game);
         EXPECT_EQ(indicatorColour(LiveIndicator::Dot, colours), colours.stock);
         EXPECT_FALSE(indicatorColour(LiveIndicator::None, colours));
-        EXPECT_EQ(indicatorColour(LiveIndicator::Train, colours),
-                  colours.stock);
     }
 }
 TEST(SatorinoIndicator, GameCircleHasExactStockCoverageAndNoInsetBorder)
@@ -400,102 +393,4 @@ TEST(SatorinoIndicator, TightPinBoxAndWidthPreserveTitleWithoutOldXPadding)
             EXPECT_GE(pinnedTabWidth(int(250 * scale), height, scale, compact),
                       int(250 * scale));
         }
-}
-
-TEST(SatorinoIndicator, LeftTrainMirrorsRightAtEveryLocationAndScale)
-{
-    for (float scale : SCALES)
-        for (auto location : {Top, Left, Right, Bottom})
-            for (bool selected : {false, true})
-            {
-                const QRect tab(10, 20, 200, static_cast<int>(28 * scale));
-                const auto right =
-                    indicatorRect(tab, scale, location, selected);
-                const auto left =
-                    trainIndicatorRect(tab, scale, location, selected);
-                EXPECT_EQ(left.size(), right.size());
-                EXPECT_EQ(left.y(), right.y());
-                EXPECT_DOUBLE_EQ(
-                    QRectF(left).center().x() + QRectF(right).center().x(),
-                    2 * QRectF(tab).center().x());
-            }
-}
-TEST(SatorinoIndicator, TrainAvoidsPinTitleCloseAndRightAtAllLayouts)
-{
-    for (qreal dpr : {1.0, 1.25, 1.5, 2.0})
-        for (float scale : SCALES)
-            for (auto location : {Top, Left, Right, Bottom})
-                for (bool selected : {false, true})
-                    for (bool compact : {false, true})
-                        for (bool pinned : {false, true})
-                            for (auto shape :
-                                 {IndicatorShape::Circle, IndicatorShape::Star})
-                            {
-                                const QRect tab(
-                                    0, 0, static_cast<int>(180 * scale),
-                                    static_cast<int>((compact ? 24 : 28) *
-                                                     scale));
-                                const auto right = indicatorRect(
-                                    tab, scale, location, selected);
-                                QVector<QRectF> obstacles{
-                                    QRectF(right).adjusted(
-                                        -4 * scale, -4 * scale, 4 * scale,
-                                        4 * scale),
-                                    QRectF(20 * scale, 8 * scale, 100 * scale,
-                                           10 * scale)};
-                                if (pinned)
-                                    obstacles.push_back(pinnedTabGlyphBounds(
-                                        pinnedTabRect(tab, scale, compact),
-                                        scale));
-                                else
-                                    obstacles.push_back(
-                                        QRectF(160 * scale, 8 * scale,
-                                               8 * scale, 8 * scale));
-                                const auto result = trainIndicatorGeometry(
-                                    tab, scale, location, selected, shape,
-                                    obstacles, 1, 1.0 / dpr);
-                                ASSERT_TRUE(result);
-                                EXPECT_TRUE(QRectF(tab).contains(
-                                    result->paintedBounds));
-                                for (const auto &obstacle : obstacles)
-                                    EXPECT_FALSE(
-                                        result->paintedBounds.intersects(
-                                            obstacle));
-                                if (!pinned)
-                                    EXPECT_EQ(
-                                        result->rect,
-                                        trainIndicatorRect(tab, scale, location,
-                                                           selected));
-                            }
-}
-
-TEST(SatorinoIndicator, LeftStarFloorCanOnlyBeReducedByTabEdges)
-{
-    const QRect tab(0, 0, 180, 28);
-    const auto geometry = trainIndicatorGeometry(
-        tab, 1, Top, true, IndicatorShape::Star,
-        {pinnedTabGlyphBounds(pinnedTabRect(tab, 1, false), 1)}, 1, 1);
-    ASSERT_TRUE(geometry);
-    const auto centre = QRectF(geometry->rect).center();
-    const auto floor = 2.5 * INDICATOR_STAR_FLOOR;
-    if (geometry->radius < floor)
-        EXPECT_DOUBLE_EQ(
-            geometry->radius,
-            std::min({centre.x() - 1, QRectF(tab).right() - centre.x() - 1,
-                      centre.y() - 1, QRectF(tab).bottom() - centre.y() - 1}));
-    EXPECT_EQ(geometry->rect, QRect(3, 2, 4, 4));
-    EXPECT_DOUBLE_EQ(geometry->radius, 3);
-}
-
-TEST(SatorinoIndicator, DiagonalPinCornerRetriesUpwardAtDprTwo)
-{
-    const QRect tab(0, 0, 180, 28);
-    const auto pin = pinnedTabGlyphBounds(pinnedTabRect(tab, 1, false), 1);
-    const auto geometry = trainIndicatorGeometry(
-        tab, 1, Top, true, IndicatorShape::Star, {pin}, 1, 0.5);
-    ASSERT_TRUE(geometry);
-    EXPECT_EQ(geometry->rect, QRect(3, 2, 4, 4));
-    EXPECT_DOUBLE_EQ(geometry->radius, 3.5);
-    EXPECT_FALSE(
-        geometry->paintedBounds.intersects(pin.adjusted(-0.5, -0.5, 0.5, 0.5)));
 }

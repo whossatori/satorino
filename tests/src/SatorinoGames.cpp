@@ -173,26 +173,16 @@ TEST(SatorinoGames, SeenMetadataEnrichesMigrationWithoutChangingColourOrOrder)
     EXPECT_FALSE(learnGame(games, "123", "Just Chatting"));
     EXPECT_FALSE(learnGame(games, "999", "Unselected"));
 }
-TEST(SatorinoGames, PriorityResolvesStockGameAndReservedTrainColours)
+TEST(SatorinoGames, PriorityResolvesStockAndGameColours)
 {
-    IndicatorColours colours{QColor("red"), QColor("cyan"), {}};
-    EXPECT_FALSE(indicatorColour(liveIndicator(false, true, true), colours));
+    IndicatorColours colours{QColor("red"), QColor("cyan")};
+    EXPECT_FALSE(indicatorColour(liveIndicator(false, true), colours));
     EXPECT_EQ(indicatorColour(liveIndicator(true, false), colours),
               colours.stock);
     EXPECT_EQ(indicatorColour(liveIndicator(true, true), colours),
               colours.game);
-    EXPECT_EQ(indicatorColour(liveIndicator(true, true, true), colours),
-              colours.stock);
-    colours.trains[static_cast<std::size_t>(TrainColourKind::GoldenKappa)] =
-        QColor("gold");
-    EXPECT_EQ(indicatorColour(LiveIndicator::Train, colours,
-                              TrainColourKind::GoldenKappa),
-              QColor("gold"));
-    EXPECT_EQ(
-        indicatorColour(LiveIndicator::Train, colours, TrainColourKind::Other),
-        colours.stock);
     EXPECT_EQ(indicatorColour(LiveIndicator::Game,
-                              IndicatorColours{QColor("red"), {}, {}}),
+                              IndicatorColours{QColor("red"), {}}),
               QColor("red"));
 }
 TEST(SatorinoGames, OutlineContrastsWithBrightAndDarkFills)

@@ -16,13 +16,10 @@
 #include <numbers>
 
 namespace chatterino::satorino {
-IndicatorShape indicatorShape(LiveIndicator kind, bool gameStar,
-                              bool goldenKappa)
+IndicatorShape indicatorShape(LiveIndicator kind, bool gameStar)
 {
-    return ((kind == LiveIndicator::Game && gameStar) ||
-            (kind == LiveIndicator::Train && goldenKappa))
-               ? IndicatorShape::Star
-               : IndicatorShape::Circle;
+    return kind == LiveIndicator::Game && gameStar ? IndicatorShape::Star
+                                                   : IndicatorShape::Circle;
 }
 
 QRect indicatorRect(const QRect &tab, float scale, NotebookTabLocation location,
@@ -53,63 +50,6 @@ QRect indicatorRect(const QRect &tab, float scale, NotebookTabLocation location,
     return rect;
 }
 
-QRect trainIndicatorRect(const QRect &tab, float scale,
-                         NotebookTabLocation location, bool selected)
-{
-    auto result = indicatorRect(tab, scale, location, selected);
-    if (!result.isEmpty())
-        result.moveLeft(tab.left() + tab.right() - result.right());
-    return result;
-}
-std::optional<TrainIndicatorGeometry> trainIndicatorGeometry(
-    const QRect &tab, float scale, NotebookTabLocation location, bool selected,
-    IndicatorShape shape, const QVector<QRectF> &obstacles, qreal penWidth,
-    qreal clearance)
-{
-    auto rect = trainIndicatorRect(tab, scale, location, selected);
-    if (rect.isEmpty())
-        return std::nullopt;
-    const auto original = QRectF(rect).center();
-    const auto dotRadius =
-        (std::min(rect.width(), rect.height()) + penWidth) / 2.0;
-    const auto floor = shape == IndicatorShape::Star
-                           ? dotRadius * INDICATOR_STAR_FLOOR
-                           : dotRadius;
-    qreal above = original.y();
-    // Keep the mirror's x. Move above overlapping pin/title ink instead of violating the floor.
-    for (const auto &obstacle : obstacles)
-        if (!obstacle.isEmpty() &&
-            obstacle.left() < original.x() + floor + clearance &&
-            obstacle.right() > original.x() - floor - clearance &&
-            obstacle.bottom() > original.y() - floor - clearance)
-            above = std::min(above, obstacle.top() - floor - clearance);
-    rect.translate(0, static_cast<int>(std::floor(above - original.y())));
-    // A radial obstacle distance can still leave its enclosing box touching a
-    // diagonal corner. Retry upward by whole pixels until both checks agree.
-    for (int attempt = 0; attempt < tab.height(); ++attempt)
-    {
-        const auto centre = QRectF(rect).center();
-        const auto radius =
-            shape == IndicatorShape::Star
-                ? indicatorStarRadius(rect, QRectF(tab), obstacles, penWidth,
-                                      clearance)
-                : dotRadius;
-        const QRectF bounds(centre.x() - radius, centre.y() - radius,
-                            2 * radius, 2 * radius);
-        if (radius <= 0 || !QRectF(tab).contains(bounds))
-            return std::nullopt;
-        const bool touches = std::any_of(
-            obstacles.begin(), obstacles.end(), [&](const QRectF &obstacle) {
-                return !obstacle.isEmpty() &&
-                       bounds.intersects(obstacle.adjusted(
-                           -clearance, -clearance, clearance, clearance));
-            });
-        if (!touches)
-            return TrainIndicatorGeometry{rect, radius, bounds};
-        rect.translate(0, -1);
-    }
-    return std::nullopt;
-}
 std::array<QPointF, 10> indicatorStar(const QPointF &centre, qreal outerRadius,
                                       qreal innerRatio)
 {

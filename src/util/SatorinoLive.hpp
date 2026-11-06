@@ -14,12 +14,12 @@
 
 namespace chatterino::satorino {
 
-// Shared presentation priority; producer availability is independent of live/game state.
-enum class LiveIndicator { None, Dot, Game, Train };
+// Shared live/game presentation; stock dot and game highlight stay independent of pin/redeem ink.
+enum class LiveIndicator { None, Dot, Game };
 QStringList normalizedLines(const QString &text);
 bool gameMatches(const QString &list, const QString &name,
                  const QString &id = {});
-LiveIndicator liveIndicator(bool live, bool game, bool train = false);
+LiveIndicator liveIndicator(bool live, bool game);
 QString normalizedLogin(const QString &login);
 bool discordWebhookValid(const QString &url);
 QJsonObject liveWebhookMessage(const QString &login, const QString &displayName,

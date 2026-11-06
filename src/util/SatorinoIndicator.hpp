@@ -29,23 +29,10 @@ struct HighlightedIndicator {
     IndicatorShape shape;
     QColor colour;
 };
-IndicatorShape indicatorShape(LiveIndicator kind, bool gameStar,
-                              bool goldenKappa = false);
+IndicatorShape indicatorShape(LiveIndicator kind, bool gameStar);
 // Exact stock integer geometry, including location/selection translation.
 QRect indicatorRect(const QRect &tab, float scale, NotebookTabLocation location,
                     bool selected);
-// satorino: exact horizontal mirror, before optional collision-only upward adjustment.
-QRect trainIndicatorRect(const QRect &tab, float scale,
-                         NotebookTabLocation location, bool selected);
-struct TrainIndicatorGeometry {
-    QRect rect;
-    qreal radius;
-    QRectF paintedBounds;
-};
-std::optional<TrainIndicatorGeometry> trainIndicatorGeometry(
-    const QRect &tab, float scale, NotebookTabLocation location, bool selected,
-    IndicatorShape shape, const QVector<QRectF> &obstacles, qreal penWidth = 1,
-    qreal clearance = 1);
 std::array<QPointF, 10> indicatorStar(const QPointF &centre, qreal outerRadius,
                                       qreal innerRatio = 0.5);
 qreal indicatorStarRadius(const QRect &circle, const QRectF &tab,

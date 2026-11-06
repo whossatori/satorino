@@ -1181,11 +1181,6 @@ set(SOURCE_FILES
         util/SatorinoRaid.hpp
         controllers/raids/SatorinoRaidController.cpp
         controllers/raids/SatorinoRaidController.hpp
-        util/SatorinoTrain.cpp
-        util/SatorinoTrain.hpp
-        util/SatorinoTrainSettings.hpp
-        controllers/trains/SatorinoTrainProducer.cpp
-        controllers/trains/SatorinoTrainProducer.hpp
         util/SatorinoFlags.cpp
         util/SatorinoFlags.hpp
         controllers/flags/SatorinoFlags.cpp

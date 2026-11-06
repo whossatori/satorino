@@ -48,10 +48,9 @@ TEST(SatorinoLive, GamesMatchIdsAndUnicodeCanonicalNames)
         gameMatches(QString::fromUtf8("日本語"), QString::fromUtf8("日本")));
 }
 
-TEST(SatorinoLive, IndicatorPriorityIsOfflineThenTrainGameDot)
+TEST(SatorinoLive, IndicatorPriorityIsOfflineThenGameDot)
 {
-    EXPECT_EQ(liveIndicator(false, true, true), LiveIndicator::None);
-    EXPECT_EQ(liveIndicator(true, true, true), LiveIndicator::Train);
+    EXPECT_EQ(liveIndicator(false, true), LiveIndicator::None);
     EXPECT_EQ(liveIndicator(true, true), LiveIndicator::Game);
     EXPECT_EQ(liveIndicator(true, false), LiveIndicator::Dot);
 }

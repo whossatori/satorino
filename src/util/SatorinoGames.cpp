@@ -178,8 +178,7 @@ QString gameBoxArtUrl(QString url, int width, int height)
     return parsed.toString();
 }
 std::optional<QColor> indicatorColour(LiveIndicator kind,
-                                      const IndicatorColours &colours,
-                                      TrainColourKind train)
+                                      const IndicatorColours &colours)
 {
     switch (kind)
     {
@@ -189,12 +188,6 @@ std::optional<QColor> indicatorColour(LiveIndicator kind,
             return colours.stock;
         case LiveIndicator::Game:
             return colours.game.value_or(colours.stock);
-        case LiveIndicator::Train: {
-            const auto index = static_cast<std::size_t>(train);
-            return index < colours.trains.size()
-                       ? colours.trains[index].value_or(colours.stock)
-                       : colours.stock;
-        }
     }
     return colours.stock;
 }
