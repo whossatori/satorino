@@ -1596,6 +1596,10 @@ UserInfoPopup::UserInfoPopup(bool closeAutomatically, Split *split)
         // visibility of this is updated in setData
 
         user.emplace<LabelButton>("&Notes", this).assign(&this->ui_.notesAdd);
+        // satorino: a local presentation flag, not a Twitch moderation action.
+        user.emplace<QPushButton>("Flag user", this)
+            .assign(&this->ui_.localFlag);
+        this->bindLocalFlagButton();
         auto usercard = user.emplace<LabelButton>("&Usercard", this)
                             .assign(&this->ui_.usercardLabel);
         auto userlogs = user.emplace<LabelButton>("&Logs", this)
@@ -2409,10 +2413,22 @@ void UserInfoPopup::setData(const QString &name,
         this->underlyingChannel_ = openingChannel;
     }
     this->twitchUserStateConnection_.reset();
+    this->localFlagRoomConnection_
+        .reset();  // satorino: discard previous popup room
     if (auto *twitchChannel =
             dynamic_cast<TwitchChannel *>(this->underlyingChannel_.get()))
     {
         QPointer<UserInfoPopup> self(this);
+        // satorino: observe the existing public signal, never the private roomIdChanged handler.
+        this->localFlagRoomConnection_ =
+            std::make_unique<pajlada::Signals::ScopedConnection>(
+                twitchChannel->roomIdAssigned.connect([self] {
+                    if (self)
+                        QTimer::singleShot(0, self, [self] {
+                            if (self)
+                                self->refreshLocalFlagButton();
+                        });
+                }));
         this->twitchUserStateConnection_ =
             std::make_unique<pajlada::Signals::ScopedConnection>(
                 twitchChannel->userStateChanged.connect([self] {
@@ -5563,6 +5579,7 @@ void UserInfoPopup::updateLiveIndicatorDisplay()
 
 void UserInfoPopup::updateUsercardFollowButton()
 {
+    this->refreshLocalFlagButton();  // satorino: reuse existing identity/context refresh
     if (this->ui_.followButton == nullptr)
     {
         return;

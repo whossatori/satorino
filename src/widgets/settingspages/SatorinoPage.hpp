@@ -35,6 +35,8 @@ private:
     QLabel *raidStatus_ = nullptr;
     void initLayout(GeneralPageView &layout);
     void addLiveStatus(GeneralPageView &layout);
+    void addLocalFlags(
+        GeneralPageView &layout);  // satorino: compact local management
 
     GeneralPageView *view_{};
 };

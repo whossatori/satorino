@@ -441,7 +441,8 @@ QString RaidController::act(const RaidEvent &inputEvent, qint64 receivedAtMs,
         targetWindow->getNotebook().select(targetPage, false);
         if (selection == RaidSelection::Foreground)
         {
-            targetSplit->getInput().setFocus(Qt::OtherFocusReason);
+            targetSplit->setFocus(
+                Qt::OtherFocusReason);  // satorino: Split proxy targets its input text edit
             targetWindow->raise();
             targetWindow->activateWindow();
         }

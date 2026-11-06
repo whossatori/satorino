@@ -5,6 +5,7 @@
 #include "messages/layouts/MessageLayout.hpp"
 
 #include "Application.hpp"
+#include "controllers/flags/SatorinoFlags.hpp"  // satorino: per-channel local presentation
 #include "controllers/highlights/types/AutomodCaughtHighlight.hpp"
 #include "messages/layouts/MessageLayoutContainer.hpp"
 #include "messages/layouts/MessageLayoutContext.hpp"
@@ -217,6 +218,20 @@ void MessageLayout::actuallyLayout(const MessageLayoutContext &ctx)
                                  this->emoteScale_, this->badgeScale_,
                                  this->centerBadges_, messageFlags);
 
+    // satorino: IDs come from this message's real room, including aggregate/history contexts.
+    const auto localStyle =
+        getSettings()->satorinoFlagsEnabled.getValue()
+            ? satorino::localFlagStyle(
+                  *this->message_,
+                  satorino::localFlagRoom(*this->message_, ctx.selectedChannel),
+                  this->flags.has(MessageLayoutFlag::IgnoreHighlights))
+            : satorino::FlagStyle{};
+    this->localFlagBackground_ = localStyle.background;
+    bool markPending = localStyle.mark;
+    if (markPending && !this->localFlagMark_)
+        this->localFlagMark_ = std::make_unique<TextElement>(
+            QString::fromUtf8("⚑"), MessageElementFlag::Username,
+            MessageColor::System);
     for (const auto &element : this->message_->elements)
     {
         if (hideModerated && this->message_->flags.has(MessageFlag::Disabled))
@@ -264,6 +279,13 @@ void MessageLayout::actuallyLayout(const MessageLayoutContext &ctx)
             continue;
         }
 
+        // satorino: ordinary text layout before the author's name, not a badge/custom renderer.
+        if (markPending &&
+            element->getFlags().has(MessageElementFlag::Username))
+        {
+            this->localFlagMark_->addToContainer(this->container_, ctx);
+            markPending = false;
+        }
         element->addToContainer(this->container_, ctx);
     }
 
@@ -448,6 +470,11 @@ void MessageLayout::updateBuffer(QPixmap *buffer,
     {
         backgroundColor = blendColors(backgroundColor, *clientColor);
     }
+
+    // satorino: lower priority than existing highlights, rewards, warning/debug and client colours.
+    else if (this->localFlagBackground_)
+        backgroundColor =
+            blendColors(backgroundColor, *this->localFlagBackground_);
 
     if (ctx.tintByPlatform)
     {

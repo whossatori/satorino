@@ -8,15 +8,18 @@
 #include "common/FlagsEnum.hpp"
 #include "messages/layouts/MessageLayoutContainer.hpp"
 
+#include <QColor>  // satorino: local flag background
 #include <QPixmap>
 #include <QRegion>
 
 #include <cinttypes>
 #include <memory>
+#include <optional>
 
 namespace chatterino {
 
 struct Message;
+class MessageElement;  // satorino: layout-owned local flag prefix
 using MessagePtr = std::shared_ptr<const Message>;
 
 struct Selection;
@@ -95,7 +98,10 @@ private:
     QPixmap *ensureBuffer(QPainter &painter, qreal width, bool clear);
 
     const MessagePtr message_;
+    // satorino: declared before container so the prefix outlives its layout elements.
+    std::unique_ptr<MessageElement> localFlagMark_;
     MessageLayoutContainer container_;
+    std::optional<QColor> localFlagBackground_;
     std::unique_ptr<QPixmap> buffer_;
     bool bufferValid_ = false;
 

@@ -32,6 +32,7 @@ class QCheckBox;
 class QKeyEvent;
 class QLabel;
 class QMenu;
+class QPushButton;
 class QMovie;
 class QWidget;
 
@@ -91,6 +92,11 @@ protected:
     void keyPressEvent(QKeyEvent *event) override;
 
 private:
+    // satorino: local-only, no native monitor/restrict calls.
+    QString localFlagTargetId() const;
+    void bindLocalFlagButton();
+    void refreshLocalFlagButton();
+    void toggleLocalFlag();
     void registerMnemonicButton(LabelButton *button, int key,
                                 std::function<void()> action);
 
@@ -222,6 +228,8 @@ private:
 
     // The channel the messages are rendered from (e.g. #forsen). Can be a special channel, but will try to not be where possible.
     ChannelPtr underlyingChannel_;
+    std::unique_ptr<pajlada::Signals::ScopedConnection>
+        localFlagRoomConnection_;  // satorino: late room ID
 
     pajlada::Signals::NoArgSignal userStateChanged_;
     pajlada::Signals::NoArgSignal followingStatusChanged_;
@@ -288,6 +296,8 @@ private:
         QCheckBox *ignoreHighlights = nullptr;
         MarkdownLabel *notesPreview = nullptr;
         LabelButton *notesAdd = nullptr;
+        QPushButton *localFlag =
+            nullptr;  // satorino: compact per-channel toggle
 
         Label *noMessagesLabel = nullptr;
         ChannelView *latestMessages = nullptr;

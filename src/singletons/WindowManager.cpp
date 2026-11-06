@@ -237,6 +237,11 @@ WindowManager::WindowManager(const Args &appArgs_, const Paths &paths,
         settings.repeatedMessagesShowOnlyModerationMode);
     this->forceLayoutChannelViewsListener.add(
         settings.repeatedMessagesShowInUsercards);
+    // satorino: rebuild existing visible/history message layouts without mutating shared Messages.
+    this->forceLayoutChannelViewsListener.add(settings.satorinoFlagsState);
+    this->forceLayoutChannelViewsListener.add(settings.satorinoFlagsEnabled);
+    this->forceLayoutChannelViewsListener.add(settings.satorinoFlagsMark);
+    this->forceLayoutChannelViewsListener.add(settings.satorinoFlagsColour);
     this->forceLayoutChannelViewsListener.add(settings.colorUsernames);
     this->forceLayoutChannelViewsListener.add(settings.boldUsernames);
     this->forceLayoutChannelViewsListener.add(

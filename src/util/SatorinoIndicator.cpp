@@ -97,8 +97,10 @@ std::optional<TrainIndicatorGeometry> trainIndicatorGeometry(
         if (!obstacle.isEmpty() &&
             bounds.intersects(obstacle.adjusted(-clearance, -clearance,
                                                 clearance, clearance)))
-            return std::
-                nullopt;  // No space even at the tab-edge clamp: never paint over ink.
+        {
+            // No space even at the tab-edge clamp: never paint over ink.
+            return std::nullopt;
+        }
     return TrainIndicatorGeometry{rect, radius, bounds};
 }
 std::array<QPointF, 10> indicatorStar(const QPointF &centre, qreal outerRadius,

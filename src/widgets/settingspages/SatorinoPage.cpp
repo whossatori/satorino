@@ -129,6 +129,7 @@ void SatorinoPage::initLayout(GeneralPageView &layout)
     auto palette = this->raidStatus_->palette();
     palette.setColor(QPalette::WindowText, QColor("#888888"));
     this->raidStatus_->setPalette(palette);
+    this->addLocalFlags(layout);
     this->addLiveStatus(layout);
     layout.addStretch();
 }

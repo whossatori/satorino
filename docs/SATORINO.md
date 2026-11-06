@@ -956,3 +956,23 @@ used. Collisions nudge the left marker above pin/title ink; only tab edges
 can reduce a star below its floor. An impossible/degenerate fit is omitted
 instead of overlapping. NoDataTrainProducer/settings remain unchanged.
 Geometry/model tests updated; compilation/Windows checks **NOT RUN**.
+
+Commit C adds local per-room/user flags, separate from Twitch monitoring.
+User-card and author-username actions toggle only local version-1 JSON
+under /satorino/flags/state (500 total / 100 per room), with timestamped
+ID keys and cached labels. Master/mark default on; colour defaults to
+#50ed8b63 and preserves alpha. Compact settings list removes entries or
+clears all after confirmation. Missing IDs wait for existing popup data
+and public roomIdAssigned; no lookup is added by flags.
+
+MessageLayout uses its normal text element before the author name and
+existing alpha background blend, without modifying shared Messages or
+notifications. Flag backgrounds lose to all normal highlights, rewards,
+warning/debug and client colours; the optional mark remains visible.
+Changing flag state/options forces existing buffer relayout and refresh;
+new messages get the same styling on first layout. Ignore/block filtering
+is unchanged. No network, sharing, badge or native moderation operation
+is added; native monitor/restrict research is in the output report only.
+Nine registered pure tests cover store keys, bounds, merge/cleanup, JSON,
+priority/defaults and settings persistence. Nothing compiled; C++ tests
+and Windows/runtime checks **NOT RUN**.

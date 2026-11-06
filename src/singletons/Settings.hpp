@@ -23,6 +23,7 @@
 #include "providers/emoji/EmojiStyle.hpp"
 #include "singletons/Toasts.hpp"
 #include "util/SatorinoGamesSettings.hpp"  // satorino: registered JSON game list
+#include "util/SatorinoFlags.hpp"          // satorino: local-only flag defaults
 #include "util/SatorinoTrainSettings.hpp"  // satorino: exact RGBA train palette
 #include "util/RapidJsonSerializeQString.hpp"  // IWYU pragma: keep
 #include "util/serialize/List.hpp"             // IWYU pragma: keep
@@ -1358,6 +1359,15 @@ public:
                                                false};
     BoolSetting satorinoRedeemsEnablePinning = {
         "/satorino/redeems/enablePinning", true};
+    // satorino: versioned local room/user flags, independent of Twitch moderation.
+    BoolSetting satorinoFlagsEnabled = {"/satorino/flags/enabled",
+                                        satorino::FLAGS_ENABLED_DEFAULT};
+    BoolSetting satorinoFlagsMark = {"/satorino/flags/showMark",
+                                     satorino::FLAGS_MARK_DEFAULT};
+    QStringSetting satorinoFlagsColour = {"/satorino/flags/colour",
+                                          satorino::FLAGS_COLOUR_DEFAULT};
+    QStringSetting satorinoFlagsState = {"/satorino/flags/state",
+                                         R"({"version":1,"entries":[]})"};
     // satorino: outgoing raids open chats only; no automatic messages.
     BoolSetting satorinoRaidsOpenTab = {"/satorino/raids/openTab", false};
     BoolSetting satorinoRaidsSwitchTab = {"/satorino/raids/switchTab", true};

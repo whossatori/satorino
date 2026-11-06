@@ -1186,6 +1186,12 @@ set(SOURCE_FILES
         util/SatorinoTrainSettings.hpp
         controllers/trains/SatorinoTrainProducer.cpp
         controllers/trains/SatorinoTrainProducer.hpp
+        util/SatorinoFlags.cpp
+        util/SatorinoFlags.hpp
+        controllers/flags/SatorinoFlags.cpp
+        controllers/flags/SatorinoFlags.hpp
+        widgets/dialogs/UserInfoPopupFlagsSatorino.cpp
+        widgets/settingspages/SatorinoFlagsPage.cpp
         # satorino: end additional sources
 
         widgets/splits/ClosedSplits.cpp
