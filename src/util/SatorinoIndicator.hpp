@@ -24,7 +24,13 @@ enum class IndicatorShape { Circle, Star };
 // Target is 1.7 times stock painted radius; obstacles may not reduce below Batch 7.
 inline constexpr qreal INDICATOR_STAR_FACTOR = 1.7;
 inline constexpr qreal INDICATOR_STAR_FLOOR = 1.45;
-IndicatorShape indicatorShape(LiveIndicator kind, bool gameStar);
+struct HighlightedIndicator {
+    LiveIndicator kind;
+    IndicatorShape shape;
+    QColor colour;
+};
+IndicatorShape indicatorShape(LiveIndicator kind, bool gameStar,
+                              bool goldenKappa = false);
 // Exact stock integer geometry, including location/selection translation.
 QRect indicatorRect(const QRect &tab, float scale, NotebookTabLocation location,
                     bool selected);

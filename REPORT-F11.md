@@ -39,6 +39,38 @@ SplitInput tracks its exact currently executing submitted input with QScopedValu
 
 Pure tests extended for exact submitted text vs genuinely different/unsent command drafts, action-time app foreground checks, early success/go in both orders and no later expiry fire. Source review is not a Windows execution.
 
+## Commit B: train model, dormant producer and presentation
+
+No live train feed is connected. The factory returns NoDataTrainProducer: available() is false, snapshot is empty, and it creates no connection, channel list, timer, polling loop, OAuth request or background work. Settings say **Train data is not available.** when enabled, and **Train indicators: off** when disabled. This is the permitted foundation path, not a claim that working live train detection was delivered.
+
+Pure SatorinoTrain owns NoData/Running/Ended/Expired states, Start/Progress/LevelUp/End inputs, injected timestamps, identity/level/staleness guards, bounded per-room state (512) and explicit retain-on-close / clear-on-disable. Missed ends expire at the supplied deadline, capped to ten minutes after the update; without one, start/level-up gets a conservative ten-minute cap. Ordinary progress with no new expiry does not slide it. Terminal same-ID updates cannot resurrect state, and stale/wrong-ID progress cannot replace a newer train. running(now) also guards expiry before a delayed producer timer can repaint. nextExpiry/expire provide the future one-shot producer route; they run only in pure tests until a verified producer exists.
+
+Types/palette: Normal teal #23c9a9 (different from stock red and the usual initial game palette), Golden Kappa #ffd23f, Treasure #ff934f, Shared #7297ff, Mythic #d781ef, Community #ef78a8 and Other/unknown #a6b2c5. Explicit regular plus shared maps to Shared; golden/treasure or another named special keeps its own style when shared. Unknown/absent type stays Other. Mythic/Community are documented web variants and model/palette labels, not claims about a wire enum. No network parser was invented.
+
+Train wins over game, then dot, with None when not live. Across a tab's splits/aggregate children, Golden wins if present; the other types have a deterministic presentation ordering. Only Golden Kappa selects Star. Every other train is Circle regardless of /satorino/live/gameStar, which still independently controls game styles. Expired/ended/no-data/off goes back to the existing game or stock dot path.
+
+NotebookTab has one shared highlighted-style branch, using the unchanged indicatorRect / paintHighlightedIndicator / star radius/floor/close-ink geometry. It passes the exact selected QColor, including alpha, in every tab state. The producer's GUI-only changed signal triggers the tab's protected mockable update from within NotebookTab; no access level was changed. Active-data collection includes open Twitch split/aggregate children. Disabled or unavailable producer returns through the pre-existing game/dot path before time queries, train scanning or palette reads. The no-data producer never emits a state transition; real start/end/expiry delivery and repaint still need a future verified producer.
+
+Settings: /satorino/live/train/enabled defaults true, /satorino/live/train/colours is a registered typed JSON object keyed by type. Seven compact labelled swatches use the existing game picker style and QColorDialog with alpha. Save/reload uses #AARRGGBB; malformed/missing individual colours default safely. Off disables swatches and leaves stored colours intact. The producer status is explicit; no extra diagnostic button or control is added. Both setting callbacks use explicit bool / const TrainColours& signatures.
+
+New sources: util/SatorinoTrain.{hpp,cpp}, util/SatorinoTrainSettings.hpp and controllers/trains/SatorinoTrainProducer.{hpp,cpp}, all listed together in the marked # satorino: CMake block. New tests/src/SatorinoTrain.cpp is registered in tests/CMakeLists.txt. Legacy reserved TrainColourKind now aliases the single shared TrainType enum, so colour extension and new state cannot disagree about indexes.
+
+Tests: 14 new train cases cover no-data/status, state transitions/level extensions, exact and missing expiry, capped/past deadlines, staleness/wrong IDs/level regression, validation and overflow, bounded close/off cleanup, explicit types, defaults, priority/independent shapes, aggregate Golden preference/exact alpha, malformed input and both JSON and actual pajlada setting-manager persistence. Three added raid cases bring the raid suite to 29. All 43 C++ cases are **NOT RUN**; they were written and source-reviewed, not executed.
+
+## Compile-oriented/source review
+
+Checked actual public split/notebook APIs, the protected NotebookTab mockable update, pajlada SignalHolder::managedConnect and Setting<T> construction/serialization/callback forms. No protected/private member access was introduced across classes. Direct QScopedValueRollback/QGuiApplication/QPointer/QTimer and train Qt/JSON/standard dependencies are included; TrainSettings explicitly includes QByteArray for toUtf8. Times are qint64, expiry additions are bounded before arithmetic, timer work remains the existing GUI/one-shot routes, row indexes/alpha indexes have explicit safe casts, and no designated initializers/new narrowing or generic setting callback was added. No error found by source review; this is not proof of clang-cl/Qt 6.12 compilation.
+
+## Windows checklist (all NOT RUN)
+
+- [ ] Build Windows Qt 6.12 / clang-cl / C++23 and run SatorinoRaid, SatorinoTrain and existing related indicator/game tests.
+- [ ] Start a raid with the existing /raid <login>, then explicitly send with /raidsend (or the existing app action that executes it): target opens AND switches after submitted input clears. Verify local-success-first and remote-go-first both result in one tab/action; later fallback must not duplicate it.
+- [ ] Full countdown still opens/switches; remote early go from web/other client uses the same route. If go is unavailable, document that deadline fallback cannot know an early-send time.
+- [ ] A genuine different unsent draft, an unsubmitted /raidsend, keepInput text, switch option off, another application in the foreground, logout/off-on and source close prevent inappropriate switching/stale work. In-app controls/popups do not fail solely because Main itself is inactive. No focus is stolen from another application.
+- [ ] Settings show Train data is not available. by default and Train indicators: off when disabled. Toggle and reload all seven swatches, including non-opaque alpha, without changing game colours/game-star settings. No train topic/request/polling/timer starts in either state.
+- [ ] Existing plain/game dots/stars, anchors/sizes, star floor, selected/hover/unfocused exact colours, close/pin spacing and rerun behavior remain unchanged.
+- [ ] Live train start/end/expiry repaint is unavailable with NoDataTrainProducer. Future producer validation must first establish authorized viewer payload/type/expiry data, then check normal/special dot colours and Golden star, Train > Game > Dot, aggregation, end/expiry fallback and close/off cleanup. Do not present synthetic model tests as live feed evidence.
+
 ## Executed vs NOT RUN
 
 | Check | Result |
@@ -46,7 +78,8 @@ Pure tests extended for exact submitted text vs genuinely different/unsent comma
 | Base/tree/clean status, fetch and origin ancestry | PASS; recorded above |
 | Repo/official/primary-source train research before implementation | Executed; conclusion and limits above |
 | Commit A clang-format 19.1.7 / diff whitespace / source review | PASS; seven changed C++ files formatted, then zero differences; 29 raid tests registered (NOT RUN) |
-| Commit B audits and final patch replay | Pending; updated with final evidence |
+| Commit B formatting / source registration / LF / forbidden-path and action checks | Final pre-commit source audit recorded in batch11/source-audit.txt |
+| Two patch exports / clean-clone git am --3way / matching trees and clean statuses | Post-commit evidence is recorded in batch11/verification.txt and the output REPORT-F11.md |
 | C++ compilation, C++ tests | **NOT RUN**; cl/clang-cl/clang++/g++/cmake/ninja unavailable on PATH. Nothing compiled |
 | Windows UI, early real raid, external focus and live train access | **NOT RUN** |
 

@@ -23,6 +23,7 @@
 #include "providers/emoji/EmojiStyle.hpp"
 #include "singletons/Toasts.hpp"
 #include "util/SatorinoGamesSettings.hpp"  // satorino: registered JSON game list
+#include "util/SatorinoTrainSettings.hpp"  // satorino: exact RGBA train palette
 #include "util/RapidJsonSerializeQString.hpp"  // IWYU pragma: keep
 #include "util/serialize/List.hpp"             // IWYU pragma: keep
 #include "widgets/NotebookEnums.hpp"
@@ -1367,6 +1368,11 @@ public:
         "/satorino/live/gamesV2", {}};
     // satorino: same per-game colour, live repaint only.
     BoolSetting satorinoLiveGameStar = {"/satorino/live/gameStar", true};
+    // satorino: dormant until a verified viewer producer supplies data; never requests scopes.
+    BoolSetting satorinoLiveTrainEnabled = {satorino::TRAIN_ENABLED_PATH,
+                                            satorino::TRAIN_ENABLED_DEFAULT};
+    ChatterinoSetting<satorino::TrainColours> satorinoLiveTrainColours = {
+        satorino::TRAIN_COLOURS_PATH, satorino::defaultTrainColours()};
     BoolSetting satorinoLiveDesktop = {"/satorino/live/desktop", false};
     BoolSetting satorinoLiveDiscordEnabled = {"/satorino/live/discordEnabled",
                                               false};

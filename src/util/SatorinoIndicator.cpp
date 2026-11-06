@@ -16,11 +16,13 @@
 #include <numbers>
 
 namespace chatterino::satorino {
-IndicatorShape indicatorShape(LiveIndicator kind, bool gameStar)
+IndicatorShape indicatorShape(LiveIndicator kind, bool gameStar,
+                              bool goldenKappa)
 {
-    // Train stays reserved; a later producer can select its own shape here.
-    return kind == LiveIndicator::Game && gameStar ? IndicatorShape::Star
-                                                   : IndicatorShape::Circle;
+    return ((kind == LiveIndicator::Game && gameStar) ||
+            (kind == LiveIndicator::Train && goldenKappa))
+               ? IndicatorShape::Star
+               : IndicatorShape::Circle;
 }
 
 QRect indicatorRect(const QRect &tab, float scale, NotebookTabLocation location,

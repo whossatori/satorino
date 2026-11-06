@@ -7,8 +7,11 @@
 #include "Application.hpp"
 #include "controllers/notifications/NotificationController.hpp"
 #include "controllers/notifications/NotificationModel.hpp"
+#include "controllers/trains/SatorinoTrainProducer.hpp"
 #include "singletons/Settings.hpp"
+#include "util/SatorinoGames.hpp"
 #include "util/SatorinoLive.hpp"
+#include "util/SatorinoTrain.hpp"
 #include "util/Twitch.hpp"
 #include "widgets/helper/EditableModelView.hpp"
 #include "widgets/settingspages/GeneralPageView.hpp"
@@ -16,6 +19,9 @@
 #include "widgets/settingspages/SatorinoGamePicker.hpp"
 
 #include <QCheckBox>
+#include <QColor>
+#include <QColorDialog>
+#include <QGridLayout>
 #include <QHeaderView>
 #include <QLabel>  // satorino: direct widget dependencies, independent of PCH
 #include <QLineEdit>
@@ -25,6 +31,8 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include <array>
+#include <cstddef>
 #include <tuple>  // satorino: std::ignore
 
 namespace chatterino {
@@ -47,6 +55,92 @@ void SatorinoPage::addLiveStatus(GeneralPageView &layout)
             "tabs keep the stock dot. The chosen colour is used exactly.")
         ->addKeywords({"star", "dot", "icon", "game", "live status"})
         ->addTo(layout);
+
+    // satorino: train styles are ready; the status reflects the actual producer availability.
+    layout.addSubtitle("Hype train indicators");
+    SettingWidget::checkbox("Show hype train indicators",
+                            getSettings()->satorinoLiveTrainEnabled)
+        ->setTooltip("Trains take priority over game highlights and the live "
+                     "dot. Golden Kappa uses a star; other types use a dot. "
+                     "Game star settings are independent.")
+        ->addKeywords({"hype train", "golden kappa", "colour", "star"})
+        ->addTo(layout);
+    auto *trainGroup = new QWidget;
+    auto *trainTable = new QGridLayout(trainGroup);
+    trainTable->setContentsMargins(0, 0, 0, 0);
+    trainTable->setHorizontalSpacing(12);
+    trainTable->setColumnStretch(2, 1);
+    auto *trainStatus = new QLabel;
+    trainStatus->setTextFormat(Qt::PlainText);
+    trainStatus->setWordWrap(true);
+    trainStatus->setToolTip(
+        "No verified viewer feed for current train types is connected. These "
+        "colours are saved for when train data is available.");
+    auto *swatches = new QWidget(trainGroup);
+    auto *rows = new QGridLayout(swatches);
+    rows->setContentsMargins(0, 0, 0, 0);
+    rows->setHorizontalSpacing(12);
+    rows->setColumnStretch(2, 1);
+    rows->addWidget(new QLabel("Train type"), 0, 0);
+    rows->addWidget(new QLabel("Colour"), 0, 1);
+    std::array<QPushButton *, satorino::TRAIN_TYPE_COUNT> trainButtons{};
+    for (std::size_t i = 0; i < satorino::TRAIN_TYPE_COUNT; ++i)
+    {
+        const auto type = static_cast<satorino::TrainType>(i);
+        const auto name = satorino::trainTypeName(type);
+        const auto row = static_cast<int>(i) + 1;
+        rows->addWidget(new QLabel(name), row, 0);
+        auto *button = new QPushButton;
+        button->setFixedSize(28, 26);
+        button->setAccessibleName(name + " train colour");
+        button->setToolTip(name + (type == satorino::TrainType::GoldenKappa
+                                       ? " star colour"
+                                       : " dot colour"));
+        rows->addWidget(button, row, 1);
+        trainButtons[i] = button;
+        QObject::connect(button, &QPushButton::clicked, this, [this, i, name] {
+            const QPointer<SatorinoPage> guard(this);
+            const auto chosen = QColorDialog::getColor(
+                getSettings()->satorinoLiveTrainColours.getValue().values[i],
+                this, name + " train colour", QColorDialog::ShowAlphaChannel);
+            if (guard && chosen.isValid())
+            {
+                auto colours =
+                    getSettings()->satorinoLiveTrainColours.getValue();
+                colours.values[i] = chosen;
+                getSettings()->satorinoLiveTrainColours.setValue(colours);
+            }
+        });
+    }
+    trainTable->addWidget(trainStatus, 0, 0, 1, 3);
+    trainTable->addWidget(swatches, 1, 0, 1, 3);
+    getSettings()->satorinoLiveTrainEnabled.connect(
+        [swatches, trainStatus](bool enabled) {
+            swatches->setEnabled(enabled);
+            trainStatus->setText(satorino::trainDataStatus(
+                enabled, satorino::trainProducer().available()));
+        },
+        this->managedConnections_);
+    getSettings()->satorinoLiveTrainColours.connect(
+        [trainButtons](const satorino::TrainColours &colours) {
+            for (std::size_t i = 0; i < trainButtons.size(); ++i)
+            {
+                const auto colour = colours.values[i];
+                // rgba() preserves the alpha in the preview as well as storage and tab painting.
+                trainButtons[i]->setStyleSheet(
+                    QString("background-color: rgba(%1, %2, %3, %4); border: "
+                            "1px solid %5;")
+                        .arg(colour.red())
+                        .arg(colour.green())
+                        .arg(colour.blue())
+                        .arg(colour.alpha())
+                        .arg(satorino::dotOutline(colour).name()));
+            }
+        },
+        this->managedConnections_);
+    layout.addWidget(trainGroup,
+                     {"hype train", "train type", "golden kappa", "treasure",
+                      "shared", "mythic", "community", "colour"});
 
     layout.addSubtitle("Live notifications");
     layout.addDescription("Shared with Notifications -> Selected Channels.");

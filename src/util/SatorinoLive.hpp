@@ -14,7 +14,7 @@
 
 namespace chatterino::satorino {
 
-// Train is reserved priority only; no train detection or artwork in this batch.
+// Shared presentation priority; producer availability is independent of live/game state.
 enum class LiveIndicator { None, Dot, Game, Train };
 QStringList normalizedLines(const QString &text);
 bool gameMatches(const QString &list, const QString &name,

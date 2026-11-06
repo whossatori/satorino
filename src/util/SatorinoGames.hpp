@@ -5,6 +5,7 @@
 #pragma once
 
 #include "util/SatorinoLive.hpp"
+#include "util/SatorinoTrain.hpp"
 
 #include <QColor>
 #include <QJsonArray>
@@ -44,8 +45,8 @@ bool learnGame(GameList &games, const QString &id, const QString &name,
                const QString &boxArtUrl = {});
 QString gameBoxArtUrl(QString url, int width = 52, int height = 72);
 
-// Extension table only. No train producer, detection or settings UI exists yet.
-enum class TrainColourKind { Regular, GoldenKappa, Other, Count };
+// satorino: share one type/colour index with the train model and settings.
+using TrainColourKind = TrainType;
 struct IndicatorColours {
     QColor stock;
     std::optional<QColor> game;

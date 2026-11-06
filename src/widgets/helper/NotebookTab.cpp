@@ -200,6 +200,7 @@ NotebookTab::NotebookTab(Notebook *notebook)
             this->tabSizeChanged();
         },
         this->managedConnections_);
+    this->bindTrainIndicator();  // satorino: producer/settings repaint, no geometry changes
     // satorino: ordered game/colour edits repaint only; tab geometry is unchanged.
     getSettings()->satorinoLiveGamesV2.connect(
         [this] {
@@ -1311,7 +1312,7 @@ void NotebookTab::paintEvent(QPaintEvent *)
         // satorino: one exact stock rectangle for every indicator kind/shape.
         const auto liveIndicatorRect = satorino::indicatorRect(
             this->rect(), scale, this->tabLocation_, this->selected_);
-        if (const auto colour = this->gameIndicatorColour())
+        if (const auto highlighted = this->highlightedLiveIndicator())
         {
             // satorino: exact chosen colour; use the actual title ink and visible close/pin glyph bounds.
             QVector<QRectF> obstacles;
@@ -1339,7 +1340,7 @@ void NotebookTab::paintEvent(QPaintEvent *)
             {
                 const int inset = static_cast<int>(scale * 4);
                 // satorino: reserve the star floor by moving only the X ink within its hit box.
-                if (getSettings()->satorinoLiveGameStar.getValue())
+                if (highlighted->shape == satorino::IndicatorShape::Star)
                     starCloseGlyph = satorino::starSafeCloseGlyph(
                         this->getXRect(), liveIndicatorRect, scale,
                         1.0 / this->devicePixelRatioF());
@@ -1351,12 +1352,9 @@ void NotebookTab::paintEvent(QPaintEvent *)
             const auto starRadius = satorino::indicatorStarRadius(
                 liveIndicatorRect, QRectF(this->rect()), obstacles,
                 painter.pen().widthF(), 1.0 / this->devicePixelRatioF());
-            satorino::paintHighlightedIndicator(
-                painter, liveIndicatorRect, *colour, QColor{},
-                satorino::indicatorShape(
-                    satorino::LiveIndicator::Game,
-                    getSettings()->satorinoLiveGameStar.getValue()),
-                starRadius);
+            satorino::paintHighlightedIndicator(painter, liveIndicatorRect,
+                                                highlighted->colour, QColor{},
+                                                highlighted->shape, starRadius);
         }
         else
         {

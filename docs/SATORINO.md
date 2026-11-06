@@ -922,3 +922,18 @@ popups), current drafts and settings again at switching time. Local early
 send success, remote go and countdown expiry share one completion/dedupe
 path. No send operation is added. Nothing compiled; tests and Windows
 checks **NOT RUN**. See REPORT-F11.md for the source path/limits.
+
+Commit B adds the pure bounded train state/expiry/type/palette model, a
+GUI producer interface, Train > Game > Dot styling in the existing shared
+paint path and a compact train-colour table. Only Golden Kappa uses the
+star; game-star stays independent, stock geometry and exact RGBA remain.
+/satorino/live/train/enabled defaults true; colours persist as a typed
+JSON object under /satorino/live/train/colours. The current producer is
+explicitly NoData: settings say train data is not available. Research did
+not establish a current viewer feed exposing reliable special-train types;
+no EventSub scope, speculative PubSub/GQL parser, timer or listener was
+added. Disabled/unavailable skips train collection; colour choices remain
+saved. Fourteen registered pure cases cover state, missed-end expiry,
+priority, shapes, alpha and setting persistence. Nothing compiled; all
+C++ and Windows/live checks **NOT RUN**. REPORT-F11.md records evidence
+and exactly what a future verified viewer producer requires.
