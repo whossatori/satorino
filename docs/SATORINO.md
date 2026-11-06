@@ -1057,3 +1057,11 @@ above describe the removed stages only. Shared indicatorRect/star/paint and
 pin helpers and the right-hand game/dot paint geometry are unchanged. Old
 saved train keys are ignored; no migration or reader remains. Nothing was
 compiled; remaining game/pin/redeem C++ and Windows checks **NOT RUN**.
+
+Part 3 removes the flagged-users table, row removal and Clear all controls,
+plus the now-unused table-only removeLocalFlag adapter. Local master, mark
+and alpha colour controls remain under Local user highlights. Store/bounds/
+persistence, message layouts and both popup/native menus are unchanged.
+The obsolete author-context local flag toggle is also removed, so individual
+highlights can now be removed only through the popup's Remove highlight entry; there is no settings list or bulk-clear action. Nothing was
+compiled; C++ and Windows/runtime checks **NOT RUN**.

@@ -3,33 +3,27 @@
 // SPDX-License-Identifier: MIT
 
 #include "widgets/settingspages/SatorinoPage.hpp"
-#include "controllers/flags/SatorinoFlags.hpp"
 #include "singletons/Settings.hpp"
 #include "util/SatorinoFlags.hpp"
 #include "widgets/settingspages/GeneralPageView.hpp"
 #include "widgets/settingspages/SettingWidget.hpp"
-#include <QAbstractItemView>
 #include <QColor>
 #include <QColorDialog>
-#include <QDateTime>
 #include <QHBoxLayout>
-#include <QHeaderView>
-#include <QLabel>
-#include <QMessageBox>
 #include <QPointer>
 #include <QPushButton>
-#include <QTableWidget>
-#include <QTableWidgetItem>
-#include <QTimer>
+#include <QString>
 #include <QVBoxLayout>
 #include <QWidget>
 
 namespace chatterino {
 void SatorinoPage::addLocalFlags(GeneralPageView &layout)
 {
-    layout.addTitle("Flagged users");
-    layout.addDescription("Local to this device and channel. Flags never "
-                          "report or restrict users on Twitch.");
+    layout.addTitle("Local user highlights");
+    layout.addDescription(
+        "Local to this device and channel. Flags never "
+        "report or restrict users on Twitch. Remove individual "
+        "highlights with Remove highlight in the user's popup flag menu.");
     SettingWidget::checkbox("Enable local user flags",
                             getSettings()->satorinoFlagsEnabled)
         ->addKeywords({"flag", "user", "highlight"})
@@ -46,58 +40,8 @@ void SatorinoPage::addLocalFlags(GeneralPageView &layout)
     colour->setToolTip("Subtle fallback colour; mentions, rewards and existing "
                        "highlights keep priority. Alpha is preserved.");
     actions->addWidget(colour);
-    auto *clear = new QPushButton("Clear all");
-    actions->addWidget(clear);
     actions->addStretch(1);
     box->addLayout(actions);
-    auto *table = new QTableWidget(0, 4);
-    table->setHorizontalHeaderLabels({"Channel", "User", "Date", ""});
-    table->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    table->setSelectionMode(QAbstractItemView::NoSelection);
-    table->verticalHeader()->hide();
-    table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
-    table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
-    table->horizontalHeader()->setSectionResizeMode(
-        2, QHeaderView::ResizeToContents);
-    table->horizontalHeader()->setSectionResizeMode(
-        3, QHeaderView::ResizeToContents);
-    table->setMaximumHeight(190);
-    box->addWidget(table);
-    auto refresh = [table, clear] {
-        const auto entries = satorino::localFlags().entries();
-        table->setRowCount(0);
-        for (const auto &entry : entries)
-        {
-            const int row = table->rowCount();
-            table->insertRow(row);
-            auto *channel = new QTableWidgetItem(entry.channelLabel.isEmpty()
-                                                     ? entry.roomId
-                                                     : entry.channelLabel);
-            channel->setToolTip("Twitch room ID: " + entry.roomId);
-            table->setItem(row, 0, channel);
-            auto *user = new QTableWidgetItem(
-                entry.userLabel.isEmpty() ? entry.userId : entry.userLabel);
-            user->setToolTip("Twitch user ID: " + entry.userId);
-            table->setItem(row, 1, user);
-            table->setItem(
-                row, 2,
-                new QTableWidgetItem(QDateTime::fromMSecsSinceEpoch(entry.atMs)
-                                         .toString("yyyy-MM-dd")));
-            auto *remove = new QPushButton("Remove");
-            QObject::connect(remove, &QPushButton::clicked, table,
-                             [room = entry.roomId, user = entry.userId] {
-                                 satorino::removeLocalFlag(room, user);
-                             });
-            table->setCellWidget(row, 3, remove);
-        }
-        clear->setEnabled(!entries.isEmpty());
-    };
-    getSettings()->satorinoFlagsState.connect(
-        [table, refresh](const QString &) {
-            // Do not delete the Remove sender during synchronous setting notification.
-            QTimer::singleShot(0, table, refresh);
-        },
-        this->managedConnections_, false);
     getSettings()->satorinoFlagsEnabled.connect(
         [colour](bool enabled) {
             colour->setEnabled(enabled);
@@ -128,19 +72,7 @@ void SatorinoPage::addLocalFlags(GeneralPageView &layout)
             getSettings()->satorinoFlagsColour.setValue(
                 chosen.name(QColor::HexArgb));
     });
-    QObject::connect(clear, &QPushButton::clicked, this, [this] {
-        const QPointer<SatorinoPage> guard(this);
-        if (QMessageBox::question(
-                this, "Clear local flags",
-                "Remove all locally flagged users in every channel?",
-                QMessageBox::Yes | QMessageBox::No,
-                QMessageBox::No) == QMessageBox::Yes &&
-            guard)
-            getSettings()->satorinoFlagsState.setValue(
-                satorino::FlagStore{}.toJson());
-    });
-    refresh();
-    layout.addWidget(group, {"flagged users", "channel", "user", "date",
-                             "remove", "clear", "highlight colour"});
+    layout.addWidget(group,
+                     {"local highlights", "flag", "mark", "highlight colour"});
 }
 }  // namespace chatterino

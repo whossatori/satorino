@@ -5,7 +5,6 @@
 #include "widgets/helper/ChannelView.hpp"
 
 #include "Application.hpp"
-#include "controllers/flags/SatorinoFlags.hpp"  // satorino: local username menu action
 #include "common/Common.hpp"
 #include "common/QLogging.hpp"
 #include "controllers/accounts/AccountController.hpp"
@@ -3791,32 +3790,6 @@ void ChannelView::addContextMenuItems(
     // Add link options if the element clicked contains a link
     addLinkContextMenuItems(menu, hoveredElement);
 
-    // satorino: author username only; mentions must not flag the message author.
-    if (hoveredElement &&
-        hoveredElement->getFlags().has(MessageElementFlag::Username))
-    {
-        const auto message = layout->getMessagePtr();
-        const auto room =
-            satorino::localFlagRoom(*message, this->underlyingChannel().get());
-        if (satorino::validFlagId(room) &&
-            satorino::validFlagId(message->userID))
-        {
-            auto *flag = menu->addAction(
-                satorino::localFlags().contains(room, message->userID)
-                    ? "Unflag user"
-                    : "Flag user");
-            flag->setEnabled(getSettings()->satorinoFlagsEnabled.getValue());
-            QObject::connect(
-                flag, &QAction::triggered, this,
-                [room, message, channel = this->underlyingChannel()] {
-                    const auto error = satorino::toggleLocalFlag(
-                        room, message->userID, message->channelName,
-                        message->displayName);
-                    if (!error.isEmpty() && channel)
-                        channel->addSystemMessage("Local flag: " + error);
-                });
-        }
-    }
     // Add message options
     this->addMessageContextMenuItems(menu, layout);
 

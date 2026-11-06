@@ -88,10 +88,4 @@ QString toggleLocalFlag(const QString &room, const QString &user,
     getSettings()->satorinoFlagsState.setValue(store.toJson());
     return {};
 }
-void removeLocalFlag(const QString &room, const QString &user)
-{
-    auto store = localFlags();
-    if (store.remove(room, user))
-        getSettings()->satorinoFlagsState.setValue(store.toJson());
-}
 }  // namespace chatterino::satorino

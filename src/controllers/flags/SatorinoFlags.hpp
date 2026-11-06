@@ -14,6 +14,5 @@ FlagStyle localFlagStyle(const Message &message, const QString &room,
                          bool ignoreHighlights);
 QString toggleLocalFlag(const QString &room, const QString &user,
                         const QString &channelLabel, const QString &userLabel);
-void removeLocalFlag(const QString &room, const QString &user);
 }  // namespace satorino
 }  // namespace chatterino
