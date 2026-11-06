@@ -26,7 +26,6 @@
 #include "singletons/Toasts.hpp"
 #include "singletons/Updates.hpp"
 #include "singletons/WindowManager.hpp"
-#include "util/SatorinoRaid.hpp"  // satorino: pure test-command validation
 #include "util/PostToThread.hpp"
 
 #include <QApplication>
@@ -34,7 +33,7 @@
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <QString>
-#include <QTimer>  // satorino: simulate after the submitted command leaves the input
+#include <QStringList>  // satorino: retained debug helpers use this directly
 
 using namespace Qt::Literals::StringLiterals;
 
@@ -231,28 +230,6 @@ QString invalidateBuffers(const CommandContext &)
 }
 
 // satorino: always consume locally, including invalid/off cases; never return chat text.
-QString satorinoTestRaid(const CommandContext &ctx)
-{
-    if (!ctx.channel)
-        return {};
-    QString error;
-    const auto command = satorino::parseRaidTestCommand(ctx.words, &error);
-    if (!command)
-        ctx.channel->addSystemMessage(error);
-    else
-    {
-        // Queue after input clearing; explicit ID overrides, otherwise one users lookup is allowed.
-        QTimer::singleShot(0, getApp()->getWindows(),
-                           [channel = ctx.channel, command = *command] {
-                               if (auto *app = tryGetApp();
-                                   app && !isAppAboutToQuit())
-                                   channel->addSystemMessage(
-                                       app->getWindows()->simulateSatorinoRaid(
-                                           channel, command.login, command.id));
-                           });
-    }
-    return {};
-}
 QString eventsub(const CommandContext &)
 {
     getApp()->getEventSub()->debug();

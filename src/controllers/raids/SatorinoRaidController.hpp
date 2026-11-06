@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include "common/Channel.hpp"
 #include "util/SatorinoRaid.hpp"
 
 #include <boost/signals2/connection.hpp>
@@ -24,19 +23,15 @@ class RaidController : public QObject
 public:
     explicit RaidController(WindowManager &windows);
     QString receive(const QJsonObject &payload, qint64 receivedAtMs);
-    QString simulate(const ChannelPtr &source, const QString &targetLogin,
-                     const QString &targetId);
     RaidStatusContext statusContext() const;
 private:
     QString queueAction(const RaidEvent &event, qint64 receivedAtMs,
                         const QString &trigger);
     QString act(const RaidEvent &event, qint64 receivedAtMs,
-                const QString &trigger, bool synthetic);
+                const QString &trigger);
     QString record(const QString &sourceId,
-                   const std::optional<RaidEvent> &event, const QString &result,
-                   bool synthetic = false);
-    QString simulateKnown(const ChannelPtr &source, const QString &login,
-                          const QString &id);
+                   const std::optional<RaidEvent> &event,
+                   const QString &result);
     void configure();
     void accountChanged();
     void stop();

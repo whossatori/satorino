@@ -845,14 +845,6 @@ logged that error but did not close an already-open socket; it was not a
 proven reconnect cause. Local arrival time guards the enable epoch, while
 metadata UTC still enforces age/future limits (with explicit clock reasons).
 
-Advanced local command: /satorino-testraid <targetLogin> [targetId]. It queues
-until the submitted command leaves the input, then uses the same parser,
-policy and tab action and prints a local system message. The optional ID is
-required if unavailable in the local channel registry; no Helix lookup or
-fabricated ID is used. Only transport subscription membership is bypassed;
-normal login/setting/source/block/dedupe/cap/draft/focus guards remain. Opening
-the tab still uses normal chat joining; the command never sends a chat/raid.
-
 Pure status/reason/backoff/parser/epoch tests and a registered offline test of
 the actual library dispatch were added. No app source files were added.
 Nothing compiled: C++ tests, Windows UI and real Twitch behavior **NOT RUN**.
@@ -902,14 +894,6 @@ feed, open-channel request count, missing room IDs and last raid outcome;
 its tooltip states go/countdown triggers and shared bar use. Counts describe
 LISTEN requests, not a delivery guarantee. No restart is needed.
 
-/satorino-testraid <login> [id] still runs locally through parser/policy/tab
-action. Explicit ID overrides; otherwise local identity is used, or exactly
-one normal Helix users lookup by login is made for this explicit command.
-Not-found/error/ten-second timeout/late callback/account-setting-window
-changes cannot create a stale tab. No fabricated ID, passive users lookup,
-chat message, real raid or point redemption is added. The command is queued
-after input clearing and shares the real dedupe/caps.
-
 The registered SatorinoRaid suite now has 26 pure cases covering feed mapping,
 go/cancel/reorder/countdown, listening, status, lookup and existing policy.
 The obsolete EventSub dispatch suite is removed. No app source files or
@@ -918,8 +902,8 @@ and live lookup are **NOT RUN**. See REPORT-F10.md / batch10 output evidence.
 
 ## Stage F batch 11
 
-Commit A queues completed raid actions through the same zero-delay GUI path
-as the local test command, after submitted input clearing. Exact scoped
+Commit A queues completed raid actions through a zero-delay GUI path
+after submitted input clearing. Exact scoped
 submission text is not an unsent draft; different text and unsent commands
 still block. The guard checks application foreground (including in-app
 popups), current drafts and settings again at switching time. Local early
@@ -1047,8 +1031,7 @@ Part 1 gates raid tab actions at go/deadline arrival and again after queued
 dispatch, using every window's selected page and all its splits/aggregate
 children. Hidden-tab sources do not queue an action or touch policy dedupe/
 rate caps. Countdown/feed/listening remain unchanged; eligible raids retain
-existing focus/background/draft/settings behavior. /satorino-testraid shares
-the scope rule, including after its existing optional lookup. Four pure
+existing focus/background/draft/settings behavior. Four pure
 regression cases added; nothing was compiled, C++/Windows checks **NOT RUN**.
 
 Part 2 removes the hype train state/palette/producer, settings and left tab
@@ -1088,3 +1071,10 @@ suspicious-user message/update event; earlier buffered ordinary messages stay
 unknown until such evidence arrives, then repaint. No extra role check, feed,
 poll or request is added. Six pure regression cases added to the registered
 native suite. Nothing was compiled; C++ and Windows/live checks **NOT RUN**.
+
+Part 2 removes the obsolete local raid diagnostic command, registration,
+WindowManager adapter, simulation dispatch, optional users lookup and its
+pure command/lookup helpers and tests. Historical help/instructions for that
+command are removed. The real feed, selected-tab scope, queue/action policy,
+dedupe/caps and silent background behavior remain. Nothing was compiled;
+remaining C++ and Windows/live checks **NOT RUN**.

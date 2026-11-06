@@ -160,12 +160,6 @@ std::optional<RaidFeedMessage> parseRaidFeed(const QJsonObject &payload,
             : 0;
     return message;
 }
-std::optional<RaidEvent> parseRaidEvent(const QJsonObject &payload,
-                                        qint64 receivedAtMs, QString *error)
-{
-    const auto message = parseRaidFeed(payload, receivedAtMs, error);
-    return message ? message->event : std::nullopt;
-}
 RaidFeedResult RaidFeedTracker::observe(const QJsonObject &payload,
                                         qint64 receivedAtMs)
 {
@@ -453,52 +447,5 @@ QString raidStatusDetails(const RaidStatusContext &context)
                    "count is not a live delivery guarantee.")
         .arg(context.listening)
         .arg(context.waitingForIds);
-}
-std::optional<RaidTestCommand> parseRaidTestCommand(const QStringList &words,
-                                                    QString *error)
-{
-    if (error)
-        error->clear();
-    const auto reject =
-        [error](const QString &reason) -> std::optional<RaidTestCommand> {
-        if (error)
-            *error = reason;
-        return std::nullopt;
-    };
-    if (words.size() < 2 || words.size() > 3)
-        return reject("Usage: /satorino-testraid <targetLogin> [targetId]");
-    RaidTestCommand command{words[1].toLower(),
-                            words.size() == 3 ? words[2] : QString{}};
-    if (!validRaidLogin(command.login))
-        return reject("Raid test: invalid target login");
-    if (!command.id.isEmpty() && !validRaidId(command.id))
-        return reject("Raid test: invalid target ID");
-    return command;
-}
-QString raidTestKnownId(const RaidTestCommand &command, const QString &localId)
-{
-    return !command.id.isEmpty()  ? command.id
-           : validRaidId(localId) ? localId
-                                  : QString{};
-}
-RaidLookupResult raidLookupResult(const QString &login, RaidLookupStatus status,
-                                  const QString &returnedId,
-                                  const QString &returnedLogin)
-{
-    switch (status)
-    {
-        case RaidLookupStatus::NotFound:
-            return {false, {}, "target not found"};
-        case RaidLookupStatus::Error:
-            return {false, {}, "users lookup failed"};
-        case RaidLookupStatus::Timeout:
-            return {false, {}, "users lookup timed out"};
-        case RaidLookupStatus::Found:
-            if (!validRaidId(returnedId) ||
-                returnedLogin.compare(login, Qt::CaseInsensitive) != 0)
-                return {false, {}, "invalid/mismatched users lookup result"};
-            return {true, returnedId, {}};
-    }
-    return {false, {}, "invalid lookup result"};
 }
 }  // namespace chatterino::satorino

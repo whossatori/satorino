@@ -8,7 +8,6 @@
 #include <QDateTime>
 #include <QJsonObject>
 #include <QString>
-#include <QStringList>
 
 #include <initializer_list>
 #include <set>
@@ -263,7 +262,9 @@ TEST(SatorinoRaid, ExistingCamelCaseAliasesAndStringCountsAreAccepted)
                                      {"targetDisplayName", "Target"},
                                      {"viewerCount", "42"},
                                      {"forceRaidNowSeconds", 90}});
-    const auto parsed = parseRaidEvent(input, 1000000);
+    const auto feed = parseRaidFeed(input, 1000000);
+    ASSERT_TRUE(feed);
+    const auto &parsed = feed->event;
     ASSERT_TRUE(parsed);
     EXPECT_EQ(parsed->viewerCount, 42);
     EXPECT_EQ(parsed->targetName, "Target");
@@ -434,46 +435,6 @@ TEST(SatorinoRaid, SharedFeedStatusHasNoTenChannelLimitOrEventSubDependency)
     EXPECT_TRUE(raidStatusDetails(status).contains("raid_go_v2"));
     EXPECT_TRUE(raidStatusDetails(status).contains("countdown end"));
     EXPECT_TRUE(raidStatusDetails(status).contains("raid bar"));
-}
-TEST(SatorinoRaid, TestCommandParsingAndExplicitIdOverride)
-{
-    QString error;
-    const auto plain =
-        parseRaidTestCommand({"/satorino-testraid", "Alt_Login"}, &error);
-    ASSERT_TRUE(plain);
-    EXPECT_EQ(plain->login, "alt_login");
-    EXPECT_TRUE(plain->id.isEmpty());
-    EXPECT_TRUE(raidTestKnownId(*plain, {}).isEmpty());
-    EXPECT_EQ(raidTestKnownId(*plain, "200"), "200");
-    const auto explicitId =
-        parseRaidTestCommand({"/satorino-testraid", "alt", "201"});
-    ASSERT_TRUE(explicitId);
-    EXPECT_EQ(raidTestKnownId(*explicitId, "200"), "201");
-    EXPECT_FALSE(parseRaidTestCommand({"/satorino-testraid"}));
-    EXPECT_FALSE(
-        parseRaidTestCommand({"/satorino-testraid", "https://twitch.tv/alt"}));
-    EXPECT_FALSE(
-        parseRaidTestCommand({"/satorino-testraid", "alt", "invalid"}));
-    EXPECT_FALSE(
-        parseRaidTestCommand({"/satorino-testraid", "alt", "200", "extra"}));
-}
-TEST(SatorinoRaid, ExplicitCommandLookupHandlesFoundNotFoundErrorAndTimeout)
-{
-    const auto found =
-        raidLookupResult("alt", RaidLookupStatus::Found, "200", "ALT");
-    EXPECT_TRUE(found.usable);
-    EXPECT_EQ(found.id, "200");
-    EXPECT_FALSE(
-        raidLookupResult("alt", RaidLookupStatus::Found, "0", "alt").usable);
-    EXPECT_FALSE(
-        raidLookupResult("alt", RaidLookupStatus::Found, "200", "other")
-            .usable);
-    EXPECT_EQ(raidLookupResult("alt", RaidLookupStatus::NotFound).reason,
-              "target not found");
-    EXPECT_EQ(raidLookupResult("alt", RaidLookupStatus::Error).reason,
-              "users lookup failed");
-    EXPECT_EQ(raidLookupResult("alt", RaidLookupStatus::Timeout).reason,
-              "users lookup timed out");
 }
 TEST(SatorinoRaid, GoAndCountdownOutputsStillUseTheExistingRateCaps)
 {

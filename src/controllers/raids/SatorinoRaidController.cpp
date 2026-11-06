@@ -9,7 +9,6 @@
 #include "common/QLogging.hpp"
 #include "controllers/accounts/AccountController.hpp"
 #include "debug/AssertInGuiThread.hpp"
-#include "providers/twitch/api/Helix.hpp"
 #include "providers/twitch/PubSubManager.hpp"
 #include "providers/twitch/TwitchAccount.hpp"
 #include "providers/twitch/TwitchAccountManager.hpp"
@@ -33,7 +32,6 @@
 #include <QLoggingCategory>
 #include <QMetaObject>
 #include <QPointer>
-#include <QStringList>
 #include <QWidget>
 
 #include <algorithm>
@@ -43,7 +41,6 @@
 #include <memory>
 #include <set>
 #include <utility>
-#include <vector>
 
 namespace chatterino::satorino {
 namespace {
@@ -246,7 +243,7 @@ RaidStatusContext RaidController::statusContext() const
 }
 QString RaidController::record(const QString &source,
                                const std::optional<RaidEvent> &event,
-                               const QString &result, bool synthetic)
+                               const QString &result)
 {
     QString name = source;
     const auto account = getApp()->getAccounts()->twitch.getCurrent();
@@ -261,9 +258,9 @@ QString RaidController::record(const QString &source,
             ? event->targetLogin
             : event->targetName + " (" + event->targetLogin + ")";
     const auto text =
-        QString("Last raid: %1 -> %2 at %3, %4%5")
+        QString("Last raid: %1 -> %2 at %3, %4")
             .arg(name, target, QDateTime::currentDateTime().toString("HH:mm"),
-                 synthetic ? "test: " : "", result);
+                 result);
     this->lastEvent_ = text;
     if (text != this->lastStatus_)
     {
@@ -353,19 +350,19 @@ QString RaidController::queueAction(const RaidEvent &event, qint64 receivedAtMs,
         return this->record(
             event.sourceId, event,
             "ignored (source is not displayed in a selected tab)");
-    // Same zero-delay GUI queue as /satorino-testraid: postMessageSend clears the
+    // Keep the zero-delay GUI queue: postMessageSend clears the
     // submitted input before the action reads it. The feed has already completed
     // this raid, so go/local success/expiry cannot queue another action.
     const auto generation = this->generation_;
     QTimer::singleShot(
         0, this, [this, event, receivedAtMs, trigger, generation] {
             if (generation == this->generation_ && !isAppAboutToQuit())
-                this->act(event, receivedAtMs, trigger, false);
+                this->act(event, receivedAtMs, trigger);
         });
     return this->record(event.sourceId, event, trigger + "; tab action queued");
 }
 QString RaidController::act(const RaidEvent &inputEvent, qint64 receivedAtMs,
-                            const QString &trigger, bool synthetic)
+                            const QString &trigger)
 {
     assertInGuiThread();
     if (isAppAboutToQuit())
@@ -374,7 +371,7 @@ QString RaidController::act(const RaidEvent &inputEvent, qint64 receivedAtMs,
     const auto ownerId = this->ownerId_;
     const auto finish = [&](const QString &result) {
         return this->record(event->sourceId, inputEvent,
-                            result + " (" + trigger + ")", synthetic);
+                            result + " (" + trigger + ")");
     };
     const auto account = getApp()->getAccounts()->twitch.getCurrent();
     if (!getSettings()->satorinoRaidsOpenTab.getValue())
@@ -488,114 +485,5 @@ QString RaidController::act(const RaidEvent &inputEvent, qint64 receivedAtMs,
     return finish(action + "; " +
                   raidSelectionStatus(selection, switchOption,
                                       currentInputState.hasDraft));
-}
-QString RaidController::simulateKnown(const ChannelPtr &source,
-                                      const QString &login, const QString &id)
-{
-    const auto account = getApp()->getAccounts()->twitch.getCurrent();
-    const auto channel = std::dynamic_pointer_cast<TwitchChannel>(source);
-    if (!channel || source->getType() != Channel::Type::Twitch)
-        return "Raid test requires the current real Twitch channel";
-    const auto now = QDateTime::currentMSecsSinceEpoch();
-    const QJsonObject payload{
-        {"type", "raid_go_v2"},
-        {"topic", "raid." + sourceId(channel, account)},
-        {"raid", QJsonObject{{"id", "test-" + QString::number(now)},
-                             {"source_id", sourceId(channel, account)},
-                             {"target_id", id},
-                             {"target_login", login},
-                             {"target_display_name", login},
-                             {"viewer_count", 0}}}};
-    QString error;
-    const auto event = parseRaidEvent(payload, now, &error);
-    return event ? this->act(*event, now, "go", true)
-                 : "Raid test ignored: " + error;
-}
-QString RaidController::simulate(const ChannelPtr &source,
-                                 const QString &targetLogin,
-                                 const QString &targetId)
-{
-    assertInGuiThread();
-    if (!getSettings()->satorinoRaidsOpenTab.getValue())
-        return "Raid test ignored: setting off";
-    const auto account = getApp()->getAccounts()->twitch.getCurrent();
-    if (!account || account->isAnon() || account->getUserId() != this->ownerId_)
-        return "Raid test ignored: not logged in or account changed";
-    if (!source || source->getType() != Channel::Type::Twitch)
-        return "Raid test requires the current real Twitch channel";
-    const auto twitch = std::dynamic_pointer_cast<TwitchChannel>(source);
-    if (!twitch ||
-        !raidScopeDecision(
-             raidSourceInSelectedTabs(sourceId(twitch, account),
-                                      selectedSources(this->windows_, account)),
-             RaidSelection::None)
-             .act)
-        return "Raid test ignored: source is not displayed in a selected tab";
-    QString error;
-    const auto command = parseRaidTestCommand(
-        QStringList{"/satorino-testraid", targetLogin} +
-            (targetId.isEmpty() ? QStringList{} : QStringList{targetId}),
-        &error);
-    if (!command)
-        return error;
-    const auto known = std::dynamic_pointer_cast<TwitchChannel>(
-        getApp()->getTwitch()->getChannelOrEmpty(command->login));
-    const auto id =
-        raidTestKnownId(*command, known ? known->roomId() : QString{});
-    if (!id.isEmpty())
-        return this->simulateKnown(source, command->login, id);
-    const QPointer<RaidController> guard(this);
-    const std::weak_ptr<Channel> weak = source;
-    const auto generation = this->generation_;
-    const auto owner = this->ownerId_;
-    const auto done =
-        std::make_shared<bool>(false);  // Accessed only on the GUI thread.
-    const auto finish = [guard, weak, generation, owner, done,
-                         login = command->login](RaidLookupStatus status,
-                                                 const QString &returnedId,
-                                                 const QString &returnedLogin) {
-        if (!guard || *done || isAppAboutToQuit())
-            return;
-        *done = true;
-        const auto channel = weak.lock();
-        if (!channel)
-            return;
-        const auto current = getApp()->getAccounts()->twitch.getCurrent();
-        if (!getSettings()->satorinoRaidsOpenTab.getValue() ||
-            guard->generation_ != generation || !current || current->isAnon() ||
-            current->getUserId() != owner)
-        {
-            channel->addSystemMessage(
-                "Raid test ignored: setting/account changed during lookup");
-            return;
-        }
-        const auto result =
-            raidLookupResult(login, status, returnedId, returnedLogin);
-        channel->addSystemMessage(
-            result.usable ? guard->simulateKnown(channel, login, result.id)
-                          : "Raid test: " + result.reason);
-    };
-    QTimer::singleShot(10000, this, [finish] {
-        finish(RaidLookupStatus::Timeout, {}, {});
-    });
-    // Exactly one normal users request for this explicit command, never for passive feed events.
-    getHelix()->fetchUsers(
-        {}, QStringList{command->login},
-        [finish](const std::vector<HelixUser> &users) {
-            const auto status = users.empty() ? RaidLookupStatus::NotFound
-                                              : RaidLookupStatus::Found;
-            const auto id = users.empty() ? QString{} : users.front().id;
-            const auto login = users.empty() ? QString{} : users.front().login;
-            postToThread([finish, status, id, login] {
-                finish(status, id, login);
-            });
-        },
-        [finish] {
-            postToThread([finish] {
-                finish(RaidLookupStatus::Error, {}, {});
-            });
-        });
-    return "Raid test: looking up " + command->login +
-           " once; no raid or chat message is sent";
 }
 }  // namespace chatterino::satorino

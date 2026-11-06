@@ -6,7 +6,6 @@
 
 #include <QJsonObject>
 #include <QString>
-#include <QStringList>
 #include <QVector>
 #include <QtGlobal>
 
@@ -51,9 +50,6 @@ struct RaidFeedMessage {
 std::optional<RaidFeedMessage> parseRaidFeed(const QJsonObject &payload,
                                              qint64 receivedAtMs,
                                              QString *error = nullptr);
-std::optional<RaidEvent> parseRaidEvent(const QJsonObject &payload,
-                                        qint64 receivedAtMs,
-                                        QString *error = nullptr);
 enum class RaidFeedAction { Wait, Fire, Cancelled, Ignore };
 struct RaidFeedResult {
     RaidFeedAction action = RaidFeedAction::Ignore;
@@ -128,22 +124,6 @@ struct RaidStatusContext {
 };
 QString raidStatusText(const RaidStatusContext &context);
 QString raidStatusDetails(const RaidStatusContext &context);
-struct RaidTestCommand {
-    QString login;
-    QString id;
-};
-std::optional<RaidTestCommand> parseRaidTestCommand(const QStringList &words,
-                                                    QString *error = nullptr);
-QString raidTestKnownId(const RaidTestCommand &command, const QString &localId);
-enum class RaidLookupStatus { Found, NotFound, Error, Timeout };
-struct RaidLookupResult {
-    bool usable = false;
-    QString id;
-    QString reason;
-};
-RaidLookupResult raidLookupResult(const QString &login, RaidLookupStatus status,
-                                  const QString &returnedId = {},
-                                  const QString &returnedLogin = {});
 class RaidPolicy
 {
 public:

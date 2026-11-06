@@ -880,14 +880,6 @@ QString WindowManager::satorinoRaidDetails() const
                                       this->satorinoRaids_->statusContext())
                                 : QString{};
 }
-QString WindowManager::simulateSatorinoRaid(const ChannelPtr &source,
-                                            const QString &login,
-                                            const QString &id)
-{
-    return this->satorinoRaids_ && !this->shuttingDown_
-               ? this->satorinoRaids_->simulate(source, login, id)
-               : "Raid watch: unavailable";
-}
 void WindowManager::save()
 {
     if (this->appArgs.dontSaveSettings)

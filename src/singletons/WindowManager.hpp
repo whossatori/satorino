@@ -132,8 +132,6 @@ public:
     QString satorinoRaidStatus()
         const;  // satorino: UI-only snapshot, no networking
     QString satorinoRaidDetails() const;
-    QString simulateSatorinoRaid(const ChannelPtr &source, const QString &login,
-                                 const QString &id);
     void initialize();
     void save();
     void closeAll();
