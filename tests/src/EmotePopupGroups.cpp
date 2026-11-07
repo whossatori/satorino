@@ -17,7 +17,7 @@ using namespace chatterino::satorino;
 using namespace Qt::StringLiterals;
 
 namespace {
-const std::array<QString, 2> LABELS{u"Emotes"_s, u"Zero-width emotes"_s};
+const auto &LABELS = sevenTvPopupEmoteLabels();
 
 struct Entry {
     int id;
@@ -34,7 +34,7 @@ const std::vector<Entry> ENTRIES{
 
 auto groupFor(const Entry &entry)
 {
-    return entry.zeroWidth ? 1U : 0U;
+    return sevenTvPopupEmoteGroup(entry.zeroWidth);
 }
 
 bool all(const Entry &)
@@ -57,10 +57,10 @@ TEST(EmotePopupGroups, StablePartitionConservesAllEntries)
     EXPECT_EQ(groups[1].title, LABELS[1]);
     ASSERT_EQ(groups[0].emotes.size(), 2U);
     ASSERT_EQ(groups[1].emotes.size(), 2U);
-    EXPECT_EQ(groups[0].emotes[0].id, 2);
-    EXPECT_EQ(groups[0].emotes[1].id, 4);
-    EXPECT_EQ(groups[1].emotes[0].id, 1);
-    EXPECT_EQ(groups[1].emotes[1].id, 3);
+    EXPECT_EQ(groups[0].emotes[0].id, 1);
+    EXPECT_EQ(groups[0].emotes[1].id, 3);
+    EXPECT_EQ(groups[1].emotes[0].id, 2);
+    EXPECT_EQ(groups[1].emotes[1].id, 4);
     std::vector<int> ids;
     for (const auto &group : groups)
     {
@@ -80,7 +80,8 @@ TEST(EmotePopupGroups, EmptySubsectionsAreOmitted)
         const auto groups =
             groupEmotePopup(std::vector<Entry>{entry}, LABELS, groupFor, all);
         ASSERT_EQ(groups.size(), 1U);
-        EXPECT_EQ(groups.front().title, LABELS[entry.zeroWidth ? 1U : 0U]);
+        EXPECT_EQ(groups.front().title,
+                  LABELS[sevenTvPopupEmoteGroup(entry.zeroWidth)]);
         ASSERT_EQ(groups.front().emotes.size(), 1U);
         EXPECT_EQ(groups.front().emotes.front().id, entry.id);
     }
@@ -96,11 +97,11 @@ TEST(EmotePopupGroups, SearchKeepsGroupAndSurvivingEntryOrder)
     ASSERT_EQ(groups.size(), 2U);
     EXPECT_EQ(groups[0].title, LABELS[0]);
     EXPECT_EQ(groups[1].title, LABELS[1]);
-    ASSERT_EQ(groups[0].emotes.size(), 1U);
-    EXPECT_EQ(groups[0].emotes.front().id, 4);
-    ASSERT_EQ(groups[1].emotes.size(), 2U);
-    EXPECT_EQ(groups[1].emotes[0].id, 1);
-    EXPECT_EQ(groups[1].emotes[1].id, 3);
+    ASSERT_EQ(groups[0].emotes.size(), 2U);
+    EXPECT_EQ(groups[0].emotes[0].id, 1);
+    EXPECT_EQ(groups[0].emotes[1].id, 3);
+    ASSERT_EQ(groups[1].emotes.size(), 1U);
+    EXPECT_EQ(groups[1].emotes.front().id, 4);
 }
 
 TEST(EmotePopupGroups, SearchHidesEmptySubsectionsAndAllEmptyResults)
@@ -110,7 +111,7 @@ TEST(EmotePopupGroups, SearchHidesEmptySubsectionsAndAllEmptyResults)
             return entry.name.contains(u"OVERLAY", Qt::CaseInsensitive);
         });
     ASSERT_EQ(overlayOnly.size(), 1U);
-    EXPECT_EQ(overlayOnly.front().title, LABELS[1]);
+    EXPECT_EQ(overlayOnly.front().title, LABELS[0]);
     EXPECT_TRUE(groupEmotePopup(ENTRIES, LABELS, groupFor, [](const Entry &) {
                     return false;
                 }).empty());
@@ -189,4 +190,13 @@ TEST(EmotePopupGroups, TwitchSearchHidesEmptyCategoriesWithoutRelabelling)
     EXPECT_EQ(groups[0].emotes,
               (std::vector<QString>{u"globals"_s, u"smilies"_s}));
     EXPECT_EQ(groups[1].emotes, (std::vector<QString>{u"prime"_s}));
+}
+
+// satorino: pin the same production labels/classifier consumed by all 7TV paths.
+TEST(EmotePopupGroups, SevenTvZeroWidthFirst)
+{
+    EXPECT_EQ(sevenTvPopupEmoteLabels()[0], u"Zero-width emotes"_s);
+    EXPECT_EQ(sevenTvPopupEmoteLabels()[1], u"Emotes"_s);
+    EXPECT_EQ(sevenTvPopupEmoteGroup(true), 0U);
+    EXPECT_EQ(sevenTvPopupEmoteGroup(false), 1U);
 }

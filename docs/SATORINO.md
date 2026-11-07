@@ -1095,7 +1095,8 @@ there is no migration. Existing fixtures do not assume the old default.
 Nothing was compiled; C++ tests and Windows/runtime checks **NOT RUN**.
 
 Part 2 groups every existing Twitch/Kick channel, global and personal 7TV
-section into Emotes then Zero-width emotes from Emote::zeroWidth, including
+section into Zero-width emotes then Emotes (since Stage G batch 19) from
+Emote::zeroWidth, including
 search. Headers reuse the exact emoji makeTitleMessage path; emoji code,
 emote objects, sorting inside groups, links and rendering are unchanged.
 A pure stable partition omits empty groups after the existing name/alias/tag
@@ -1110,3 +1111,11 @@ is deliberately broader; no name/ID guessing, request, subscription or scope
 change is added. Active search rebuilds on emote reload. Eight registered
 pure grouping/type tests added; nothing was compiled, and C++/Windows/live
 checks remain **NOT RUN**.
+
+## Stage G batch 19
+
+Part 1 puts Zero-width emotes before Emotes in every existing 7TV popup
+source and search path, for Twitch and Kick. Production labels/classification
+are shared with a new order regression case; existing partition tests now pin
+that order. Empty groups, per-group sorting, emoji headers and Twitch groups
+are unchanged. Nothing was compiled; C++/Windows checks **NOT RUN**.

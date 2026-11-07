@@ -6,6 +6,19 @@
 
 namespace chatterino::satorino {
 
+const std::array<QString, 2> &sevenTvPopupEmoteLabels()
+{
+    using namespace Qt::StringLiterals;
+    static const std::array<QString, 2> labels{u"Zero-width emotes"_s,
+                                               u"Emotes"_s};
+    return labels;
+}
+
+std::size_t sevenTvPopupEmoteGroup(bool zeroWidth)
+{
+    return zeroWidth ? 0U : 1U;
+}
+
 // satorino: documented Get User Emotes types; unknown/restricted types stay other.
 TwitchPopupEmoteCategory twitchPopupEmoteCategory(QStringView type)
 {

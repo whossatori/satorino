@@ -46,7 +46,6 @@
 #include <QTabWidget>
 
 #include <algorithm>
-#include <array>
 #include <functional>
 #include <map>
 #include <utility>
@@ -278,10 +277,9 @@ void addSevenTVEmotes(Channel &channel, const EmoteMap &map,
                       const QStringList &tags = {})
 {
     const auto groups = satorino::groupEmotePopup(
-        sortedPopupEmotes(map),
-        std::array<QString, 2>{u"Emotes"_s, u"Zero-width emotes"_s},
+        sortedPopupEmotes(map), satorino::sevenTvPopupEmoteLabels(),
         [](const EmotePtr &emote) {
-            return emote->zeroWidth ? 1U : 0U;
+            return satorino::sevenTvPopupEmoteGroup(emote->zeroWidth);
         },
         [&](const EmotePtr &emote) {
             return emoteMatchesSearchAndTags(emote, searchWord, tags);

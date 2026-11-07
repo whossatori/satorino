@@ -14,6 +14,10 @@
 
 namespace chatterino::satorino {
 
+// satorino: one production order/classifier shared with the popup regression tests.
+const std::array<QString, 2> &sevenTvPopupEmoteLabels();
+std::size_t sevenTvPopupEmoteGroup(bool zeroWidth);
+
 // satorino: display metadata only; no changes to emote parsing or availability.
 enum class TwitchPopupEmoteCategory : std::size_t {
     Default,
