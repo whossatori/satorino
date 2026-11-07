@@ -5,7 +5,6 @@
 #include "messages/layouts/MessageLayout.hpp"
 
 #include "Application.hpp"
-#include "controllers/badges/SatorinoBadgeOrder.hpp"  // satorino: layout-only badge order
 #include "controllers/flags/SatorinoSuspiciousUsers.hpp"  // satorino: native message presentation
 #include "controllers/flags/SatorinoFlags.hpp"  // satorino: per-channel local presentation
 #include "controllers/highlights/types/AutomodCaughtHighlight.hpp"
@@ -240,18 +239,8 @@ void MessageLayout::actuallyLayout(const MessageLayoutContext &ctx)
         this->localFlagMark_ = std::make_unique<TextElement>(
             QString::fromUtf8("⚑"), MessageElementFlag::Username,
             MessageColor::System);
-    // satorino: original elements retain visibility, links/tooltips and ownership.
-    auto badgeOrder = satorino::orderedBadgeElements(
-        *this->message_, getApp()->getWindows()->satorinoBadgeOrderRanks(),
-        getSettings()->satorinoBadgeOrderScope.getValue());
-    auto nextBadge = badgeOrder.begin();
-    for (const auto &sourceElement : this->message_->elements)
+    for (const auto &element : this->message_->elements)
     {
-        auto *element = sourceElement.get();
-        if (nextBadge != badgeOrder.end() &&
-            !element->getFlags().has(MessageElementFlag::RepliedMessage) &&
-            dynamic_cast<BadgeElement *>(element))
-            element = *nextBadge++;
         if (hideModerated && this->message_->flags.has(MessageFlag::Disabled))
         {
             continue;

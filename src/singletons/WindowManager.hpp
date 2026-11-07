@@ -6,10 +6,8 @@
 
 #include "common/FlagsEnum.hpp"
 #include "util/SignalListener.hpp"
-#include "util/SatorinoBadgeOrder.hpp"  // satorino: cached ranks, not per-message normalisation
 #include "widgets/splits/SplitContainer.hpp"
 
-#include <boost/signals2/connection.hpp>  // satorino: account callback lifetime
 #include <pajlada/settings/settinglistener.hpp>
 #include <QJsonArray>
 #include <QJsonObject>  // satorino: raid bridge public argument
@@ -141,11 +139,6 @@ public:
     int getGeneration() const;
     void incGeneration();
 
-    // satorino: immutable between settings updates, shared by all layouts.
-    const satorino::BadgeOrderRanks &satorinoBadgeOrderRanks() const
-    {
-        return this->satorinoBadgeRanks_;
-    }
     MessageElementFlags getWordFlags();
     void updateWordTypeMask();
 
@@ -212,8 +205,6 @@ private:
     Window *selectedWindow_{};
 
     MessageElementFlags wordFlags_{};
-    satorino::BadgeOrderRanks satorinoBadgeRanks_;
-    boost::signals2::scoped_connection satorinoBadgeAccountConnection_;
 
     QTimer *saveTimer;
 

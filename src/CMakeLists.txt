@@ -1193,12 +1193,6 @@ set(SOURCE_FILES
         controllers/flags/SatorinoSuspiciousUsers.hpp
         util/EmotePopupGroups.cpp
         util/EmotePopupGroups.hpp
-        util/SatorinoBadgeOrder.cpp
-        util/SatorinoBadgeOrder.hpp
-        controllers/badges/SatorinoBadgeOrder.cpp
-        controllers/badges/SatorinoBadgeOrder.hpp
-        widgets/settingspages/SatorinoBadgeOrder.cpp
-        widgets/settingspages/SatorinoBadgeOrder.hpp
         # satorino: end additional sources
 
         widgets/splits/ClosedSplits.cpp

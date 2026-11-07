@@ -9,7 +9,6 @@
 #include "singletons/WindowManager.hpp"
 #include "widgets/settingspages/GeneralPageView.hpp"
 #include "widgets/settingspages/SettingWidget.hpp"
-#include "widgets/settingspages/SatorinoBadgeOrder.hpp"  // satorino: cache-only preview/order UI
 
 #include <QFrame>
 #include <QShowEvent>
@@ -65,11 +64,6 @@ void SatorinoPage::initLayout(GeneralPageView &layout)
         ->setTooltip("Fill the main window title with the animated satorino "
                      "paint. Turning this off stops its animation timer.")
         ->addTo(layout);
-    // satorino: native list and scope control, no new badge lookup/subscription.
-    layout.addTitle("Badge order");
-    layout.addWidget(new SatorinoBadgeOrder(this),
-                     {"badge", "order", "preview", "scope", "Everyone",
-                      "Only me", "moderator", "VIP", "7TV", "FFZ", "BTTV"});
     layout.addTitle("Channel point redeems");
     const QStringList keywords{"channel points", "rewards", "redeems",
                                "Twitch"};
