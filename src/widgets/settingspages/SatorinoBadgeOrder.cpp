@@ -36,14 +36,19 @@
 #include "widgets/settingspages/GeneralPageView.hpp"
 
 #include <QAbstractItemView>
+#include <QColor>
 #include <QComboBox>
 #include <QDropEvent>
 #include <QHBoxLayout>
 #include <QHideEvent>
+#include <QHash>
 #include <QIcon>
+#include <QImage>
 #include <QLabel>
 #include <QLayoutItem>
 #include <QListWidget>
+#include <QPainter>
+#include <QPen>
 #include <QPixmap>
 #include <QPushButton>
 #include <QShowEvent>
@@ -56,6 +61,7 @@
 #include <algorithm>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -93,28 +99,71 @@ struct PreviewBadge {
     QString kind;
     EmotePtr emote;
     QString tooltip;
+    QColor background;
 };
 
-QString resourceFor(const QString &kind)
+// satorino: a provider-neutral icon, generated without resources or image loading.
+QIcon neutralBadgeIcon()
 {
-    for (const auto &info : badgeKinds())
-        if (info.key == kind)
-            return info.resource;
-    return u":/badges/platform-twitch-18.webp"_s;
+    QPixmap pixels(22, 22);
+    pixels.fill(Qt::transparent);
+    QPainter painter(&pixels);
+    painter.setPen(QPen(QColor(80, 80, 80), 1));
+    painter.setBrush(QColor(160, 160, 160));
+    painter.drawRoundedRect(2, 2, 17, 17, 3, 3);
+    painter.end();
+    return QIcon(pixels);
 }
 
-QIcon previewIcon(const PreviewBadge &badge)
+QColor badgeBackground(const BadgeElement &badge)
 {
-    // Never request pixels: select only an already decoded image on the GUI thread.
-    if (badge.emote)
+    if (badge.type() == ModBadgeElement::TYPE)
+        return QColor(u"#34AE0A"_s);  // same as ModBadgeElement's chat renderer
+    if (const auto *ffz = dynamic_cast<const FfzBadgeElement *>(&badge))
+        return ffz->backgroundColor();
+    return {};
+}
+
+std::optional<QPixmap> cachedBadgePixmap(const PreviewBadge &badge)
+{
+    // Keep the no-load selection and loaded guard: URL metadata is not pixels.
+    if (!badge.emote)
+        return {};
+    const auto &image = badge.emote->images.getImageOrLoadedNoLoad(1.F);
+    if (!image || !image->loaded())
+        return {};
+    const auto pixels = image->pixmapOrLoad();
+    if (!pixels || pixels->isNull() || pixels->width() <= 0 ||
+        pixels->height() <= 0)
+        return {};
+
+    QPixmap rendered = *pixels;
+    if (badge.background.isValid())
     {
-        const auto &image = badge.emote->images.getImageOrLoadedNoLoad(1.F);
-        if (image && image->loaded())
-            if (const auto pixmap = image->pixmapOrLoad();
-                pixmap && !pixmap->isNull())
-                return QIcon(*pixmap);
+        QPixmap composite(pixels->size());
+        composite.setDevicePixelRatio(pixels->devicePixelRatio());
+        composite.fill(badge.background);
+        QPainter painter(&composite);
+        painter.drawPixmap(0, 0, *pixels);
+        painter.end();
+        rendered = composite;
     }
-    return QIcon(resourceFor(badge.kind));
+    rendered = rendered.scaled(QSize(22, 22), Qt::KeepAspectRatio,
+                               Qt::SmoothTransformation);
+    // Validate final pixels as well: transparent artwork must not leave a blank icon.
+    const auto decoded = rendered.toImage();
+    bool hasVisiblePixels = !decoded.isNull() && !decoded.hasAlphaChannel();
+    for (int y = 0; !hasVisiblePixels && y < decoded.height(); ++y)
+        for (int x = 0; x < decoded.width(); ++x)
+            if (qAlpha(decoded.pixel(x, y)) != 0)
+            {
+                hasVisiblePixels = true;
+                break;
+            }
+    if (badgeIconChoice(hasVisiblePixels, rendered.width(),
+                        rendered.height()) != BadgeIconChoice::Real)
+        return {};
+    return rendered;
 }
 
 bool visible(MessageElementFlags flags, bool exhaustive)
@@ -143,17 +192,15 @@ MessagePtr lastOwn(const ChannelPtr &channel, const QString &id)
     return {};
 }
 
-std::vector<PreviewBadge> cachedPreview(bool &placeholder)
+std::vector<PreviewBadge> cachedPreview(bool &loggedOut)
 {
     auto *app = getApp();
     const auto account = app->getAccounts()->twitch.getCurrent();
-    placeholder =
+    loggedOut =
         !account || account->isAnon() ||
         (account->getUserId().isEmpty() || account->getUserId() == u"0");
-    if (placeholder)
-        return {{u"broadcaster"_s, {}, u"Broadcaster (placeholder)"_s},
-                {u"moderator"_s, {}, u"Moderator (placeholder)"_s},
-                {u"vip"_s, {}, u"VIP (placeholder)"_s}};
+    if (loggedOut)
+        return {};  // no invented membership or placeholder entries in the preview
 
     const auto id = account->getUserId();
     std::vector<PreviewBadge> native;
@@ -171,29 +218,28 @@ std::vector<PreviewBadge> cachedPreview(bool &placeholder)
         });
 
     const auto append = [](std::vector<PreviewBadge> &to, const QString &kind,
-                           const EmotePtr &emote, const QString &tooltip) {
-        to.push_back({kind, emote, tooltip});
+                           const EmotePtr &emote, const QString &tooltip,
+                           const QColor &background = {}) {
+        to.push_back({kind, emote, tooltip, background});
     };
     if (known)
         for (const auto &element : known->elements)
         {
             if (element->getFlags().has(MessageElementFlag::RepliedMessage))
                 continue;
-            if (element->getFlags().hasAny(MessageElementFlag::Username,
-                                           MessageElementFlag::KickUsername) &&
-                !element->getFlags().has(MessageElementFlag::RepliedMessage))
+            if (element->getFlags().has(MessageElementFlag::Username))
                 break;
             auto *badge = dynamic_cast<BadgeElement *>(element.get());
             if (!badge || !visible(badge->getFlags(), badge->exhaustiveFlags))
                 continue;
-            const auto kind =
-                badgeOrderKind(*badge, MessagePlatform::AnyOrTwitch);
+            const auto kind = badgeOrderKind(*badge);
             if (ownChannelKnown &&
                 (badge->twitchBadgeSlug() ||
                  badge->type() == ModBadgeElement::TYPE ||
                  badge->type() == VipBadgeElement::TYPE ||
                  badge->getFlags().has(MessageElementFlag::BadgeSharedChannel)))
-                append(native, kind, badge->getEmote(), badge->getTooltip());
+                append(native, kind, badge->getEmote(), badge->getTooltip(),
+                       badgeBackground(*badge));
             else if (!badge->twitchBadgeSlug() &&
                      badge->type() != ModBadgeElement::TYPE &&
                      badge->type() != VipBadgeElement::TYPE)
@@ -202,7 +248,7 @@ std::vector<PreviewBadge> cachedPreview(bool &placeholder)
                 // Preserve unclassified source entries; never deduplicate real badges.
                 if (kind.isEmpty() || kind == u"other")
                     append(providers, kind, badge->getEmote(),
-                           badge->getTooltip());
+                           badge->getTooltip(), badgeBackground(*badge));
             }
             else if (kind == u"global-authority" || kind == u"twitch-other")
             {
@@ -223,13 +269,16 @@ std::vector<PreviewBadge> cachedPreview(bool &placeholder)
         if (auto *badges = app->getTwitchBadges())
             if (auto cached = badges->badge(u"broadcaster"_s))
                 broadcaster = *cached;
-        native.insert(native.begin(), {u"broadcaster"_s, broadcaster,
-                                       u"Broadcaster (own channel assumed)"_s});
+        native.insert(native.begin(), {u"broadcaster"_s,
+                                       broadcaster,
+                                       u"Broadcaster (own channel assumed)"_s,
+                                       {}});
     }
     const auto provider = [&](const QString &kind, const EmotePtr &emote,
-                              MessageElementFlags flags) {
+                              MessageElementFlags flags,
+                              const QColor &background = {}) {
         if (emote && visible(flags, false))
-            append(providers, kind, emote, emote->tooltip.string);
+            append(providers, kind, emote, emote->tooltip.string, background);
     };
     if (auto *badges = app->getChatterinoBadges())
         if (auto badge = badges->getBadge(UserId{id}))
@@ -237,10 +286,12 @@ std::vector<PreviewBadge> cachedPreview(bool &placeholder)
                      MessageElementFlag::BadgeChatterino);
     if (auto *badges = app->getFfzBadges())
         for (const auto &badge : badges->getUserBadges(UserId{id}))
-            provider(u"ffz-user"_s, badge.emote, MessageElementFlag::BadgeFfz);
+            provider(u"ffz-user"_s, badge.emote, MessageElementFlag::BadgeFfz,
+                     badge.color);
     if (ownTwitch)
         for (const auto &badge : ownTwitch->ffzChannelBadges(id))
-            provider(u"ffz-user"_s, badge.emote, MessageElementFlag::BadgeFfz);
+            provider(u"ffz-user"_s, badge.emote, MessageElementFlag::BadgeFfz,
+                     badge.color);
     if (auto *badges = app->getBttvBadges())
         if (auto badge = badges->getBadge(UserId{id}))
             provider(u"bttv"_s, *badge, MessageElementFlag::BadgeBttv);
@@ -250,7 +301,8 @@ std::vector<PreviewBadge> cachedPreview(bool &placeholder)
     // All these getters were inspected: local lookup/materialisation only, never load().
     if (auto *badges = app->getFfzApBadges())
         if (auto badge = badges->getBadge(id))
-            provider(u"ffz-ap"_s, badge->emote, MessageElementFlag::BadgeFfzAp);
+            provider(u"ffz-ap"_s, badge->emote, MessageElementFlag::BadgeFfzAp,
+                     badge->color);
     if (auto *badges = app->getDankChatBadges())
         if (auto badge = badges->getBadge(id))
             provider(u"dankchat"_s, *badge, MessageElementFlag::BadgeDankChat);
@@ -288,6 +340,71 @@ std::vector<PreviewBadge> cachedPreview(bool &placeholder)
     native.insert(native.end(), providers.begin(), providers.end());
     return native;
 }
+
+// satorino: same-kind cached chat samples are for the list, never the own preview.
+QHash<QString, QPixmap> cachedKindIcons(
+    const std::vector<PreviewBadge> &ownBadges)
+{
+    QHash<QString, QPixmap> icons;
+    const auto add = [&](const PreviewBadge &badge) {
+        if (icons.contains(badge.kind))
+            return;
+        if (const auto pixels = cachedBadgePixmap(badge))
+            icons.insert(badge.kind, *pixels);
+    };
+    for (const auto &badge : ownBadges)
+        add(badge);
+
+    auto *app = getApp();
+    auto *server = app->getTwitch();
+    std::vector<ChannelPtr> channels;
+    if (server)
+        server->forEachChannelAndSpecialChannels([&](ChannelPtr channel) {
+            if (channel)
+                channels.push_back(std::move(channel));
+        });
+    // Inspect snapshots after releasing the server's channel mutex.
+    for (const auto &channel : channels)
+    {
+        if (const auto twitch =
+                std::dynamic_pointer_cast<TwitchChannel>(channel))
+        {
+            if (getSettings()->useCustomFfzModeratorBadges.getValue())
+                if (const auto badge = twitch->ffzCustomModBadge())
+                    add({u"ffz-mod"_s, *badge, {}, QColor(u"#34AE0A"_s)});
+            if (getSettings()->useCustomFfzVipBadges.getValue())
+                if (const auto badge = twitch->ffzCustomVipBadge())
+                    add({u"ffz-vip"_s, *badge, {}, {}});
+        }
+        const auto messages = channel->getMessageSnapshot();
+        for (auto it = messages.rbegin(); it != messages.rend(); ++it)
+        {
+            if ((*it)->platform != MessagePlatform::AnyOrTwitch)
+                continue;
+            for (const auto &element : (*it)->elements)
+            {
+                if (element->getFlags().has(MessageElementFlag::RepliedMessage))
+                    continue;
+                if (element->getFlags().has(MessageElementFlag::Username))
+                    break;
+                if (const auto *badge =
+                        dynamic_cast<BadgeElement *>(element.get()))
+                    add({badgeOrderKind(*badge), badge->getEmote(),
+                         badge->getTooltip(), badgeBackground(*badge)});
+            }
+        }
+    }
+    // Existing native set keys, derived from the same Twitch sources as the classifier.
+    if (const auto *badges = app->getTwitchBadges())
+        for (const auto &slug :
+             {u"broadcaster"_s, u"staff"_s, u"admin"_s, u"global_mod"_s,
+              u"moderator"_s, u"lead_moderator"_s, u"vip"_s, u"founder"_s,
+              u"subscriber"_s, u"bits"_s, u"bits-charity"_s, u"bits-leader"_s,
+              u"predictions"_s})
+            if (const auto badge = badges->badge(slug))
+                add({twitchBadgeOrderKind(slug), *badge, {}, {}});
+    return icons;
+}
 }  // namespace
 
 SatorinoBadgeOrder::SatorinoBadgeOrder(QWidget *parent)
@@ -297,7 +414,7 @@ SatorinoBadgeOrder::SatorinoBadgeOrder(QWidget *parent)
     auto *box = new QVBoxLayout(this);
     box->setContentsMargins(0, 0, 0, 0);
     auto *description = new QLabel(
-        u"Drag badge kinds or use Up/Down. Reset keeps the exact original message order."_s,
+        u"Twitch messages only. Drag badge kinds or use Up/Down. Reset keeps the exact original message order."_s,
         this);
     description->setWordWrap(true);
     box->addWidget(description);
@@ -397,17 +514,18 @@ void SatorinoBadgeOrder::rebuildOrder()
             : QString{};
     this->updating_ = true;
     this->list_->clear();
+    const auto placeholder = neutralBadgeIcon();
     for (const auto &key :
          normalizeBadgeKindOrder(getSettings()->satorinoBadgeOrder.getValue()))
         for (const auto &kind : badgeKinds())
             if (kind.key == key)
             {
-                auto *item = new QListWidgetItem(QIcon(kind.resource),
-                                                 kind.label, this->list_);
+                auto *item =
+                    new QListWidgetItem(placeholder, kind.label, this->list_);
                 item->setData(Qt::UserRole, key);
                 item->setToolTip(
                     u"Kind: "_s + key +
-                    u". Generic icon when no decoded badge image is cached."_s);
+                    u". Neutral placeholder until a real badge image is cached."_s);
                 if (key == selected)
                     this->list_->setCurrentItem(item);
                 break;
@@ -452,46 +570,62 @@ void SatorinoBadgeOrder::updateButtons()
 
 void SatorinoBadgeOrder::refreshPreview()
 {
-    bool placeholder = false;
-    auto badges = cachedPreview(placeholder);
+    bool loggedOut = false;
+    auto badges = cachedPreview(loggedOut);
     const auto ranks =
         makeBadgeOrderRanks(getSettings()->satorinoBadgeOrder.getValue());
-    // This preview always represents the current user's own badges, regardless of scope.
+    // The preview always represents own badges, independently of scope.
     badges = stableBadgeOrder(std::move(badges), ranks,
                               [](const PreviewBadge &badge) -> const QString & {
                                   return badge.kind;
                               });
-    this->previewLabel_->setText(
-        placeholder
-            ? u"Placeholder preview — sign in to show cached Twitch badges."_s
-            : u"Your Twitch channel preview — cached badges; broadcaster assumed. Uncached images use generic icons."_s);
-    this->previewLabel_->setToolTip(
-        ranks.custom ? u"Custom badge order"_s
-                     : u"Original message order (default)"_s);
+    const auto icons = cachedKindIcons(badges);
+    const auto placeholder = neutralBadgeIcon();
+    bool hasPlaceholders = false;
+    for (int i = 0; i < this->list_->count(); ++i)
+    {
+        auto *item = this->list_->item(i);
+        const auto key = item->data(Qt::UserRole).toString();
+        const auto found = icons.constFind(key);
+        const bool real = found != icons.cend();
+        item->setIcon(real ? QIcon(found.value()) : placeholder);
+        item->setToolTip(
+            real
+                ? u"Kind: "_s + key + u". Cached chat badge."_s
+                : u"Kind: "_s + key +
+                      u". Neutral placeholder; no usable badge image is cached."_s);
+        hasPlaceholders = hasPlaceholders || !real;
+    }
     while (auto *item = this->preview_->takeAt(0))
     {
         delete item->widget();
         delete item;
     }
+    int shown = 0;
     for (const auto &badge : badges)
     {
+        const auto pixels = cachedBadgePixmap(badge);
+        if (!badgeIconInPreview(pixels ? BadgeIconChoice::Real
+                                       : BadgeIconChoice::Placeholder))
+            continue;
         auto *label = new QLabel(this);
-        label->setPixmap(previewIcon(badge).pixmap(QSize(22, 22)));
+        label->setPixmap(*pixels);
         label->setToolTip(badge.tooltip);
         this->preview_->addWidget(label);
+        ++shown;
     }
     this->preview_->addStretch();
-    for (int i = 0; i < this->list_->count(); ++i)
-    {
-        auto *item = this->list_->item(i);
-        const auto key = item->data(Qt::UserRole).toString();
-        const auto found =
-            std::ranges::find_if(badges, [&](const PreviewBadge &badge) {
-                return badge.kind == key;
-            });
-        item->setIcon(found == badges.end() ? QIcon(resourceFor(key))
-                                            : previewIcon(*found));
-    }
+    auto caption =
+        loggedOut ? u"Sign in to preview your Twitch badges."_s
+        : shown == 0
+            ? u"No badge images are available for your Twitch preview yet."_s
+            : u"Your Twitch channel preview — available badge images; broadcaster assumed."_s;
+    if (hasPlaceholders)
+        caption += u" Generic icons in the list are neutral placeholders."_s;
+    this->previewLabel_->setText(caption);
+    this->previewLabel_->setToolTip(
+        ranks.custom ? u"Custom badge order"_s
+                     : u"Original message order (default)"_s);
 }
 
 void SatorinoBadgeOrder::showEvent(QShowEvent *event)

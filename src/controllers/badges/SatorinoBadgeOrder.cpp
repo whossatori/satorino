@@ -6,9 +6,7 @@
 
 #include "Application.hpp"
 #include "controllers/accounts/AccountController.hpp"
-#include "messages/Emote.hpp"
 #include "messages/MessageElement.hpp"
-#include "providers/kick/KickAccount.hpp"
 #include "providers/twitch/TwitchAccount.hpp"
 
 #include <utility>
@@ -16,7 +14,7 @@
 namespace chatterino::satorino {
 using namespace Qt::StringLiterals;
 
-QString badgeOrderKind(const BadgeElement &badge, MessagePlatform platform)
+QString badgeOrderKind(const BadgeElement &badge)
 {
     if (badge.type() == ModBadgeElement::TYPE)
         return u"ffz-mod"_s;
@@ -53,25 +51,6 @@ QString badgeOrderKind(const BadgeElement &badge, MessagePlatform platform)
         return u"homies"_s;
     if (flags.has(MessageElementFlag::BadgeFolhinha))
         return u"folhinha"_s;
-    if (platform == MessagePlatform::Kick)
-    {
-        if (flags.has(MessageElementFlag::BadgeGlobalAuthority))
-            return u"global-authority"_s;
-        if (flags.has(MessageElementFlag::BadgeSubscription))
-            return u"subscription"_s;
-        // Exact locally generated names from KickBadges::nameDataFor, not remote IDs/patterns.
-        if (flags.has(MessageElementFlag::BadgeChannelAuthority) &&
-            badge.getEmote())
-        {
-            const auto &name = badge.getEmote()->name.string;
-            if (name == u"Broadcaster")
-                return u"broadcaster"_s;
-            if (name == u"Moderator")
-                return u"moderator"_s;
-            if (name == u"VIP")
-                return u"vip"_s;
-        }
-    }
     if (flags.hasAny(MessageElementFlag::BadgeVanity,
                      MessageElementFlag::BadgeSharedChannel,
                      MessageElementFlag::BadgeMoltorino))
@@ -81,29 +60,18 @@ QString badgeOrderKind(const BadgeElement &badge, MessagePlatform platform)
 
 bool isOwnBadgeMessage(const Message &message)
 {
-    if (message.userID.isEmpty() || message.userID == u"0")
+    // satorino: no account lookup or name fallback for non-Twitch messages.
+    if (message.platform != MessagePlatform::AnyOrTwitch ||
+        message.userID.isEmpty() || message.userID == u"0")
         return false;
     auto *app = tryGetApp();
     auto *accounts = app ? app->getAccounts() : nullptr;
     if (!accounts)
         return false;
-    if (message.platform == MessagePlatform::AnyOrTwitch)
-    {
-        // Same account ID check as Split::Split's self-message pulse, without unknown IDs.
-        const auto account = accounts->twitch.getCurrent();
-        return account &&
-               badgeOrderOwnAuthor(message.userID, account->getUserId(),
-                                   !account->isAnon());
-    }
-    if (message.platform == MessagePlatform::Kick)
-    {
-        const auto account = accounts->kick.current();
-        return account &&
-               badgeOrderOwnAuthor(message.userID,
-                                   QString::number(account->userID()),
-                                   !account->isAnonymous());
-    }
-    return false;
+    // Same account ID check as Split::Split's self-message pulse, without unknown IDs.
+    const auto account = accounts->twitch.getCurrent();
+    return account && badgeOrderOwnAuthor(message.userID, account->getUserId(),
+                                          !account->isAnon());
 }
 
 std::vector<BadgeElement *> orderedBadgeElements(const Message &message,
@@ -113,7 +81,8 @@ std::vector<BadgeElement *> orderedBadgeElements(const Message &message,
     // Default and ineligible messages do not scan or sort their badge elements.
     if (!ranks.custom ||
         !badgeOrderApplies(scope,
-                           scope == u"only-me" && isOwnBadgeMessage(message)))
+                           scope == u"only-me" && isOwnBadgeMessage(message),
+                           message.platform == MessagePlatform::AnyOrTwitch))
         return {};
 
     std::vector<BadgeElement *> ordered;
@@ -121,7 +90,7 @@ std::vector<BadgeElement *> orderedBadgeElements(const Message &message,
     const auto flush = [&] {
         auto sorted =
             stableBadgeOrder(std::move(run), ranks, [&](BadgeElement *badge) {
-                return badgeOrderKind(*badge, message.platform);
+                return badgeOrderKind(*badge);
             });
         ordered.insert(ordered.end(), sorted.begin(), sorted.end());
         run.clear();

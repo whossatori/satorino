@@ -713,6 +713,12 @@ public:
     QJsonObject toJson() const override;
     std::string_view type() const override;
 
+    // satorino: cache-only settings icons retain the same background as chat.
+    const QColor &backgroundColor() const
+    {
+        return this->color;
+    }
+
 protected:
     MessageLayoutElement *makeImageLayoutElement(const ImagePtr &image,
                                                  QSizeF size) override;

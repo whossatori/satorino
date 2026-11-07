@@ -17,7 +17,6 @@ namespace chatterino::satorino {
 struct BadgeKindInfo {
     QString key;
     QString label;
-    QString resource;
 };
 
 const std::vector<BadgeKindInfo> &badgeKinds();
@@ -31,7 +30,13 @@ struct BadgeOrderRanks {
     int rank(const QString &kind) const;
 };
 BadgeOrderRanks makeBadgeOrderRanks(const QStringList &saved);
-bool badgeOrderApplies(QStringView scope, bool isOwnMessage);
+// satorino: this setting only changes Twitch badge layout.
+bool badgeOrderApplies(QStringView scope, bool isOwnMessage, bool isTwitch);
+
+enum class BadgeIconChoice { Real, Placeholder };
+// Inputs describe the final decoded/scaled pixels, never URL metadata.
+BadgeIconChoice badgeIconChoice(bool hasVisiblePixels, int width, int height);
+bool badgeIconInPreview(BadgeIconChoice choice);
 bool badgeOrderOwnAuthor(QStringView author, QStringView current,
                          bool loggedIn);
 QString twitchBadgeOrderKind(QStringView slug);

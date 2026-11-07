@@ -100,18 +100,18 @@ TEST(SatorinoBadgeOrder, NoBadgeLostOrDuplicated)
 }
 TEST(SatorinoBadgeOrder, EveryoneIncludesOwnAndOthers)
 {
-    EXPECT_TRUE(badgeOrderApplies(u"everyone", true));
-    EXPECT_TRUE(badgeOrderApplies(u"everyone", false));
+    EXPECT_TRUE(badgeOrderApplies(u"everyone", true, true));
+    EXPECT_TRUE(badgeOrderApplies(u"everyone", false, true));
 }
 TEST(SatorinoBadgeOrder, OnlyMeIncludesOnlyOwn)
 {
-    EXPECT_TRUE(badgeOrderApplies(u"only-me", true));
-    EXPECT_FALSE(badgeOrderApplies(u"only-me", false));
+    EXPECT_TRUE(badgeOrderApplies(u"only-me", true, true));
+    EXPECT_FALSE(badgeOrderApplies(u"only-me", false, true));
 }
 TEST(SatorinoBadgeOrder, UnknownSavedScopeFallsBackToEveryone)
 {
-    EXPECT_TRUE(badgeOrderApplies(u"future-scope", false));
-    EXPECT_TRUE(badgeOrderApplies(u"", false));
+    EXPECT_TRUE(badgeOrderApplies(u"future-scope", false, true));
+    EXPECT_TRUE(badgeOrderApplies(u"", false, true));
 }
 TEST(SatorinoBadgeOrder, OwnAuthorUsesNonemptyLoggedInIdsOnly)
 {
@@ -121,10 +121,10 @@ TEST(SatorinoBadgeOrder, OwnAuthorUsesNonemptyLoggedInIdsOnly)
     EXPECT_FALSE(badgeOrderOwnAuthor(u"", u"123", true));
     EXPECT_FALSE(badgeOrderOwnAuthor(u"123", u"", true));
     EXPECT_FALSE(badgeOrderOwnAuthor(u"0", u"0", true));
-    EXPECT_FALSE(
-        badgeOrderApplies(u"only-me", badgeOrderOwnAuthor(u"", u"", false)));
-    EXPECT_FALSE(
-        badgeOrderApplies(u"only-me", badgeOrderOwnAuthor(u"", u"123", true)));
+    EXPECT_FALSE(badgeOrderApplies(u"only-me",
+                                   badgeOrderOwnAuthor(u"", u"", false), true));
+    EXPECT_FALSE(badgeOrderApplies(
+        u"only-me", badgeOrderOwnAuthor(u"", u"123", true), true));
 }
 TEST(SatorinoBadgeOrder, ExistingNativeSlugsMapToKinds)
 {
@@ -194,18 +194,26 @@ TEST(SatorinoBadgeOrder, FfzRoleReplacementsRemainDistinctKinds)
     mod.setTwitchBadge(u"moderator"_s, u"1"_s);
     VipBadgeElement vip(sample(), MessageElementFlag::BadgeChannelAuthority);
     vip.setTwitchBadge(u"vip"_s, u"1"_s);
-    EXPECT_EQ(badgeOrderKind(mod, MessagePlatform::AnyOrTwitch), u"ffz-mod"_s);
-    EXPECT_EQ(badgeOrderKind(vip, MessagePlatform::AnyOrTwitch), u"ffz-vip"_s);
+    EXPECT_EQ(badgeOrderKind(mod), u"ffz-mod"_s);
+    EXPECT_EQ(badgeOrderKind(vip), u"ffz-vip"_s);
 }
-TEST(SatorinoBadgeOrder, KickRolesUseExistingBuiltinIdentity)
+// Batch 19 classified Kick roles; Batch 20 explicitly preserves their native order.
+TEST(SatorinoBadgeOrder, KickMessagesAlwaysKeepNativeOrder)
 {
-    BadgeElement broadcaster(sample(u"Broadcaster"_s),
-                             MessageElementFlag::BadgeChannelAuthority);
-    BadgeElement moderator(sample(u"Moderator"_s),
-                           MessageElementFlag::BadgeChannelAuthority);
-    EXPECT_EQ(badgeOrderKind(broadcaster, MessagePlatform::Kick),
-              u"broadcaster"_s);
-    EXPECT_EQ(badgeOrderKind(moderator, MessagePlatform::Kick), u"moderator"_s);
+    Message message;
+    message.platform = MessagePlatform::Kick;
+    message.userID = u"123"_s;
+    auto *ffz = addBadge(message, MessageElementFlag::BadgeFfz);
+    auto *chat = addBadge(message, MessageElementFlag::BadgeChatterino);
+    const auto ranks = makeBadgeOrderRanks({u"chatterino"_s, u"ffz-user"_s});
+    for (const auto &scope : {u"everyone"_s, u"only-me"_s, u"unknown"_s})
+    {
+        EXPECT_TRUE(orderedBadgeElements(message, ranks, scope).empty());
+        EXPECT_EQ(message.elements[0].get(), ffz);
+        EXPECT_EQ(message.elements[1].get(), chat);
+    }
+    EXPECT_FALSE(
+        isOwnBadgeMessage(message));  // no Kick account lookup, even with an ID
 }
 
 TEST(SatorinoBadgeOrder, UnknownOwnAuthorBypassesCustomLayoutSort)
@@ -232,4 +240,50 @@ TEST(SatorinoBadgeOrder,
                                    u"everyone"),
               (std::vector<BadgeElement *>{bttv, chat}));
     EXPECT_EQ(message.elements.front().get(), replyBadge);
+}
+
+TEST(SatorinoBadgeOrder, NonTwitchScopeNeverApplies)
+{
+    for (const auto &scope : {u"everyone"_s, u"only-me"_s, u"unknown"_s})
+        for (const bool own : {false, true})
+            EXPECT_FALSE(badgeOrderApplies(scope, own, false));
+}
+
+TEST(SatorinoBadgeOrder, OtherPlatformsAlsoKeepNativeOrder)
+{
+    Message message;
+    message.platform = MessagePlatform::YouTube;
+    message.userID = u"123"_s;
+    addBadge(message, MessageElementFlag::BadgeChatterino);
+    EXPECT_TRUE(orderedBadgeElements(message,
+                                     makeBadgeOrderRanks({u"chatterino"_s}),
+                                     u"everyone")
+                    .empty());
+    EXPECT_FALSE(isOwnBadgeMessage(message));
+}
+
+TEST(SatorinoBadgeOrder, RealVisibleImageBeatsPlaceholder)
+{
+    EXPECT_EQ(badgeIconChoice(true, 22, 22), BadgeIconChoice::Real);
+    EXPECT_TRUE(badgeIconInPreview(badgeIconChoice(true, 18, 36)));
+}
+
+TEST(SatorinoBadgeOrder, MissingOrTransparentImageUsesPlaceholder)
+{
+    EXPECT_EQ(badgeIconChoice(false, 22, 22), BadgeIconChoice::Placeholder);
+    EXPECT_EQ(badgeIconChoice(false, 0, 0), BadgeIconChoice::Placeholder);
+}
+
+TEST(SatorinoBadgeOrder, ZeroOrInvalidSizeUsesPlaceholder)
+{
+    EXPECT_EQ(badgeIconChoice(true, 0, 22), BadgeIconChoice::Placeholder);
+    EXPECT_EQ(badgeIconChoice(true, 22, 0), BadgeIconChoice::Placeholder);
+    EXPECT_EQ(badgeIconChoice(true, -1, 22), BadgeIconChoice::Placeholder);
+}
+
+TEST(SatorinoBadgeOrder, PreviewOmitsEntriesWithoutRealPixels)
+{
+    EXPECT_FALSE(badgeIconInPreview(badgeIconChoice(false, 22, 22)));
+    EXPECT_FALSE(badgeIconInPreview(badgeIconChoice(true, 0, 22)));
+    EXPECT_TRUE(badgeIconInPreview(badgeIconChoice(true, 22, 22)));
 }

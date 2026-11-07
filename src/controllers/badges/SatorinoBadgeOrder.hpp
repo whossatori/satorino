@@ -13,7 +13,7 @@ namespace chatterino {
 class BadgeElement;
 }
 namespace chatterino::satorino {
-QString badgeOrderKind(const BadgeElement &badge, MessagePlatform platform);
+QString badgeOrderKind(const BadgeElement &badge);
 bool isOwnBadgeMessage(const Message &message);
 std::vector<BadgeElement *> orderedBadgeElements(const Message &message,
                                                  const BadgeOrderRanks &ranks,

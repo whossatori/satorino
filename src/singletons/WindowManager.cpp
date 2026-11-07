@@ -814,12 +814,6 @@ void WindowManager::initialize()
                 getSettings()->satorinoBadgeOrderScope.getValue() == u"only-me")
                 this->forceLayoutChannelViews();
         });
-    this->signalHolder.managedConnect(
-        accounts->kick.currentUserChanged, [this] {
-            if (this->satorinoBadgeRanks_.custom &&
-                getSettings()->satorinoBadgeOrderScope.getValue() == u"only-me")
-                this->forceLayoutChannelViews();
-        });
 
     {
         WindowLayout windowLayout;

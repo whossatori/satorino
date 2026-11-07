@@ -1139,3 +1139,26 @@ pixels/logged-out state use labelled embedded placeholders. No join, fetch,
 subscription, parser or badge-server change is added. New sources are in the
 marked CMake block and order/scope/ID/layout tests are registered. Nothing was
 compiled; C++ and Windows/live checks **NOT RUN**.
+
+## Stage G batch 20
+
+Badge order now applies to Twitch messages only; every other platform bypasses
+custom ordering under Everyone and Only me. Only me retains Split's Twitch ID
+check semantics and no longer consults Kick accounts. Existing keys, defaults,
+empty-list native-order sentinel, stable model, scope, Reset and live relayout
+are unchanged: /satorino/badges/order is QStringList, default empty;
+/satorino/badges/orderScope is QString, default everyone (or only-me).
+
+All 24 list rows use real decoded cached Twitch/provider badge images when
+available, otherwise generated neutral squares. No Kick resources or Twitch
+platform glyphs are used as fallbacks. The list can sample existing Twitch
+message/channel caches independently of the current user's own-channel preview.
+FFZ moderator/user/AP backgrounds match their existing chat metadata; a marked
+public read-only FFZ color accessor avoids protected access. Preview entries
+without usable pixels are omitted; the generic-icon note appears only when
+list placeholders exist. The existing visible-page two-second refresh upgrades
+icons from local cache without requests, subscriptions or image loads.
+
+The registered badge suite updates the former Kick classification test to
+native-order bypass coverage and adds Twitch-only scope/icon-choice cases.
+Nothing was compiled; C++ tests and Windows/GUI checks **NOT RUN**.
