@@ -5,6 +5,7 @@
 #include "singletons/WindowManager.hpp"
 
 #include "Application.hpp"
+#include "controllers/accounts/AccountController.hpp"  // satorino: scope invalidation
 #include "common/Args.hpp"
 #include "common/Channel.hpp"
 #include "common/QLogging.hpp"
@@ -184,6 +185,17 @@ WindowManager::WindowManager(const Args &appArgs_, const Paths &paths,
     })
 {
     qCDebug(chatterinoWindowmanager) << "init WindowManager";
+
+    // satorino: rebuild ranks once on changes, before the normal relayout listener.
+    this->satorinoBadgeRanks_ =
+        satorino::makeBadgeOrderRanks(settings.satorinoBadgeOrder.getValue());
+    settings.satorinoBadgeOrder.connect(
+        [this](const QStringList &order) {
+            this->satorinoBadgeRanks_ = satorino::makeBadgeOrderRanks(order);
+        },
+        this->signalHolder);
+    this->forceLayoutChannelViewsListener.add(settings.satorinoBadgeOrder);
+    this->forceLayoutChannelViewsListener.add(settings.satorinoBadgeOrderScope);
 
     this->updateWordTypeMaskListener.add(settings.showTimestamps);
     this->updateWordTypeMaskListener.add(settings.showHeaderTimestamps);
@@ -794,6 +806,20 @@ void WindowManager::setEmotePopupBounds(QRect bounds)
 void WindowManager::initialize()
 {
     assertInGuiThread();
+    // satorino: Only me eligibility follows the current account, even on old messages.
+    auto *accounts = getApp()->getAccounts();
+    this->satorinoBadgeAccountConnection_ =
+        accounts->twitch.currentUserChanged.connect([this] {
+            if (this->satorinoBadgeRanks_.custom &&
+                getSettings()->satorinoBadgeOrderScope.getValue() == u"only-me")
+                this->forceLayoutChannelViews();
+        });
+    this->signalHolder.managedConnect(
+        accounts->kick.currentUserChanged, [this] {
+            if (this->satorinoBadgeRanks_.custom &&
+                getSettings()->satorinoBadgeOrderScope.getValue() == u"only-me")
+                this->forceLayoutChannelViews();
+        });
 
     {
         WindowLayout windowLayout;

@@ -1119,3 +1119,23 @@ source and search path, for Twitch and Kick. Production labels/classification
 are shared with a new order regression case; existing partition tests now pin
 that order. Empty groups, per-group sorting, emoji headers and Twitch groups
 are unchanged. Nothing was compiled; C++/Windows checks **NOT RUN**.
+
+Part 2 adds Badge order with a cached own-channel preview, native drag list,
+Up/Down and Reset. /satorino/badges/order is a QStringList setting, default
+empty: the exact original badge sequence bypasses sorting. Valid custom kind
+keys are deduplicated/normalised with missing known kinds appended; unknown
+kinds stay last and stable. /satorino/badges/orderScope defaults to everyone;
+only-me compares nonempty original-author/platform IDs against the current
+Twitch/Kick account, reusing Split's ID-based self-message check semantics
+(no username fallback). Unknown scope is Everyone; logged-out/unknown author
+is not own. Reset restores native order and Everyone.
+
+Ranks update on setting changes; the existing force-layout listener and
+scoped account-change invalidation refresh open main/mentions/aggregate/popup
+layouts. Only eligible custom badge prefixes are sorted, preserving text
+boundaries and the original element visibility, links/tooltips and ownership.
+The preview reads cached badges/messages and decoded pixels only; missing
+pixels/logged-out state use labelled embedded placeholders. No join, fetch,
+subscription, parser or badge-server change is added. New sources are in the
+marked CMake block and order/scope/ID/layout tests are registered. Nothing was
+compiled; C++ and Windows/live checks **NOT RUN**.

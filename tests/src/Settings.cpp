@@ -279,3 +279,16 @@ TEST(Settings, RaidTabsAreOptIn)
     EXPECT_EQ(app.settings.satorinoRaidsSwitchTab.getPath(),
               "/satorino/raids/switchTab");
 }
+
+// satorino: the absent order key is native order, and scope defaults to everyone.
+TEST(Settings, BadgeOrderDefaultsPreserveNativeOrder)
+{
+    CleanupApplication app("{}", false);
+    EXPECT_TRUE(app.settings.satorinoBadgeOrder.getDefaultValue().isEmpty());
+    EXPECT_TRUE(app.settings.satorinoBadgeOrder.getValue().isEmpty());
+    EXPECT_EQ(app.settings.satorinoBadgeOrder.getPath(),
+              "/satorino/badges/order");
+    EXPECT_EQ(app.settings.satorinoBadgeOrderScope.getValue(), u"everyone"_s);
+    EXPECT_EQ(app.settings.satorinoBadgeOrderScope.getPath(),
+              "/satorino/badges/orderScope");
+}

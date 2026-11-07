@@ -1346,6 +1346,12 @@ public:
     void enableAutoTranslateChannel(const QString &channelName);
     void disableAutoTranslateChannel(const QString &channelName);
 
+    // satorino: empty order preserves the exact native badge sequence.
+    ChatterinoSetting<QStringList> satorinoBadgeOrder = {
+        "/satorino/badges/order", {}};
+    QStringSetting satorinoBadgeOrderScope = {"/satorino/badges/orderScope",
+                                              "everyone"};
+
     // satorino: single-row scrolling for user-managed horizontal tabs.
     BoolSetting satorinoTabScroll = {"/satorino/tabs/scrollEnabled", false};
     // satorino: per-user redeem presentation options; no automatic actions.
