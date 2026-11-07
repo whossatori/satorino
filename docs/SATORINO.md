@@ -228,7 +228,7 @@ untested - no macOS build exists.
 |---|---|
 | `src/widgets/dialogs/SettingsDialog.cpp` | marked include and Satorino tab immediately after General |
 | `src/widgets/helper/SettingsDialogTab.hpp` | append Satorino ID without changing existing IDs |
-| `src/singletons/Settings.hpp` | marked default-on tab scroll setting in the public settings block |
+| `src/singletons/Settings.hpp` | marked tab scroll setting in the public settings block (default off since Stage G batch 18) |
 | `src/widgets/Notebook.cpp` | live refresh of every SplitNotebook when tab scroll changes |
 | `src/CMakeLists.txt` | register SatorinoPage sources in the marked block |
 
@@ -313,7 +313,7 @@ free badge bit was `1LL << 49` as of writing).
 | Upstream file | Why it changes |
 |---|---|
 | `src/CMakeLists.txt` | register every new application source in the marked block |
-| `src/singletons/Settings.hpp` | one marked default-on tab scroll key |
+| `src/singletons/Settings.hpp` | one marked tab scroll key (default off since Stage G batch 18) |
 | `src/widgets/dialogs/SettingsDialog.cpp` | include and add Satorino directly after General |
 | `src/widgets/helper/SettingsDialogTab.hpp` | append Satorino without renumbering existing IDs |
 | `src/widgets/Notebook.hpp` | declare strip/pin hooks and their local state |
@@ -1085,3 +1085,11 @@ keeps the existing unique-open-room listening snapshot and visible-page refresh
 timer. Last-raid/no-event text is removed from the line; feed details and missing
 IDs remain in its tooltip. Listening gates, subscriptions and the real action
 path are unchanged. Nothing was compiled; C++ and Windows checks **NOT RUN**.
+
+## Stage G batch 18
+
+Part 1 changes only the absent-key default of /satorino/tabs/scrollEnabled
+from true to false in Settings.hpp. The key, Tab scroll checkbox and live
+layout behaviour are unchanged. Saved true/false values remain effective;
+there is no migration. Existing fixtures do not assume the old default.
+Nothing was compiled; C++ tests and Windows/runtime checks **NOT RUN**.

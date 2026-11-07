@@ -1347,7 +1347,7 @@ public:
     void disableAutoTranslateChannel(const QString &channelName);
 
     // satorino: single-row scrolling for user-managed horizontal tabs.
-    BoolSetting satorinoTabScroll = {"/satorino/tabs/scrollEnabled", true};
+    BoolSetting satorinoTabScroll = {"/satorino/tabs/scrollEnabled", false};
     // satorino: per-user redeem presentation options; no automatic actions.
     BoolSetting satorinoRedeemsShowDisabled = {"/satorino/redeems/showDisabled",
                                                false};
