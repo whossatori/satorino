@@ -1093,3 +1093,20 @@ from true to false in Settings.hpp. The key, Tab scroll checkbox and live
 layout behaviour are unchanged. Saved true/false values remain effective;
 there is no migration. Existing fixtures do not assume the old default.
 Nothing was compiled; C++ tests and Windows/runtime checks **NOT RUN**.
+
+Part 2 groups every existing Twitch/Kick channel, global and personal 7TV
+section into Emotes then Zero-width emotes from Emote::zeroWidth, including
+search. Headers reuse the exact emoji makeTitleMessage path; emoji code,
+emote objects, sorting inside groups, links and rendering are unchanged.
+A pure stable partition omits empty groups after the existing name/alias/tag
+matcher. The same shared EmotePopup handles all entry points.
+
+Existing Helix user-emote responses already contain emote_type; account
+snapshots now retain only popup classification without changing JSON parsing
+or fetching. Twitch globals show Default emotes (globals/smilies), Hype Train
+emotes (hypetrain), then Other emotes (remaining/missing/unknown types). The
+API cannot distinguish treasure-chest-only rewards, so the Hype Train label
+is deliberately broader; no name/ID guessing, request, subscription or scope
+change is added. Active search rebuilds on emote reload. Eight registered
+pure grouping/type tests added; nothing was compiled, and C++/Windows/live
+checks remain **NOT RUN**.

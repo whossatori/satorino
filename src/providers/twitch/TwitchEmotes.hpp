@@ -8,12 +8,14 @@
 #include "common/UniqueAccess.hpp"
 #include "messages/Emote.hpp"
 #include "providers/twitch/TwitchUser.hpp"
+#include "util/EmotePopupGroups.hpp"  // satorino: popup-only classification
 
 #include <boost/unordered/unordered_flat_map_fwd.hpp>
 #include <QColor>
 #include <QRegularExpression>
 #include <QString>
 
+#include <functional>
 #include <memory>
 #include <unordered_map>
 
@@ -47,6 +49,11 @@ struct TwitchEmoteSet {
     bool isBits = false;
 
     bool isSubLike = false;
+
+    // satorino: classification of already-parsed user emotes, only for the popup.
+    std::unordered_map<EmoteName, satorino::TwitchPopupEmoteCategory,
+                       EmoteNameHash, std::equal_to<>>
+        satorinoPopupCategories;
 
     QString title() const;
 };

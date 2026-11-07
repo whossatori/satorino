@@ -25,9 +25,11 @@
 #include "providers/seventv/SeventvPersonalEmotes.hpp"
 #include "providers/twitch/TwitchAccount.hpp"
 #include "providers/twitch/TwitchChannel.hpp"
+#include "providers/twitch/TwitchEmotes.hpp"  // satorino: popup categories
 #include "singletons/Settings.hpp"
 #include "singletons/Theme.hpp"
 #include "singletons/WindowManager.hpp"
+#include "util/EmotePopupGroups.hpp"  // satorino: popup-only stable subsections
 #include "util/Helpers.hpp"
 #include "util/QStringHash.hpp"
 #include "widgets/helper/ChannelView.hpp"
@@ -38,11 +40,17 @@
 #include <QHBoxLayout>
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
+#include <QString>
 #include <QStringBuilder>
+#include <QStringList>
 #include <QTabWidget>
 
 #include <algorithm>
+#include <array>
+#include <functional>
+#include <map>
 #include <utility>
+#include <vector>
 
 using namespace Qt::Literals;
 
@@ -229,6 +237,77 @@ void addEmotes(Channel &channel, auto &&emotes, const QString &title)
                        MessageContext::Original);
 }
 
+// satorino: reuse the exact title/emote messages used by emoji categories.
+bool emoteMatchesSearchAndTags(const EmotePtr &emote, const QString &queryText,
+                               const QStringList &queryTags);
+
+std::vector<EmotePtr> sortedPopupEmotes(const EmoteMap &map)
+{
+    std::vector<EmotePtr> emotes;
+    emotes.reserve(map.size());
+    for (const auto &[_name, emote] : map)
+    {
+        emotes.push_back(emote);
+    }
+    std::sort(emotes.begin(), emotes.end(), [](const auto &a, const auto &b) {
+        return compareEmoteStrings(a->name.string, b->name.string);
+    });
+    return emotes;
+}
+
+void addEmoteSubsections(
+    Channel &channel, const QString &title,
+    const std::vector<satorino::EmotePopupGroup<EmotePtr>> &groups)
+{
+    if (groups.empty())
+    {
+        return;
+    }
+    channel.addMessage(makeTitleMessage(title), MessageContext::Original);
+    for (const auto &group : groups)
+    {
+        channel.addMessage(makeTitleMessage(group.title),
+                           MessageContext::Original);
+        channel.addMessage(makeEmoteMessageSorted(group.emotes),
+                           MessageContext::Original);
+    }
+}
+
+void addSevenTVEmotes(Channel &channel, const EmoteMap &map,
+                      const QString &title, const QString &searchWord = {},
+                      const QStringList &tags = {})
+{
+    const auto groups = satorino::groupEmotePopup(
+        sortedPopupEmotes(map),
+        std::array<QString, 2>{u"Emotes"_s, u"Zero-width emotes"_s},
+        [](const EmotePtr &emote) {
+            return emote->zeroWidth ? 1U : 0U;
+        },
+        [&](const EmotePtr &emote) {
+            return emoteMatchesSearchAndTags(emote, searchWord, tags);
+        });
+    addEmoteSubsections(channel, title, groups);
+}
+
+// satorino: type is retained on the account snapshot, never inferred from names.
+void addTwitchGlobalEmotes(Channel &channel, const TwitchEmoteSet &set,
+                           const QString &title, const QString &searchWord = {},
+                           const QStringList &tags = {})
+{
+    const auto groups = satorino::groupEmotePopup(
+        sortedPopupEmotes(set.emotes), satorino::twitchPopupEmoteLabels(),
+        [&](const EmotePtr &emote) {
+            const auto type = set.satorinoPopupCategories.find(emote->name);
+            return type == set.satorinoPopupCategories.end()
+                       ? satorino::TwitchPopupEmoteCategory::Other
+                       : type->second;
+        },
+        [&](const EmotePtr &emote) {
+            return emoteMatchesSearchAndTags(emote, searchWord, tags);
+        });
+    addEmoteSubsections(channel, title, groups);
+}
+
 void addTwitchEmoteSets(const std::shared_ptr<const EmoteMap> &local,
                         const std::shared_ptr<const TwitchEmoteSetMap> &sets,
                         Channel &globalChannel, Channel &subChannel,
@@ -262,8 +341,15 @@ void addTwitchEmoteSets(const std::shared_ptr<const EmoteMap> &local,
 
     for (const auto &[title, set] : sortedSets)
     {
-        addEmotes(set.get().isSubLike ? subChannel : globalChannel,
-                  set.get().emotes, title);
+        // satorino: preserve sub/bits sections; subdivide the existing globals.
+        if (set.get().isSubLike)
+        {
+            addEmotes(subChannel, set.get().emotes, title);
+        }
+        else
+        {
+            addTwitchGlobalEmotes(globalChannel, set.get(), title);
+        }
     }
 }
 
@@ -898,15 +984,15 @@ void EmotePopup::reloadEmotes()
         }
         if (getSettings()->enableSevenTVChannelEmotes)
         {
-            addEmotes(*channelChannel, *this->twitchChannel_->seventvEmotes(),
-                      "7TV");
+            addSevenTVEmotes(*channelChannel,
+                             *this->twitchChannel_->seventvEmotes(), "7TV");
         }
 
         for (const auto &map :
              getApp()->getSeventvPersonalEmotes()->getEmoteSetsForTwitchUser(
                  getApp()->getAccounts()->twitch.getCurrent()->getUserId()))
         {
-            addEmotes(*subChannel, *map, "7TV (Personal)");
+            addSevenTVEmotes(*subChannel, *map, "7TV (Personal)");
         }
     }
     if (this->kickChannel_)
@@ -916,8 +1002,8 @@ void EmotePopup::reloadEmotes()
 
         if (Settings::instance().enableSevenTVChannelEmotes)
         {
-            addEmotes(*channelChannel, *this->kickChannel_->seventvEmotes(),
-                      "7TV");
+            addSevenTVEmotes(*channelChannel,
+                             *this->kickChannel_->seventvEmotes(), "7TV");
         }
 
         const auto personalEmotes =
@@ -925,7 +1011,7 @@ void EmotePopup::reloadEmotes()
                 getApp()->getAccounts()->kick.current()->userID());
         for (const auto &map : personalEmotes)
         {
-            addEmotes(*subChannel, *map, "7TV (Personal)");
+            addSevenTVEmotes(*subChannel, *map, "7TV (Personal)");
         }
     }
     // global
@@ -941,8 +1027,8 @@ void EmotePopup::reloadEmotes()
     }
     if (getSettings()->enableSevenTVGlobalEmotes)
     {
-        addEmotes(*globalChannel, *getApp()->getSeventvEmotes()->globalEmotes(),
-                  "7TV");
+        addSevenTVEmotes(*globalChannel,
+                         *getApp()->getSeventvEmotes()->globalEmotes(), "7TV");
     }
 
     this->favouriteEmotes_.clear();
@@ -981,6 +1067,12 @@ void EmotePopup::reloadEmotes()
                                      MessageColor::System);
         subChannel->addMessage(builder.release(), MessageContext::Original);
     }
+
+    // satorino: rebuild active search subsections after the account snapshot reloads.
+    if (!this->search_->text().isEmpty())
+    {
+        this->filterEmotes(this->search_->text());
+    }
 }
 
 bool EmotePopup::eventFilter(QObject *object, QEvent *event)
@@ -1015,6 +1107,13 @@ void EmotePopup::filterTwitchEmotes(std::shared_ptr<Channel> searchChannel,
         for (const auto &[_id, set] :
              **getApp()->getAccounts()->twitch.getCurrent()->accessEmoteSets())
         {
+            // satorino: identical type groups for normal and search views.
+            if (!set.isSubLike)
+            {
+                addTwitchGlobalEmotes(*searchChannel, set, set.title(),
+                                      searchWord, tags);
+                continue;
+            }
             auto filtered = filterEmoteMap(searchWord, tags, set.emotes);
             if (!filtered.empty())
             {
@@ -1036,8 +1135,6 @@ void EmotePopup::filterTwitchEmotes(std::shared_ptr<Channel> searchChannel,
         filterEmoteMap(searchWord, tags, *getApp()->getBttvEmotes()->emotes());
     auto ffzGlobalEmotes =
         filterEmoteMap(searchWord, tags, *getApp()->getFfzEmotes()->emotes());
-    auto seventvGlobalEmotes = filterEmoteMap(
-        searchWord, tags, *getApp()->getSeventvEmotes()->globalEmotes());
 
     if (!bttvGlobalEmotes.empty())
     {
@@ -1047,32 +1144,22 @@ void EmotePopup::filterTwitchEmotes(std::shared_ptr<Channel> searchChannel,
     {
         addEmotes(*searchChannel, ffzGlobalEmotes, "FrankerFaceZ (Global)");
     }
-    if (!seventvGlobalEmotes.empty())
-    {
-        addEmotes(*searchChannel, seventvGlobalEmotes, "7TV (Global)");
-    }
+    addSevenTVEmotes(*searchChannel,
+                     *getApp()->getSeventvEmotes()->globalEmotes(),
+                     "7TV (Global)", searchWord, tags);
 
     if (this->kickChannel_)
     {
-        auto seventvChannelEmotes = filterEmoteMap(
-            searchWord, tags, *this->kickChannel_->seventvEmotes());
-
-        if (!seventvChannelEmotes.empty())
-        {
-            addEmotes(*searchChannel, seventvChannelEmotes, "7TV (Channel)");
-        }
+        addSevenTVEmotes(*searchChannel, *this->kickChannel_->seventvEmotes(),
+                         "7TV (Channel)", searchWord, tags);
 
         const auto personalEmotes =
             getApp()->getSeventvPersonalEmotes()->getEmoteSetsForKickUser(
                 getApp()->getAccounts()->kick.current()->userID());
         for (const auto &map : personalEmotes)
         {
-            auto seventvPersonalEmotes = filterEmoteMap(searchWord, tags, *map);
-            if (!seventvPersonalEmotes.empty())
-            {
-                addEmotes(*searchChannel, seventvPersonalEmotes,
-                          "SevenTV (Personal)");
-            }
+            addSevenTVEmotes(*searchChannel, *map, "SevenTV (Personal)",
+                             searchWord, tags);
         }
     }
 
@@ -1085,8 +1172,6 @@ void EmotePopup::filterTwitchEmotes(std::shared_ptr<Channel> searchChannel,
         filterEmoteMap(searchWord, tags, *this->twitchChannel_->bttvEmotes());
     auto ffzChannelEmotes =
         filterEmoteMap(searchWord, tags, *this->twitchChannel_->ffzEmotes());
-    auto seventvChannelEmotes = filterEmoteMap(
-        searchWord, tags, *this->twitchChannel_->seventvEmotes());
 
     if (!bttvChannelEmotes.empty())
     {
@@ -1096,21 +1181,15 @@ void EmotePopup::filterTwitchEmotes(std::shared_ptr<Channel> searchChannel,
     {
         addEmotes(*searchChannel, ffzChannelEmotes, "FrankerFaceZ (Channel)");
     }
-    if (!seventvChannelEmotes.empty())
-    {
-        addEmotes(*searchChannel, seventvChannelEmotes, "7TV (Channel)");
-    }
+    addSevenTVEmotes(*searchChannel, *this->twitchChannel_->seventvEmotes(),
+                     "7TV (Channel)", searchWord, tags);
 
     for (const auto &map :
          getApp()->getSeventvPersonalEmotes()->getEmoteSetsForTwitchUser(
              getApp()->getAccounts()->twitch.getCurrent()->getUserId()))
     {
-        auto seventvPersonalEmotes = filterEmoteMap(searchWord, tags, *map);
-        if (!seventvPersonalEmotes.empty())
-        {
-            addEmotes(*searchChannel, seventvPersonalEmotes,
-                      "SevenTV (Personal)");
-        }
+        addSevenTVEmotes(*searchChannel, *map, "SevenTV (Personal)", searchWord,
+                         tags);
     }
 }
 

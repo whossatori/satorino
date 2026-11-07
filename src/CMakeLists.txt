@@ -1191,6 +1191,8 @@ set(SOURCE_FILES
         util/SatorinoSuspiciousUsers.hpp
         controllers/flags/SatorinoSuspiciousUsers.cpp
         controllers/flags/SatorinoSuspiciousUsers.hpp
+        util/EmotePopupGroups.cpp
+        util/EmotePopupGroups.hpp
         # satorino: end additional sources
 
         widgets/splits/ClosedSplits.cpp

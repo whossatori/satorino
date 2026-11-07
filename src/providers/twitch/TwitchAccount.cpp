@@ -20,6 +20,7 @@
 #include "providers/twitch/TwitchCommon.hpp"
 #include "providers/twitch/TwitchUsers.hpp"
 #include "util/CancellationToken.hpp"
+#include "util/EmotePopupGroups.hpp"  // satorino: existing user-emote metadata
 #include "util/QStringHash.hpp"
 
 #include <boost/unordered/unordered_flat_map.hpp>
@@ -507,8 +508,15 @@ void TwitchAccount::reloadEmotes(void *caller)
                                     .emotes = {},
                                     .isBits = meta.isBits,
                                     .isSubLike = meta.isSubLike,
+                                    .satorinoPopupCategories = {},
                                 })
                       .first;
+        }
+        // satorino: retain display classification from the existing response only.
+        if (!meta.isSubLike)
+        {
+            set->second.satorinoPopupCategories.emplace(
+                emotePtr->name, satorino::twitchPopupEmoteCategory(emote.type));
         }
         set->second.emotes.emplace(emotePtr->name, std::move(emotePtr));
     };
