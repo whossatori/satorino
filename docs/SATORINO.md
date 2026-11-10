@@ -1131,3 +1131,10 @@ settings-file edit is performed.
 The 7TV zero-width-first popup order and tests, Twitch global emote grouping,
 tab scroll default off and all earlier features are unchanged. Nothing was
 compiled; C++ tests and Windows checks **NOT RUN**.
+
+## Stage G batch 22
+
+Fixed a crash when Twitch whispers were reposted into open chat splits.
+Inline message layout can look up a channel, so the server now snapshots
+the open channels under the registry mutex and releases it before invoking
+callbacks. The Windows app build and live whisper checks are **NOT RUN**.

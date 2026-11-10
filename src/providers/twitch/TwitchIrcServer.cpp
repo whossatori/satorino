@@ -50,6 +50,8 @@
 #include <functional>
 #include <mutex>
 #include <ranges>
+#include <utility>
+#include <vector>
 
 using namespace std::chrono_literals;
 
@@ -1432,17 +1434,23 @@ void TwitchIrcServer::addGlobalSystemMessage(const QString &messageText)
 
 void TwitchIrcServer::forEachChannel(std::function<void(ChannelPtr)> func)
 {
-    std::lock_guard<std::mutex> lock(this->channelMutex);
-
-    for (std::weak_ptr<Channel> &weak : this->channels.values())
+    std::vector<ChannelPtr> activeChannels;
     {
-        ChannelPtr chan = weak.lock();
-        if (!chan)
+        std::lock_guard lock(this->channelMutex);
+        activeChannels.reserve(this->channels.size());
+        for (const auto &weak : std::as_const(this->channels))
         {
-            continue;
+            if (auto channel = weak.lock())
+            {
+                activeChannels.push_back(std::move(channel));
+            }
         }
+    }
 
-        func(chan);
+    // satorino: Inline whisper callbacks can look up channels during layout.
+    for (const auto &channel : activeChannels)
+    {
+        func(channel);
     }
 }
 
