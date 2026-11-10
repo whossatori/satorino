@@ -1200,6 +1200,9 @@ void GeneralPage::initLayout(GeneralPageView &layout)
         ->setTooltip(
             "Badges for Moltorino supporters, top donors, and developers")
         ->addTo(layout);
+    SettingWidget::checkbox("Cyex", s.showBadgesCyex)
+        ->setTooltip("Badges from Cyex Deck on Twitch")
+        ->addTo(layout);
     layout.addSeparator();
     SettingWidget::checkbox("Use custom FrankerFaceZ moderator badges",
                             s.useCustomFfzModeratorBadges)

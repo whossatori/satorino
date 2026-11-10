@@ -65,6 +65,7 @@ class JilChatBadges;
 class LimerinoBadges;
 class BadgeHQBadges;
 class MoltorinoSupporterBadges;
+class CyexBadges;  // satorino
 class RepeatedMessageDetector;
 class IStreamerMode;
 class ITwitchUsers;
@@ -129,6 +130,7 @@ public:
     virtual LimerinoBadges *getLimerinoBadges() = 0;
     virtual BadgeHQBadges *getBadgeHQBadges() = 0;
     virtual MoltorinoSupporterBadges *getMoltorinoSupporterBadges() = 0;
+    virtual CyexBadges *getCyexBadges() = 0;  // satorino
     virtual RepeatedMessageDetector *getRepeatedMessageDetector() = 0;
     virtual IUserDataController *getUserData() = 0;
     virtual ISoundController *getSound() = 0;
@@ -226,6 +228,7 @@ private:
     std::unique_ptr<LimerinoBadges> limerinoBadges;
     std::unique_ptr<BadgeHQBadges> badgeHQBadges;
     std::unique_ptr<MoltorinoSupporterBadges> moltorinoSupporterBadges;
+    std::unique_ptr<CyexBadges> cyexBadges;  // satorino
     std::unique_ptr<RepeatedMessageDetector> repeatedMessageDetector;
     std::unique_ptr<SeventvPaints> seventvPaints;
     std::unique_ptr<SeventvPersonalEmotes> seventvPersonalEmotes;
@@ -293,6 +296,7 @@ public:
     LimerinoBadges *getLimerinoBadges() override;
     BadgeHQBadges *getBadgeHQBadges() override;
     MoltorinoSupporterBadges *getMoltorinoSupporterBadges() override;
+    CyexBadges *getCyexBadges() override;  // satorino
     RepeatedMessageDetector *getRepeatedMessageDetector() override;
     IUserDataController *getUserData() override;
     ISoundController *getSound() override;

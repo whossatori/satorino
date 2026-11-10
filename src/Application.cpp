@@ -42,6 +42,7 @@
 #include "providers/bttv/BttvLiveUpdates.hpp"
 #include "providers/chatsen/ChatsenBadges.hpp"
 #include "providers/chatterino/ChatterinoBadges.hpp"
+#include "providers/cyex/CyexBadges.hpp"
 #include "providers/dankchat/DankChatBadges.hpp"
 #include "providers/ffz/FfzBadges.hpp"
 #include "providers/ffzap/FfzApBadges.hpp"
@@ -220,6 +221,7 @@ Application::Application(Settings &_settings, const Paths &paths,
     , limerinoBadges(new LimerinoBadges)
     , badgeHQBadges(new BadgeHQBadges)
     , moltorinoSupporterBadges(new MoltorinoSupporterBadges)
+    , cyexBadges(new CyexBadges)
     , repeatedMessageDetector(new RepeatedMessageDetector)
     , seventvPaints(new SeventvPaints)
     , seventvPersonalEmotes(new SeventvPersonalEmotes)
@@ -293,6 +295,7 @@ void Application::initialize(Settings &settings, const Paths &paths)
     this->limerinoBadges->initialize();
     this->badgeHQBadges->initialize();
     this->moltorinoSupporterBadges->initialize();
+    this->cyexBadges->initialize();  // satorino
 
     this->bttvEmotes->loadEmotes();
     this->ffzEmotes->loadEmotes();
@@ -610,6 +613,11 @@ MoltorinoSupporterBadges *Application::getMoltorinoSupporterBadges()
     assert(this->moltorinoSupporterBadges);
 
     return this->moltorinoSupporterBadges.get();
+}
+
+CyexBadges *Application::getCyexBadges()
+{
+    return this->cyexBadges.get();
 }
 
 RepeatedMessageDetector *Application::getRepeatedMessageDetector()

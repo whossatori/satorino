@@ -29,6 +29,7 @@
 #include "providers/bttv/BttvEmotes.hpp"
 #include "providers/chatsen/ChatsenBadges.hpp"
 #include "providers/chatterino/ChatterinoBadges.hpp"
+#include "providers/cyex/CyexBadges.hpp"
 #include "providers/colors/ColorProvider.hpp"
 #include "providers/dankchat/DankChatBadges.hpp"
 #include "providers/emoji/Emojis.hpp"
@@ -2193,6 +2194,7 @@ std::pair<MessagePtrMut, HighlightAlert> MessageBuilder::makeIrcMessage(
         builder.appendLimerinoBadges(userID);
         builder.appendHomiesBadges(userID);
         builder.appendFolhinhaBadges(userID);
+        builder.appendCyexBadges(userID);  // satorino
 
         builder.appendUsername(tags, args);
 
@@ -3908,6 +3910,26 @@ void MessageBuilder::appendMoltorinoBadges(const QString &userID)
     }
 }
 
+void MessageBuilder::appendCyexBadges(const QString &userID)
+{
+    if (!getSettings()->showBadgesCyex || userID.isEmpty())
+    {
+        return;
+    }
+
+    const auto *provider = getApp()->getCyexBadges();
+    if (!provider)
+    {
+        return;
+    }
+
+    for (const auto &badge : provider->getBadges(userID))
+    {
+        this->emplace<BadgeElement>(badge, MessageElementFlag::BadgeCyex);
+        this->message().externalBadges.emplace_back(badge->name.string);
+    }
+}
+
 Outcome MessageBuilder::tryAppendCheermote(TextState &state,
                                            const QString &string)
 {
@@ -4177,6 +4199,7 @@ MessagePtr MessageBuilder::makeSelfBadgePreviewMessage(
     builder.appendLimerinoBadges(userId);
     builder.appendHomiesBadges(userId);
     builder.appendFolhinhaBadges(userId);
+    builder.appendCyexBadges(userId);  // satorino
 
     MessageParseArgs args;
     args.isAction = true;

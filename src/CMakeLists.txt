@@ -1193,6 +1193,8 @@ set(SOURCE_FILES
         controllers/flags/SatorinoSuspiciousUsers.hpp
         util/EmotePopupGroups.cpp
         util/EmotePopupGroups.hpp
+        providers/cyex/CyexBadges.cpp
+        providers/cyex/CyexBadges.hpp
         # satorino: end additional sources
 
         widgets/splits/ClosedSplits.cpp

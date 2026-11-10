@@ -237,6 +237,11 @@ public:
         return nullptr;
     }
 
+    CyexBadges *getCyexBadges() override
+    {
+        return nullptr;
+    }
+
     RepeatedMessageDetector *getRepeatedMessageDetector() override
     {
         return nullptr;

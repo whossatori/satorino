@@ -1138,3 +1138,15 @@ Fixed a crash when Twitch whispers were reposted into open chat splits.
 Inline message layout can look up a channel, so the server now snapshots
 the open channels under the registry mutex and releases it before invoking
 callbacks. The Windows app build and live whisper checks are **NOT RUN**.
+
+## Stage G batch 23
+
+Added the Cyex Deck badge provider for Twitch chat, pinned messages and the
+Twitch badge picker's chat preview. The Cyex checkbox in Visible badges is on
+by default.
+Badge kinds load from Cyex at startup. User assignments refresh every 30
+minutes with If-None-Match, keep the previous list on 304 or failure, and
+honor Retry-After on 429. Founders show their number in the tooltip and
+custom badges use the user's own versioned 1x/2x/4x images. New messages
+use the latest successful snapshot. The Windows app build and in-app badge
+checks are **NOT RUN**.
