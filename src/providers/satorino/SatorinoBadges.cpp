@@ -12,6 +12,7 @@
 #include "messages/Image.hpp"
 #include "singletons/Settings.hpp"
 
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSize>
@@ -27,7 +28,8 @@ namespace {
 
 using namespace literals;
 
-constexpr auto BADGE_FEED_URL = "https://satorino.satos.cc/api/badges";
+constexpr auto BADGE_FEED_URL = "https://satorino.satos.cc/api/badges/v2";
+constexpr auto LEGACY_FEED_URL = "https://satorino.satos.cc/api/badges";
 constexpr int REFRESH_INTERVAL_MS = 60 * 1000;
 constexpr int RETRY_INTERVAL_MS = 5 * REFRESH_INTERVAL_MS;
 constexpr qsizetype MAX_PAYLOAD_BYTES = 8 * 1024 * 1024;
@@ -95,7 +97,8 @@ std::optional<satorino::BadgeAssignments> satorino::parseBadgeFeed(
     const auto root = QJsonDocument::fromJson(body).object();
     const auto badgeValue = root.value(u"badges"_s);
     const auto userValue = root.value(u"users"_s);
-    if (root.value(u"version"_s).toInt() != 1 || !badgeValue.isObject() ||
+    const auto version = root.value(u"version"_s).toInt();
+    if ((version != 1 && version != 2) || !badgeValue.isObject() ||
         !userValue.isObject())
     {
         return std::nullopt;
@@ -135,10 +138,35 @@ std::optional<satorino::BadgeAssignments> satorino::parseBadgeFeed(
         {
             continue;
         }
-        if (const auto badge = catalog.find(it.value().toString());
-            badge != catalog.end())
+        if (version == 1)
         {
-            assignments.emplace(id, badge->second);
+            if (const auto badge = catalog.find(it.value().toString());
+                badge != catalog.end())
+            {
+                assignments.emplace(id, std::vector<EmotePtr>{badge->second});
+            }
+            continue;
+        }
+
+        const auto choices = it.value().toArray();
+        if (choices.size() > MAX_BADGE_KINDS)
+        {
+            continue;
+        }
+
+        std::vector<EmotePtr> badges;
+        for (const auto &choice : choices)
+        {
+            const auto badge = catalog.find(choice.toString());
+            if (badge != catalog.end() &&
+                std::ranges::find(badges, badge->second) == badges.end())
+            {
+                badges.push_back(badge->second);
+            }
+        }
+        if (!badges.empty())
+        {
+            assignments.emplace(id, std::move(badges));
         }
     }
     return assignments;
@@ -160,11 +188,11 @@ void SatorinoBadges::initialize()
         this->connections_);
 }
 
-EmotePtr SatorinoBadges::getBadge(const QString &twitchId) const
+std::vector<EmotePtr> SatorinoBadges::getBadges(const QString &twitchId) const
 {
     std::shared_lock lock(this->mutex_);
     const auto it = this->users_.find(twitchId);
-    return it == this->users_.end() ? nullptr : it->second;
+    return it == this->users_.end() ? std::vector<EmotePtr>{} : it->second;
 }
 
 void SatorinoBadges::refresh()
@@ -176,7 +204,12 @@ void SatorinoBadges::refresh()
     }
 
     this->requestInFlight_ = true;
-    auto request = NetworkRequest(BADGE_FEED_URL)
+    this->requestFeed(false);
+}
+
+void SatorinoBadges::requestFeed(bool legacy)
+{
+    auto request = NetworkRequest(legacy ? LEGACY_FEED_URL : BADGE_FEED_URL)
                        .header("Accept", "application/json")
                        .attribute(QNetworkRequest::CacheLoadControlAttribute,
                                   QNetworkRequest::AlwaysNetwork)
@@ -188,14 +221,21 @@ void SatorinoBadges::refresh()
         request = std::move(request).header("If-None-Match", this->etag_);
     }
 
-    const auto handle = [this](const NetworkResult &result) {
-        this->handleResponse(result);
+    const auto handle = [this, legacy](const NetworkResult &result) {
+        this->handleResponse(result, legacy);
     };
     std::move(request).onSuccess(handle).onError(handle).execute();
 }
 
-void SatorinoBadges::handleResponse(const NetworkResult &result)
+void SatorinoBadges::handleResponse(const NetworkResult &result, bool legacy)
 {
+    if (!legacy && result.status() == 404 && getSettings()->showBadgesSatorino)
+    {
+        // The previous server release serves only version 1.
+        this->requestFeed(true);
+        return;
+    }
+
     this->requestInFlight_ = false;
     if (result.status() == 304 && !this->etag_.isEmpty())
     {

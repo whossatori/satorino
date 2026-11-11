@@ -1161,3 +1161,12 @@ New Twitch messages use the latest successful assignments. Badge names
 appear in tooltips and chat filters can match satorino:<id>. Publish
 new artwork with versioned image URLs to refresh the client image cache.
 The Windows app build and in-app badge checks are **NOT RUN**.
+
+## Stage G batch 25
+
+The satorino badge provider reads ordered badge lists from
+/api/badges/v2. It falls back to the single badge feed if the server
+returns 404 for v2. The website limits regular supporters to one
+badge, tier20 supporters to two, and the owner to all five. New Twitch
+messages show the selected badges in order. The Windows app build
+and in-app checks are **NOT RUN**.

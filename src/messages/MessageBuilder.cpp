@@ -3945,7 +3945,7 @@ void MessageBuilder::appendSatorinoBadge(const QString &userID)
         return;
     }
 
-    if (const auto badge = provider->getBadge(userID))
+    for (const auto &badge : provider->getBadges(userID))
     {
         this->emplace<BadgeElement>(badge, MessageElementFlag::BadgeSatorino);
         this->message().externalBadges.emplace_back(badge->name.string);

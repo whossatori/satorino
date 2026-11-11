@@ -15,6 +15,7 @@
 #include <optional>
 #include <shared_mutex>
 #include <unordered_map>
+#include <vector>
 
 namespace chatterino {
 
@@ -22,7 +23,7 @@ class NetworkResult;
 
 namespace satorino {
 
-using BadgeAssignments = std::unordered_map<QString, EmotePtr>;
+using BadgeAssignments = std::unordered_map<QString, std::vector<EmotePtr>>;
 
 std::optional<BadgeAssignments> parseBadgeFeed(const QByteArray &body);
 
@@ -32,11 +33,12 @@ class SatorinoBadges final : public QObject
 {
 public:
     void initialize();
-    EmotePtr getBadge(const QString &twitchId) const;
+    std::vector<EmotePtr> getBadges(const QString &twitchId) const;
 
 private:
     void refresh();
-    void handleResponse(const NetworkResult &result);
+    void requestFeed(bool legacy);
+    void handleResponse(const NetworkResult &result, bool legacy);
 
     QTimer refreshTimer_;
     pajlada::Signals::SignalHolder connections_;
