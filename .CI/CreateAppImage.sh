@@ -51,7 +51,8 @@ script_dir=$(dirname "$script_path")
 chatterino_dir=$(dirname "$script_dir")
 
 echo "Running LDD on app binary:"
-ldd "$app_binary"
+app_dependencies=$(ldd "$app_binary")
+printf '%s\n' "$app_dependencies"
 echo ""
 
 rm -rf appdir
@@ -128,6 +129,25 @@ find appdir/usr/bin appdir/usr/lib appdir/usr/plugins \
     -type f ! -path "appdir/usr/bin/$app_executable" \
     \( -perm -111 -o -name '*.so' -o -name '*.so.*' \) \
     -exec strip --strip-unneeded {} + 2>/dev/null || true
+
+# satorino: keep OpenSSL's original ELF layout. The deployed copies in a
+# Linux release failed OpenSSL initialization and left Qt without TLS.
+if [ "$app_executable" = satorino ]; then
+    for library in ssl crypto; do
+        source_path=$(printf '%s\n' "$app_dependencies" | awk -v library="$library" \
+            '$1 ~ ("^lib" library "\\.so\\.[0-9]") && $2 == "=>" && $3 ~ /^\// { print $3; exit }')
+        if [ ! -f "$source_path" ]; then
+            echo "ERROR: Could not locate the OpenSSL $library library linked by satorino." >&2
+            exit 1
+        fi
+        install -m 0755 "$source_path" "appdir/usr/lib/$(basename "$source_path")"
+    done
+
+    if ! LD_LIBRARY_PATH="$PWD/appdir/usr/lib" openssl rand -hex 1 >/dev/null; then
+        echo "ERROR: OpenSSL initialization failed with the packaged libraries." >&2
+        exit 1
+    fi
+fi
 
 echo "Run AppImageTool"
 
