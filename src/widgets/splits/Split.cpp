@@ -14,6 +14,7 @@
 #include "controllers/notifications/NotificationController.hpp"
 #include "providers/kick/KickAccount.hpp"
 #include "providers/kick/KickChannel.hpp"
+#include "providers/satorino/SatorinoBadges.hpp"  // satorino
 #include "providers/twitch/ChannelManagement.hpp"
 #include "providers/twitch/TwitchAccount.hpp"
 #include "providers/twitch/TwitchBadges.hpp"
@@ -570,6 +571,11 @@ void Split::addShortcuts()
              {
                  getApp()->getTwitchBadges()->loadTwitchBadges(
                      this->getChannel());
+                 // satorino: The full reload also refreshes the site badges.
+                 if (auto *badges = getApp()->getSatorinoBadges())
+                 {
+                     badges->refresh();
+                 }
              }
 
              return "";

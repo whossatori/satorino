@@ -1180,3 +1180,12 @@ seven distinct badge types together. The website allows one artwork
 per paid tier, with three slots for developers and two for testers
 or tier20 supporters. The owner has seven slots. The Windows app build
 and C++ tests are **NOT RUN**.
+
+## Stage G batch 27
+
+Satorino badges load on startup when enabled, when switched on, and when
+the full reload hotkey runs (F5 by default in a chat split). The badge feed
+has no background polling or retry timer. An in-flight request absorbs
+repeated refreshes. Conditional requests, v1 fallback and the last good
+snapshot still apply. New Twitch messages use the refreshed choices.
+Windows compilation and C++ tests are **NOT RUN**.

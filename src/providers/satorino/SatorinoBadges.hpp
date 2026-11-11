@@ -9,7 +9,6 @@
 #include <QByteArray>
 #include <QObject>
 #include <QString>
-#include <QTimer>
 #include <pajlada/signals/signalholder.hpp>
 
 #include <optional>
@@ -33,14 +32,13 @@ class SatorinoBadges final : public QObject
 {
 public:
     void initialize();
+    void refresh();
     std::vector<EmotePtr> getBadges(const QString &twitchId) const;
 
 private:
-    void refresh();
     void requestFeed(bool legacy);
     void handleResponse(const NetworkResult &result, bool legacy);
 
-    QTimer refreshTimer_;
     pajlada::Signals::SignalHolder connections_;
     bool requestInFlight_ = false;
     QByteArray etag_;

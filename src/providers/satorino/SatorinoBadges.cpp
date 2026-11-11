@@ -30,8 +30,6 @@ using namespace literals;
 
 constexpr auto BADGE_FEED_URL = "https://satorino.satos.cc/api/badges/v2";
 constexpr auto LEGACY_FEED_URL = "https://satorino.satos.cc/api/badges";
-constexpr int REFRESH_INTERVAL_MS = 60 * 1000;
-constexpr int RETRY_INTERVAL_MS = 5 * REFRESH_INTERVAL_MS;
 constexpr qsizetype MAX_PAYLOAD_BYTES = 8 * 1024 * 1024;
 constexpr qsizetype MAX_BADGE_KINDS = 64;
 constexpr qsizetype MAX_USERS = 100000;
@@ -174,10 +172,6 @@ std::optional<satorino::BadgeAssignments> satorino::parseBadgeFeed(
 
 void SatorinoBadges::initialize()
 {
-    this->refreshTimer_.setSingleShot(true);
-    this->refreshTimer_.setTimerType(Qt::PreciseTimer);
-    QObject::connect(&this->refreshTimer_, &QTimer::timeout, this,
-                     &SatorinoBadges::refresh);
     getSettings()->showBadgesSatorino.connect(
         [this](bool enabled, auto) {
             if (enabled)
@@ -197,8 +191,8 @@ std::vector<EmotePtr> SatorinoBadges::getBadges(const QString &twitchId) const
 
 void SatorinoBadges::refresh()
 {
-    if (this->requestInFlight_ || this->refreshTimer_.isActive() ||
-        !getSettings()->showBadgesSatorino || isAppAboutToQuit())
+    if (this->requestInFlight_ || !getSettings()->showBadgesSatorino ||
+        isAppAboutToQuit())
     {
         return;
     }
@@ -239,7 +233,6 @@ void SatorinoBadges::handleResponse(const NetworkResult &result, bool legacy)
     this->requestInFlight_ = false;
     if (result.status() == 304 && !this->etag_.isEmpty())
     {
-        this->refreshTimer_.start(REFRESH_INTERVAL_MS);
         return;
     }
 
@@ -252,7 +245,6 @@ void SatorinoBadges::handleResponse(const NetworkResult &result, bool legacy)
                 this->users_.swap(*users);
             }
             this->etag_ = result.etag();
-            this->refreshTimer_.start(REFRESH_INTERVAL_MS);
             return;
         }
         qCWarning(chatterinoApp)
@@ -263,8 +255,6 @@ void SatorinoBadges::handleResponse(const NetworkResult &result, bool legacy)
         qCWarning(chatterinoApp)
             << "[satorino] Badge feed request failed:" << result.formatError();
     }
-
-    this->refreshTimer_.start(RETRY_INTERVAL_MS);
 }
 
 }  // namespace chatterino
