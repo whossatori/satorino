@@ -1238,3 +1238,9 @@ entry names. Both read legacy scaling from the shared profile before Qt
 starts. The portable marker still disables installed-only integration,
 including automatic updates. Windows ignores `--portable-dir`. Linux and
 macOS keep their existing Satorino paths.
+
+## Stage G batch 32
+
+Cyex badges marked animated use the WebP URLs supplied by the badge API.
+At each scale, a missing or rejected animation URL falls back to the
+static image. Custom badges still use the images from the user feed.

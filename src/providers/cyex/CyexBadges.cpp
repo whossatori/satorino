@@ -82,9 +82,21 @@ QString badgeTooltip(const cyex::BadgeKind &kind, qint64 number)
 }
 
 EmotePtr makeBadge(const QString &id, const cyex::BadgeKind &kind,
-                   const QJsonObject &images)
+                   const QJsonObject &definition)
 {
-    const auto image1 = badgeImage(images, u"1x"_s, 1);
+    const auto images = definition.value(u"images"_s).toObject();
+    const auto animated = definition.value(u"animated"_s).toBool()
+                              ? definition.value(u"animatedUrls"_s).toObject()
+                              : QJsonObject{};
+    const auto selectImage = [&](const QString &key, int scale) {
+        auto image = badgeImage(animated, key, scale);
+        if (image->isEmpty())
+        {
+            image = badgeImage(images, key, scale);
+        }
+        return image;
+    };
+    const auto image1 = selectImage(u"1x"_s, 1);
     if (image1->isEmpty())
     {
         return {};
@@ -93,8 +105,8 @@ EmotePtr makeBadge(const QString &id, const cyex::BadgeKind &kind,
     return std::make_shared<const Emote>(Emote{
         .name = EmoteName{u"cyex:"_s + id},
         // ImageSet's third slot is the 4x variant (72 px for an 18 px badge).
-        .images = ImageSet{image1, badgeImage(images, u"2x"_s, 2),
-                           badgeImage(images, u"4x"_s, 4)},
+        .images =
+            ImageSet{image1, selectImage(u"2x"_s, 2), selectImage(u"4x"_s, 4)},
         .tooltip = Tooltip{badgeTooltip(kind, 0)},
         .homePage = Url{},
         .id = EmoteId{id},
@@ -131,8 +143,7 @@ std::optional<cyex::Catalog> cyex::parseCatalog(const QByteArray &body)
                        {}};
         if (id != u"custom"_s)
         {
-            kind.badge =
-                makeBadge(id, kind, object.value(u"images"_s).toObject());
+            kind.badge = makeBadge(id, kind, object);
             if (!kind.badge)
             {
                 continue;
@@ -194,8 +205,7 @@ std::optional<cyex::UserBadges> cyex::parseUsers(const QByteArray &body,
             auto badge = kind->second.badge;
             if (id == u"custom"_s)
             {
-                badge = makeBadge(id, kind->second,
-                                  object.value(u"images"_s).toObject());
+                badge = makeBadge(id, kind->second, object);
             }
             else if (const auto number = object.value(u"number"_s).toInteger();
                      number > 0)

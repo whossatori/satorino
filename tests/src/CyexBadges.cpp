@@ -67,6 +67,42 @@ TEST(CyexBadges, ResolvesCatalogKindsByTwitchIdAndPreservesBadgeOrder)
               catalog->at("founder").badge->images.getImage1());
 }
 
+TEST(CyexBadges, PrefersAnimatedVariantsAndFallsBackPerScale)
+{
+    const auto catalog = cyex::parseCatalog(R"json({
+        "badges": [
+            {
+                "id": "founder", "title": "Cyex Founder", "animated": true,
+                "animatedUrls": {
+                    "1x": "https://api.cyex.app/badges/v1/img/founder/1x.webp?v=7eb01e38",
+                    "2x": "https://api.cyex.app/badges/v1/img/founder/2x.webp?v=7eb01e38",
+                    "4x": "https://other.example/4x.webp"
+                },
+                "images": {
+                    "1x": "https://api.cyex.app/badges/v1/img/founder/1x.png",
+                    "4x": "https://api.cyex.app/badges/v1/img/founder/4x.png"
+                }
+            },
+            {
+                "id": "supporter", "title": "Cyex Supporter", "animated": false,
+                "animatedUrls": {"1x": "https://api.cyex.app/badges/v1/img/supporter/1x.webp"},
+                "images": {"1x": "https://api.cyex.app/badges/v1/img/supporter/1x.png"}
+            }
+        ]
+    })json");
+    ASSERT_TRUE(catalog);
+    ASSERT_EQ(catalog->size(), 2U);
+    const auto &founder = catalog->at("founder").badge->images;
+    EXPECT_EQ(founder.getImage1()->url().string,
+              "https://api.cyex.app/badges/v1/img/founder/1x.webp?v=7eb01e38");
+    EXPECT_EQ(founder.getImage2()->url().string,
+              "https://api.cyex.app/badges/v1/img/founder/2x.webp?v=7eb01e38");
+    EXPECT_EQ(founder.getImage3()->url().string,
+              "https://api.cyex.app/badges/v1/img/founder/4x.png");
+    EXPECT_EQ(catalog->at("supporter").badge->images.getImage1()->url().string,
+              "https://api.cyex.app/badges/v1/img/supporter/1x.png");
+}
+
 TEST(CyexBadges, CustomUsesItsOwnContentAddressedImages)
 {
     const auto catalog = cyex::parseCatalog(CATALOG);
