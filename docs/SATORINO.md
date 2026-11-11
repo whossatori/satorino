@@ -1204,3 +1204,9 @@ signing and Apple notarization are needed for normal public Mac distribution.
 Installed apps use Satorino's own settings directory and keychain service.
 The Windows installer uses a per-user install and leaves profiles in place
 on uninstall. Portable settings stay beside the executable.
+
+## Stage G batch 29
+
+The Linux package check launches the AppImage's bundled X11 platform
+under Xvfb. The macOS package check passes the input file before
+`lipo -verify_arch` so both CPU architectures are verified.

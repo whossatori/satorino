@@ -316,7 +316,7 @@ jobs:
             g++-14 ninja-build libboost-json-dev libboost-filesystem-dev libgl-dev libnotify-dev \
             libsecret-1-dev libssl-dev libfuse2t64 libxcb-cursor0 libxcb-xinerama0 libxkbcommon-x11-0 \
             libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-xkb1 \
-            libx11-xcb1 patchelf
+            libx11-xcb1 patchelf xvfb xauth
 
       - name: Install Qt6
         uses: jurplel/install-qt-action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4.4.1
@@ -352,9 +352,11 @@ jobs:
           ./satorino-x86_64.AppImage --appimage-extract >/dev/null
           test -x squashfs-root/usr/bin/satorino
           test -n "$(find squashfs-root -name libqwebp.so -print -quit)"
+          test -n "$(find squashfs-root -name libqxcb.so -print -quit)"
+          # Test the X11 platform shipped in the AppImage with a virtual display.
           env -u QT_PLUGIN_PATH -u LD_LIBRARY_PATH \
-            QT_QPA_PLATFORM=offscreen XDG_DATA_HOME="$RUNNER_TEMP/satorino-smoke-data" \
-            ./squashfs-root/AppRun --version
+            QT_QPA_PLATFORM=xcb XDG_DATA_HOME="$RUNNER_TEMP/satorino-smoke-data" \
+            xvfb-run -a ./squashfs-root/AppRun --version
           mv satorino-x86_64.AppImage satorino-linux-x86_64.AppImage
 
       - name: Upload Linux AppImage
@@ -430,7 +432,7 @@ jobs:
             "$app/Contents/Frameworks/libssl.3.dylib" \
             "$app/Contents/Frameworks/libcrypto.3.dylib" \
             "$app/Contents/PlugIns/imageformats/libqwebp.dylib"; do
-            lipo -verify_arch arm64 x86_64 "$file"
+            lipo "$file" -verify_arch arm64 x86_64
           done
           codesign --verify --deep --strict "$app"
           mkdir dmg
