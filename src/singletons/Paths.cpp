@@ -15,6 +15,7 @@
 #include <QStandardPaths>
 
 #include <cassert>
+#include <stdexcept>
 
 using namespace std::literals;
 
@@ -75,8 +76,27 @@ void Paths::initAppFilePathHash()
             .replace("/", "x");
 }
 
-void Paths::initRootDirectory(const Args &args, const Modes &modes)
+#ifdef Q_OS_WIN
+QString Paths::windowsProfileDirectory()
 {
+    const auto appData = qEnvironmentVariable("APPDATA");
+    return QDir::isAbsolutePath(appData) ? combinePath(appData, "Chatterino2")
+                                         : QString{};
+}
+#endif
+
+void Paths::initRootDirectory([[maybe_unused]] const Args &args,
+                              [[maybe_unused]] const Modes &modes)
+{
+#ifdef Q_OS_WIN
+    // satorino: both Windows distributions open the existing shared profile.
+    this->rootAppDataDirectory = windowsProfileDirectory();
+    if (this->rootAppDataDirectory.isEmpty())
+    {
+        throw std::runtime_error("Cannot locate the Chatterino2 profile "
+                                 "because APPDATA is unavailable.");
+    }
+#else
     this->rootAppDataDirectory = [&]() -> QString {
         if (modes.isPortable)
         {
@@ -98,6 +118,7 @@ void Paths::initRootDirectory(const Args &args, const Modes &modes)
         }
         return path;
     }();
+#endif
 }
 
 void Paths::initSubDirectories()

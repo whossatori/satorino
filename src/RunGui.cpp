@@ -57,9 +57,7 @@ QString guiActivationServerName(const Paths &paths)
 {
     const auto hash = QCryptographicHash::hash(
         paths.rootAppDataDirectory.toUtf8(), QCryptographicHash::Sha256);
-    // satorino: single-instance key (renamed from "leafyrino-*") so satorino
-    // and leafyrino can run side by side; the settings dir stays shared via
-    // setApplicationName("chatterino") in src/main.cpp.
+    // satorino: Only activate other Satorino windows for this profile.
     return QStringLiteral("satorino-gui-activate-%1")
         .arg(QString::fromLatin1(hash.toHex().left(24)));
 }

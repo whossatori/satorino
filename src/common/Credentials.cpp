@@ -45,19 +45,23 @@ QString formatName(const QString &provider, const QString &name)
 
 bool useKeyring()
 {
-#ifdef NO_QTKEYCHAIN
+#if defined(NO_QTKEYCHAIN)
     return false;
-#endif
+#elif defined(Q_OS_WIN)
+    // satorino: The shared Windows profile uses Chatterino's credential store.
+    return true;
+#else
     Modes modes(getApp()->getArgs());
     if (modes.isPortable)
     {
         return false;
     }
 
-#ifdef Q_OS_LINUX
+#    ifdef Q_OS_LINUX
     return getSettings()->useKeyring;
-#else
+#    else
     return true;
+#    endif
 #endif
 }
 
@@ -136,13 +140,20 @@ struct EraseJob {
 using Job = std::variant<SetJob, EraseJob>;
 
 #ifndef NO_QTKEYCHAIN
-// satorino: Keep installed credentials in a separate system keychain service.
+#    ifdef Q_OS_WIN
+constexpr auto KEYCHAIN_SERVICE = "chatterino";
+#    else
 constexpr auto KEYCHAIN_SERVICE = "satorino";
+#    endif
 
 QString keychainKey(const QString &name)
 {
+#    ifdef Q_OS_WIN
+    return name;
+#    else
     // Some QtKeychain backends identify entries by key alone.
     return QStringLiteral("satorino:") + name;
+#    endif
 }
 
 QString keychainErrorText(const QKeychain::Job *job)

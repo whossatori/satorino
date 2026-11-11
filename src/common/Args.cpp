@@ -190,7 +190,8 @@ Args::Args(const QApplication &app)
     QCommandLineOption portableEnable("portable", "Enable portable mode.");
 
     QCommandLineOption portableDirectory(
-        "portable-dir", "Directory to use when portable mode is enabled.",
+        "portable-dir",
+        "Directory to use in portable mode on non-Windows builds.",
         "directory");
 
 #ifndef NDEBUG

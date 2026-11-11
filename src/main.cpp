@@ -85,9 +85,18 @@ bool jsonPointerBoolIsTrue(const QString &filePath, const char *jsonPointerPath)
 }
 
 // Find possible `settings.json` locations before QApplication is created
-QStringList legacyScalingSettingsJsonCandidates(int argc, char **argv)
+QStringList legacyScalingSettingsJsonCandidates([[maybe_unused]] int argc,
+                                                [[maybe_unused]] char **argv)
 {
     QStringList candidates;
+#if defined(Q_OS_WIN)
+    const auto profile = Paths::windowsProfileDirectory();
+    if (!profile.isEmpty())
+    {
+        candidates << combinePath(profile,
+                                  QStringLiteral("Settings/settings.json"));
+    }
+#else
     const QFileInfo fi(QString::fromLocal8Bit(argc > 0 ? argv[0] : ""));
     const QString appDir = fi.absoluteDir().absolutePath();
     QFile modesFile(combinePath(appDir, QStringLiteral("modes")));
@@ -107,14 +116,7 @@ QStringList legacyScalingSettingsJsonCandidates(int argc, char **argv)
         return candidates;
     }
 
-#if defined(Q_OS_WIN)
-    QString base = QString::fromLocal8Bit(qgetenv("APPDATA"));
-    if (!base.isEmpty())
-    {
-        candidates << combinePath(
-            base, QStringLiteral("satorino/Settings/settings.json"));
-    }
-#elif defined(Q_OS_MACOS)
+#    if defined(Q_OS_MACOS)
     const QString home = QString::fromLocal8Bit(qgetenv("HOME"));
     if (!home.isEmpty())
     {
@@ -123,7 +125,7 @@ QStringList legacyScalingSettingsJsonCandidates(int argc, char **argv)
                         QStringLiteral("Library/Application Support/satorino")),
             QStringLiteral("Settings/settings.json"));
     }
-#else
+#    else
     const QString home = QString::fromLocal8Bit(qgetenv("HOME"));
     if (!home.isEmpty())
     {
@@ -136,6 +138,7 @@ QStringList legacyScalingSettingsJsonCandidates(int argc, char **argv)
             combinePath(xdgData, QStringLiteral("satorino")),
             QStringLiteral("Settings/settings.json"));
     }
+#    endif
 #endif
     return candidates;
 }
@@ -164,7 +167,7 @@ int main(int argc, char **argv)
 
     QApplication a(argc, argv);
 
-    // satorino: Use a separate installed profile from upstream Chatterino.
+    // satorino: Keep the application identity separate from profile selection.
     QCoreApplication::setApplicationName("satorino");
     QCoreApplication::setApplicationVersion(CHATTERINO_VERSION);
     QCoreApplication::setOrganizationDomain("satos.cc");
@@ -191,6 +194,8 @@ int main(int argc, char **argv)
     catch (std::runtime_error &error)
     {
         QMessageBox box;
+        box.setText(error.what());
+#ifndef Q_OS_WIN
         if (modes.isPortable)
         {
             auto errorMessage =
@@ -204,10 +209,7 @@ int main(int argc, char **argv)
             std::cerr.flush();
             box.setText(errorMessage);
         }
-        else
-        {
-            box.setText(error.what());
-        }
+#endif
         box.exec();
         return 1;
     }

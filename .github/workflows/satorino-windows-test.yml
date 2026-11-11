@@ -10,10 +10,8 @@
 #     docs/SATORINO.md)
 #   - CHATTERINO_UPDATER=OFF       : no satorino release feed exists
 #   - crashpad OFF, LTO OFF        : faster test builds
-#   - the zip carries a `modes` file containing "portable" next to
-#     satorino.exe (src/common/Modes.cpp), so the build stores ALL
-#     settings/caches/logs next to the exe and never reads or writes
-#     the installed Satorino profile in %APPDATA%\satorino.
+#   - the zip carries a portable marker to disable the installed updater.
+#     Both Windows distributions use %APPDATA%\Chatterino2.
 #   - the conan runtime DLLs (libssl-3-x64.dll, libcrypto-3-x64.dll) are
 #     copied from build/bin into the package: satorino.exe imports them
 #     directly and windeployqt does not deploy them. Upstream gets them via
@@ -164,9 +162,7 @@ jobs:
           # conan runtime DLLs (OpenSSL etc.) - satorino.exe imports these directly
           Copy-Item bin\*.dll satorino\ -Force
           ..\.CI\deploy-crt.ps1 satorino
-          # Portable mode (src/common/Modes.cpp): a `modes` file containing the
-          # line "portable" next to satorino.exe keeps ALL settings, caches and
-          # logs next to the exe.
+          # The portable marker disables installed-only integration.
           Write-Output portable | Out-File satorino/modes -Encoding ASCII
           7z a satorino-windows-x64-portable.zip satorino/
           Get-Content satorino/modes
@@ -237,12 +233,14 @@ jobs:
           if ((Get-FileHash "$installed/satorino.exe").Hash -ne (Get-FileHash "$payload/satorino.exe").Hash) {
             throw 'Setup installed a different executable from the packaged build.'
           }
+          $env:APPDATA = Join-Path $env:RUNNER_TEMP 'satorino-installed-smoke-appdata'
           $app = Start-Process -FilePath "$installed/satorino.exe" -WindowStyle Hidden -PassThru
           try {
             Start-Sleep -Seconds 10
             if ($app.HasExited) { throw "Installed app exited during startup: $($app.ExitCode)" }
-            if (!(Test-Path "$env:APPDATA/satorino/Settings" -PathType Container)) {
-              throw 'Installed app did not create its own settings directory.'
+            if (!(Test-Path "$env:APPDATA/Chatterino2/Settings" -PathType Container) -or
+                (Test-Path "$env:APPDATA/satorino") -or (Test-Path "$installed/Settings")) {
+              throw 'Installed app did not use the Chatterino2 profile.'
             }
           } finally {
             if (!$app.HasExited) { Stop-Process -Id $app.Id -Force }
@@ -280,6 +278,7 @@ jobs:
         timeout-minutes: 3
         run: |
           $env:QT_FORCE_STDERR_LOGGING = '1'
+          $env:APPDATA = Join-Path $env:RUNNER_TEMP 'satorino-portable-smoke-appdata'
           $exe = (Resolve-Path 'satorino/satorino.exe').Path
           $p = Start-Process -FilePath $exe -PassThru `
               -RedirectStandardOutput smoke-stdout.txt `
@@ -295,6 +294,10 @@ jobs:
           }
           Write-Host 'satorino.exe still running after 10 s - OK'
           Stop-Process -Id $p.Id -Force
+          if (!(Test-Path "$env:APPDATA/Chatterino2/Settings" -PathType Container) -or
+              (Test-Path "$env:APPDATA/satorino") -or (Test-Path 'satorino/Settings')) {
+            throw 'Portable app did not use the Chatterino2 profile.'
+          }
           Write-Host '--- stderr (first 40 lines) ---'
           Get-Content smoke-stderr.txt -TotalCount 40 -ErrorAction SilentlyContinue
 

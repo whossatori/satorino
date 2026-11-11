@@ -1229,3 +1229,12 @@ Ad hoc CI DMGs can be tested manually. To distribute automatic Mac updates,
 publish a Developer ID signed and notarized bundle in the DMG.
 
 Badge tooltips use the `sato` provider prefix across artwork variants.
+
+## Stage G batch 31
+
+On Windows, installer and portable builds use `%APPDATA%\Chatterino2`
+directly, including the matching Windows Credential Manager service and
+entry names. Both read legacy scaling from the shared profile before Qt
+starts. The portable marker still disables installed-only integration,
+including automatic updates. Windows ignores `--portable-dir`. Linux and
+macOS keep their existing Satorino paths.
