@@ -7,6 +7,10 @@
 #include "messages/Image.hpp"
 #include "Test.hpp"
 
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+
 using namespace chatterino;
 
 TEST(SatorinoBadges, ResolvesActiveBadgesByTwitchId)
@@ -130,4 +134,32 @@ TEST(SatorinoBadges, VersionTwoPreservesSelectionOrderAndSkipsInvalidIds)
     ASSERT_EQ(supporter.size(), 2U);
     EXPECT_EQ(supporter[0]->id.string, "founder");
     EXPECT_EQ(supporter[1]->id.string, "tier20");
+}
+
+TEST(SatorinoBadges, ExpandedRosterShowsAllSevenSelectedBadgeTypes)
+{
+    const QJsonArray selected{"owner",    "dev",       "tester",   "founder",
+                              "tier5-v4", "tier10-v2", "tier20-v3"};
+    QJsonObject definitions;
+    for (const auto &value : selected)
+    {
+        const auto id = value.toString();
+        definitions.insert(
+            id, QJsonObject{{"name", id},
+                            {"image1x", "https://satorino.satos.cc/badges/" +
+                                            id + "-1x.png"}});
+    }
+    const QJsonObject root{{"version", 2},
+                           {"badges", definitions},
+                           {"users", QJsonObject{{"42", selected}}}};
+    const auto badges = satorino::parseBadgeFeed(QJsonDocument(root).toJson());
+    ASSERT_TRUE(badges);
+    ASSERT_TRUE(badges->contains("42"));
+    const auto &owner = badges->at("42");
+    ASSERT_EQ(owner.size(), 7U);
+    for (qsizetype i = 0; i < selected.size(); ++i)
+    {
+        EXPECT_EQ(owner[static_cast<size_t>(i)]->id.string,
+                  selected[i].toString());
+    }
 }

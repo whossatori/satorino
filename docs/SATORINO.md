@@ -1170,3 +1170,13 @@ returns 404 for v2. The website limits regular supporters to one
 badge, tier20 supporters to two, and the owner to all five. New Twitch
 messages show the selected badges in order. The Windows app build
 and in-app checks are **NOT RUN**.
+
+## Stage G batch 26
+
+The expanded website roster is Owner, Developer, Tester, Founder and
+four artwork choices for each paid tier. The existing loader handles
+all badge IDs and keeps their selected order. A regression covers all
+seven distinct badge types together. The website allows one artwork
+per paid tier, with three slots for developers and two for testers
+or tier20 supporters. The owner has seven slots. The Windows app build
+and C++ tests are **NOT RUN**.
