@@ -136,6 +136,15 @@ struct EraseJob {
 using Job = std::variant<SetJob, EraseJob>;
 
 #ifndef NO_QTKEYCHAIN
+// satorino: Keep installed credentials in a separate system keychain service.
+constexpr auto KEYCHAIN_SERVICE = "satorino";
+
+QString keychainKey(const QString &name)
+{
+    // Some QtKeychain backends identify entries by key alone.
+    return QStringLiteral("satorino:") + name;
+}
+
 QString keychainErrorText(const QKeychain::Job *job)
 {
     const auto detail = job->errorString().trimmed();
@@ -210,9 +219,10 @@ void runNextJob()
         std::visit(
             variant::Overloaded{
                 [](SetJob &set) {
-                    auto *job = new QKeychain::WritePasswordJob("chatterino");
+                    auto *job =
+                        new QKeychain::WritePasswordJob(KEYCHAIN_SERVICE);
                     job->setAutoDelete(true);
-                    job->setKey(set.name);
+                    job->setKey(keychainKey(set.name));
                     job->setTextData(set.credential);
                     QObject::connect(
                         job, &QKeychain::Job::finished,
@@ -225,9 +235,10 @@ void runNextJob()
                     job->start();
                 },
                 [](EraseJob &erase) {
-                    auto *job = new QKeychain::DeletePasswordJob("chatterino");
+                    auto *job =
+                        new QKeychain::DeletePasswordJob(KEYCHAIN_SERVICE);
                     job->setAutoDelete(true);
-                    job->setKey(erase.name);
+                    job->setKey(keychainKey(erase.name));
                     QObject::connect(
                         job, &QKeychain::Job::finished,
                         QApplication::instance(),
@@ -279,9 +290,9 @@ void Credentials::get(const QString &provider, const QString &name_,
     {
 #ifndef NO_QTKEYCHAIN
 
-        auto *job = new QKeychain::ReadPasswordJob("chatterino");
+        auto *job = new QKeychain::ReadPasswordJob(KEYCHAIN_SERVICE);
         job->setAutoDelete(true);
-        job->setKey(name);
+        job->setKey(keychainKey(name));
         QObject::connect(
             job, &QKeychain::Job::finished, receiver,
             [job, onLoaded = std::move(onLoaded)](auto) mutable {
@@ -310,9 +321,9 @@ void Credentials::get(const QString &provider, const QString &name_,
     if (useKeyring())
     {
 #ifndef NO_QTKEYCHAIN
-        auto *job = new QKeychain::ReadPasswordJob("chatterino");
+        auto *job = new QKeychain::ReadPasswordJob(KEYCHAIN_SERVICE);
         job->setAutoDelete(true);
-        job->setKey(name);
+        job->setKey(keychainKey(name));
         QObject::connect(
             job, &QKeychain::Job::finished, receiver,
             [job, onLoaded = std::move(onLoaded)](auto) mutable {

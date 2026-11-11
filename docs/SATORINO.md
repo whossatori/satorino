@@ -1189,3 +1189,18 @@ has no background polling or retry timer. An in-flight request absorbs
 repeated refreshes. Conditional requests, v1 fallback and the last good
 snapshot still apply. New Twitch messages use the refreshed choices.
 Windows compilation and C++ tests are **NOT RUN**.
+
+## Stage G batch 28
+
+Build release files from **satorino Windows Test Build** in GitHub Actions.
+Select the source branch and enable **Build Windows installer, Linux
+AppImage, and macOS DMG** in the manual run form. The run uploads the
+Windows x64 setup, Linux x86-64 AppImage built on Ubuntu 24.04, and a
+universal macOS DMG for macOS 14.4 and later. Download and extract each
+Actions artifact and attach the individual files to a GitHub Release after
+testing. The macOS app uses ad hoc signing for testing. Developer ID
+signing and Apple notarization are needed for normal public Mac distribution.
+
+Installed apps use Satorino's own settings directory and keychain service.
+The Windows installer uses a per-user install and leaves profiles in place
+on uninstall. Portable settings stay beside the executable.

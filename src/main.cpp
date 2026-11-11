@@ -89,7 +89,17 @@ QStringList legacyScalingSettingsJsonCandidates(int argc, char **argv)
     QStringList candidates;
     const QFileInfo fi(QString::fromLocal8Bit(argc > 0 ? argv[0] : ""));
     const QString appDir = fi.absoluteDir().absolutePath();
-    if (QFile::exists(combinePath(appDir, QStringLiteral("portable"))))
+    QFile modesFile(combinePath(appDir, QStringLiteral("modes")));
+    bool portable =
+        QFile::exists(combinePath(appDir, QStringLiteral("portable")));
+    if (modesFile.open(QIODevice::ReadOnly))
+    {
+        while (!portable && !modesFile.atEnd())
+        {
+            portable = modesFile.readLine().trimmed() == "portable";
+        }
+    }
+    if (portable)
     {
         candidates << combinePath(appDir,
                                   QStringLiteral("Settings/settings.json"));
@@ -100,19 +110,16 @@ QStringList legacyScalingSettingsJsonCandidates(int argc, char **argv)
     QString base = QString::fromLocal8Bit(qgetenv("APPDATA"));
     if (!base.isEmpty())
     {
-        base.replace(QStringLiteral("chatterino"), QStringLiteral("Chatterino"),
-                     Qt::CaseInsensitive);
-        base += QStringLiteral("2");
-        candidates << combinePath(base,
-                                  QStringLiteral("Settings/settings.json"));
+        candidates << combinePath(
+            base, QStringLiteral("satorino/Settings/settings.json"));
     }
 #elif defined(Q_OS_MACOS)
     const QString home = QString::fromLocal8Bit(qgetenv("HOME"));
     if (!home.isEmpty())
     {
         candidates << combinePath(
-            combinePath(
-                home, QStringLiteral("Library/Application Support/chatterino")),
+            combinePath(home,
+                        QStringLiteral("Library/Application Support/satorino")),
             QStringLiteral("Settings/settings.json"));
     }
 #else
@@ -125,11 +132,8 @@ QStringList legacyScalingSettingsJsonCandidates(int argc, char **argv)
             xdgData = combinePath(home, QStringLiteral(".local/share"));
         }
         candidates << combinePath(
-            combinePath(xdgData, QStringLiteral("chatterino")),
+            combinePath(xdgData, QStringLiteral("satorino")),
             QStringLiteral("Settings/settings.json"));
-        candidates << combinePath(
-            combinePath(xdgData, QStringLiteral("chatterino.com")),
-            QStringLiteral("chatterino/Settings/settings.json"));
     }
 #endif
     return candidates;
@@ -159,11 +163,10 @@ int main(int argc, char **argv)
 
     QApplication a(argc, argv);
 
-    // Keep "chatterino" so config/data stay under the existing chatterino paths
-    // (Flatpak also mounts xdg-data/chatterino).
-    QCoreApplication::setApplicationName("chatterino");
+    // satorino: Use a separate installed profile from upstream Chatterino.
+    QCoreApplication::setApplicationName("satorino");
     QCoreApplication::setApplicationVersion(CHATTERINO_VERSION);
-    QCoreApplication::setOrganizationDomain("chatterino.com");
+    QCoreApplication::setOrganizationDomain("satos.cc");
     // Must match the installed .desktop / Flatpak app-id so the shell
     // associates this window with satorino's icon (not Chatterino's).
     // satorino: app id (was com.leafyzito.leafyrino)

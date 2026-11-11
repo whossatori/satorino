@@ -1,8 +1,5 @@
-# satorino: portable Windows x64 TEST build (GitHub Actions).
-#
-# Deliberately minimal: one job, Windows x64 only, portable zip artifact.
-# No Linux/macOS/ARM, no flatpak, no installer, no release or nightly
-# publishing, no signing, no secrets.
+# satorino: Windows portable testing and optional release packages.
+# Package jobs upload build artifacts for manual release assembly.
 #
 # Setup is copied from the Windows job in build.yml (MSVC environment via
 # msvc-dev-cmd, clang-cl + llvm-rc + LLD, Qt 6.12.0 via install-qt-action
@@ -16,8 +13,7 @@
 #   - the zip carries a `modes` file containing "portable" next to
 #     satorino.exe (src/common/Modes.cpp), so the build stores ALL
 #     settings/caches/logs next to the exe and never reads or writes
-#     %APPDATA%\Chatterino2 - that folder is shared with real Chatterino
-#     installs on this machine by design.
+#     the installed Satorino profile in %APPDATA%\satorino.
 #   - the conan runtime DLLs (libssl-3-x64.dll, libcrypto-3-x64.dll) are
 #     copied from build/bin into the package: satorino.exe imports them
 #     directly and windeployqt does not deploy them. Upstream gets them via
@@ -27,6 +23,11 @@ name: satorino Windows Test Build
 
 on:
   workflow_dispatch:
+    inputs:
+      release_packages:
+        description: Build Windows installer, Linux AppImage, and macOS DMG
+        type: boolean
+        default: false
   push:
     branches:
       - satorino
@@ -34,6 +35,9 @@ on:
 concurrency:
   group: satorino-windows-test-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 env:
   CHATTERINO_REQUIRE_CLEAN_GIT: On
@@ -162,7 +166,7 @@ jobs:
           ..\.CI\deploy-crt.ps1 satorino
           # Portable mode (src/common/Modes.cpp): a `modes` file containing the
           # line "portable" next to satorino.exe keeps ALL settings, caches and
-          # logs next to the exe - %APPDATA%\Chatterino2 is never touched.
+          # logs next to the exe.
           Write-Output portable | Out-File satorino/modes -Encoding ASCII
           7z a satorino-windows-x64-portable.zip satorino/
           Get-Content satorino/modes
@@ -176,7 +180,7 @@ jobs:
             'satorino.exe', 'modes',
             'libssl-3-x64.dll', 'libcrypto-3-x64.dll',
             'Qt6Core.dll', 'Qt6Charts.dll',
-            'platforms/qwindows.dll', 'tls/qopensslbackend.dll',
+            'platforms/qwindows.dll', 'tls/qopensslbackend.dll', 'imageformats/qwebp.dll',
             'VCRUNTIME140.dll', 'MSVCP140.dll'
           )
           # Test-Path is case-insensitive on Windows - compare against the
@@ -197,6 +201,58 @@ jobs:
         with:
           name: satorino-windows-x64-portable
           path: build/satorino
+          if-no-files-found: error
+
+      - name: Build and verify Windows installer
+        if: inputs.release_packages
+        shell: pwsh
+        timeout-minutes: 15
+        run: |
+          $toolDir = Join-Path $env:RUNNER_TEMP 'satorino-inno-6.7.3'
+          $download = "$toolDir.exe"
+          Invoke-WebRequest -Uri 'https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-6.7.3.exe' -OutFile $download
+          $expected = '9c73c3bae7ed48d44112a0f48e66742c00090bdb5bef71d9d3c056c66e97b732'
+          if ((Get-FileHash $download -Algorithm SHA256).Hash -ne $expected) {
+            throw 'Inno Setup download checksum mismatch.'
+          }
+          $toolSetup = Start-Process -FilePath $download -ArgumentList @(
+            '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CURRENTUSER',
+            '/PORTABLE=1', ('/DIR="' + $toolDir + '"')
+          ) -WindowStyle Hidden -Wait -PassThru
+          if ($toolSetup.ExitCode -ne 0) { throw "Inno Setup install failed: $($toolSetup.ExitCode)" }
+
+          $payload = (Resolve-Path 'build/satorino').Path
+          $version = (Get-Item "$payload/satorino.exe").VersionInfo.FileVersion
+          $output = New-Item -ItemType Directory -Path 'build/release'
+          & "$toolDir/ISCC.exe" "/DAppSourceDir=$payload" "/DAppVersion=$version" "/O$($output.FullName)" '.CI/satorino-release.iss'
+          if ($LASTEXITCODE -ne 0) { throw "Installer compiler failed: $LASTEXITCODE" }
+
+          $installed = Join-Path $env:RUNNER_TEMP 'satorino-install-test'
+          $setup = Start-Process -FilePath "$($output.FullName)/satorino-windows-x64-setup.exe" -ArgumentList @(
+            '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', ('/DIR="' + $installed + '"')
+          ) -WindowStyle Hidden -Wait -PassThru
+          if ($setup.ExitCode -ne 0) { throw "Satorino setup failed: $($setup.ExitCode)" }
+          if (Test-Path "$installed/modes") { throw 'Setup installed the portable-mode marker.' }
+          if ((Get-FileHash "$installed/satorino.exe").Hash -ne (Get-FileHash "$payload/satorino.exe").Hash) {
+            throw 'Setup installed a different executable from the packaged build.'
+          }
+          $app = Start-Process -FilePath "$installed/satorino.exe" -WindowStyle Hidden -PassThru
+          try {
+            Start-Sleep -Seconds 10
+            if ($app.HasExited) { throw "Installed app exited during startup: $($app.ExitCode)" }
+            if (!(Test-Path "$env:APPDATA/satorino/Settings" -PathType Container)) {
+              throw 'Installed app did not create its own settings directory.'
+            }
+          } finally {
+            if (!$app.HasExited) { Stop-Process -Id $app.Id -Force }
+          }
+
+      - name: Upload Windows installer
+        if: inputs.release_packages
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: satorino-windows-x64-setup
+          path: build/release/satorino-windows-x64-setup.exe
           if-no-files-found: error
 
       - name: Smoke test (launch, must stay alive 10 s)
@@ -240,3 +296,152 @@ jobs:
           Stop-Process -Id $p.Id -Force
           Write-Host '--- stderr (first 40 lines) ---'
           Get-Content smoke-stderr.txt -TotalCount 40 -ErrorAction SilentlyContinue
+
+  package-linux-x64:
+    if: inputs.release_packages
+    name: Linux x86-64 AppImage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Linux build and Qt runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            g++-14 ninja-build libboost-json-dev libboost-filesystem-dev libgl-dev libnotify-dev \
+            libsecret-1-dev libssl-dev libfuse2t64 libxcb-cursor0 libxcb-xinerama0 libxkbcommon-x11-0 \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-xkb1 \
+            libx11-xcb1 patchelf
+
+      - name: Install Qt6
+        uses: jurplel/install-qt-action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4.4.1
+        with:
+          cache: true
+          cache-key-prefix: ${{ runner.os }}-QtCache-6.12.0-v2
+          modules: qtimageformats qtcharts
+          version: "6.12.0"
+          # https://github.com/miurahr/aqtinstall/pull/1052
+          aqtsource: git+https://github.com/pzhlkj6612/forked-aqtinstall@7b60b0f64e2fdd28552d7603e9831b027172afb0
+
+      - name: Build Satorino
+        env:
+          CXX: g++-14
+          CXXFLAGS: -fno-sized-deallocation
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPAJLADA_SETTINGS_USE_BOOST_FILESYSTEM=ON \
+            -DUSE_PRECOMPILED_HEADERS=ON \
+            -DCHATTERINO_LTO=OFF \
+            -DBUILD_WITH_CRASHPAD=OFF \
+            -DCHATTERINO_NO_AVIF_PLUGIN=ON \
+            -DCHATTERINO_UPDATER=OFF \
+            -DCHATTERINO_NIGHTLY_BUILD=OFF \
+            -DFORCE_JSON_GENERATION=OFF
+          cmake --build build --parallel 3
+
+      - name: Package and verify AppImage
+        working-directory: build
+        run: |
+          sh ../.CI/CreateAppImage.sh
+          ./satorino-x86_64.AppImage --appimage-extract >/dev/null
+          test -x squashfs-root/usr/bin/satorino
+          test -n "$(find squashfs-root -name libqwebp.so -print -quit)"
+          env -u QT_PLUGIN_PATH -u LD_LIBRARY_PATH \
+            QT_QPA_PLATFORM=offscreen XDG_DATA_HOME="$RUNNER_TEMP/satorino-smoke-data" \
+            ./squashfs-root/AppRun --version
+          mv satorino-x86_64.AppImage satorino-linux-x86_64.AppImage
+
+      - name: Upload Linux AppImage
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: satorino-linux-x86_64
+          path: build/satorino-linux-x86_64.AppImage
+          if-no-files-found: error
+
+  package-macos:
+    if: inputs.release_packages
+    name: macOS universal DMG
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "14.4"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Qt6
+        uses: jurplel/install-qt-action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4.4.1
+        with:
+          cache: true
+          cache-key-prefix: ${{ runner.os }}-QtCache-6.12.0-v2
+          modules: qtimageformats qtcharts
+          version: "6.12.0"
+          # https://github.com/miurahr/aqtinstall/pull/1052
+          aqtsource: git+https://github.com/pzhlkj6612/forked-aqtinstall@7b60b0f64e2fdd28552d7603e9831b027172afb0
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Install macOS build dependencies
+        run: |
+          brew install rapidjson ninja
+          python -m pip install "conan==$CONAN_VERSION"
+          conan profile detect --force
+
+      - name: Build Satorino for Apple silicon and Intel
+        run: |
+          conan install . -of build -s build_type=Release -s 'arch=armv8|x86_64' \
+            -c tools.cmake.cmaketoolchain:generator=Ninja -b missing -o with_openssl3=True
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$PWD/build/conan_toolchain.cmake" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES='arm64;x86_64' \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="$MACOSX_DEPLOYMENT_TARGET" \
+            -DUSE_PRECOMPILED_HEADERS=OFF \
+            -DCHATTERINO_LTO=OFF \
+            -DBUILD_WITH_CRASHPAD=OFF \
+            -DCHATTERINO_NO_AVIF_PLUGIN=ON \
+            -DCHATTERINO_UPDATER=OFF \
+            -DCHATTERINO_NIGHTLY_BUILD=OFF \
+            -DFORCE_JSON_GENERATION=OFF
+          cmake --build build --parallel 2
+
+      - name: Package and verify DMG
+        working-directory: build
+        env:
+          MACOS_CODESIGN_CERTIFICATE: "-"
+        run: |
+          app=satorino.app
+          cp ../LICENSE "bin/$app/Contents/Resources/LICENSE.txt"
+          ../.CI/MacDeploy.sh -libpath="$PWD/bin"
+          test -f "$app/Contents/PlugIns/imageformats/libqwebp.dylib"
+          for file in \
+            "$app/Contents/MacOS/satorino" \
+            "$app/Contents/Frameworks/libssl.3.dylib" \
+            "$app/Contents/Frameworks/libcrypto.3.dylib" \
+            "$app/Contents/PlugIns/imageformats/libqwebp.dylib"; do
+            lipo -verify_arch arm64 x86_64 "$file"
+          done
+          codesign --verify --deep --strict "$app"
+          mkdir dmg
+          ditto "$app" dmg/Satorino.app
+          ln -s /Applications dmg/Applications
+          hdiutil create -volname Satorino -srcfolder dmg -format UDZO satorino-macos-universal.dmg
+          hdiutil verify satorino-macos-universal.dmg
+
+      - name: Upload macOS DMG
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: satorino-macos-universal
+          path: build/satorino-macos-universal.dmg
+          if-no-files-found: error

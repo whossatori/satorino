@@ -58,6 +58,7 @@ rm -rf appdir
 
 echo "Running cmake install into appdir"
 cmake --install . --prefix "$PWD/appdir/usr"
+install -Dm644 "$chatterino_dir/LICENSE" appdir/usr/share/doc/"$app_executable"/LICENSE
 find appdir/
 echo ""
 
