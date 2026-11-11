@@ -124,6 +124,7 @@ MessageElementFlags pinnedMessageFlags()
     setPinnedBadgeFlag(flags, wordFlags, MessageElementFlag::BadgeBadgeHQ);
     setPinnedBadgeFlag(flags, wordFlags, MessageElementFlag::BadgeLimerino);
     setPinnedBadgeFlag(flags, wordFlags, MessageElementFlag::BadgeCyex);
+    setPinnedBadgeFlag(flags, wordFlags, MessageElementFlag::BadgeSatorino);
 
     return flags;
 }

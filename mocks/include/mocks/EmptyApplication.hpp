@@ -242,6 +242,11 @@ public:
         return nullptr;
     }
 
+    SatorinoBadges *getSatorinoBadges() override
+    {
+        return nullptr;
+    }
+
     RepeatedMessageDetector *getRepeatedMessageDetector() override
     {
         return nullptr;

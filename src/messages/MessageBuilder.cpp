@@ -43,6 +43,7 @@
 #include "providers/links/LinkResolver.hpp"
 #include "providers/moltorino/MoltorinoSupporterBadges.hpp"
 #include "providers/repetitions/RepeatedMessageDetector.hpp"
+#include "providers/satorino/SatorinoBadges.hpp"
 #include "providers/seventv/SeventvBadges.hpp"
 #include "providers/seventv/SeventvEmotes.hpp"
 #include "providers/seventv/SeventvPersonalEmotes.hpp"
@@ -2195,6 +2196,7 @@ std::pair<MessagePtrMut, HighlightAlert> MessageBuilder::makeIrcMessage(
         builder.appendHomiesBadges(userID);
         builder.appendFolhinhaBadges(userID);
         builder.appendCyexBadges(userID);  // satorino
+        builder.appendSatorinoBadge(userID);
 
         builder.appendUsername(tags, args);
 
@@ -3930,6 +3932,26 @@ void MessageBuilder::appendCyexBadges(const QString &userID)
     }
 }
 
+void MessageBuilder::appendSatorinoBadge(const QString &userID)
+{
+    if (!getSettings()->showBadgesSatorino || userID.isEmpty())
+    {
+        return;
+    }
+
+    const auto *provider = getApp()->getSatorinoBadges();
+    if (!provider)
+    {
+        return;
+    }
+
+    if (const auto badge = provider->getBadge(userID))
+    {
+        this->emplace<BadgeElement>(badge, MessageElementFlag::BadgeSatorino);
+        this->message().externalBadges.emplace_back(badge->name.string);
+    }
+}
+
 Outcome MessageBuilder::tryAppendCheermote(TextState &state,
                                            const QString &string)
 {
@@ -4200,6 +4222,7 @@ MessagePtr MessageBuilder::makeSelfBadgePreviewMessage(
     builder.appendHomiesBadges(userId);
     builder.appendFolhinhaBadges(userId);
     builder.appendCyexBadges(userId);  // satorino
+    builder.appendSatorinoBadge(userId);
 
     MessageParseArgs args;
     args.isAction = true;

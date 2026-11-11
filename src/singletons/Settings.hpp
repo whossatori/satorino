@@ -505,6 +505,7 @@ public:
                                           true};
     BoolSetting showBadgesMoltorino = {"/appearance/badges/moltorino", true};
     BoolSetting showBadgesCyex = {"/appearance/badges/cyex", true};  // satorino
+    BoolSetting showBadgesSatorino = {"/appearance/badges/satorino", true};
     BoolSetting showBadgesFolhinha = {"/appearance/badges/folhinha", true};
     BoolSetting showBadgesFfzAp = {"/appearance/badges/ffzap", true};
     BoolSetting showBadgesDankChat = {"/appearance/badges/dankchat", true};

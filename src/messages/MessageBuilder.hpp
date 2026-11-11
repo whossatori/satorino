@@ -382,6 +382,7 @@ private:
     void appendLimerinoBadges(const QString &userID);
     void appendMoltorinoBadges(const QString &userID);
     void appendCyexBadges(const QString &userID);  // satorino
+    void appendSatorinoBadge(const QString &userID);
 
     [[nodiscard]] static bool isIgnored(const QString &originalMessage,
                                         const QString &userID,

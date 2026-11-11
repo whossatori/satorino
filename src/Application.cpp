@@ -71,6 +71,7 @@
 #include "common/network/NetworkRequest.hpp"
 #include "common/network/NetworkResult.hpp"
 #include "providers/moltorino/MoltorinoSupporterBadges.hpp"
+#include "providers/satorino/SatorinoBadges.hpp"
 #include "singletons/Logging.hpp"
 #include "singletons/Paths.hpp"
 #include "singletons/Settings.hpp"
@@ -222,6 +223,7 @@ Application::Application(Settings &_settings, const Paths &paths,
     , badgeHQBadges(new BadgeHQBadges)
     , moltorinoSupporterBadges(new MoltorinoSupporterBadges)
     , cyexBadges(new CyexBadges)
+    , satorinoBadges(new SatorinoBadges)
     , repeatedMessageDetector(new RepeatedMessageDetector)
     , seventvPaints(new SeventvPaints)
     , seventvPersonalEmotes(new SeventvPersonalEmotes)
@@ -296,6 +298,7 @@ void Application::initialize(Settings &settings, const Paths &paths)
     this->badgeHQBadges->initialize();
     this->moltorinoSupporterBadges->initialize();
     this->cyexBadges->initialize();  // satorino
+    this->satorinoBadges->initialize();
 
     this->bttvEmotes->loadEmotes();
     this->ffzEmotes->loadEmotes();
@@ -618,6 +621,11 @@ MoltorinoSupporterBadges *Application::getMoltorinoSupporterBadges()
 CyexBadges *Application::getCyexBadges()
 {
     return this->cyexBadges.get();
+}
+
+SatorinoBadges *Application::getSatorinoBadges()
+{
+    return this->satorinoBadges.get();
 }
 
 RepeatedMessageDetector *Application::getRepeatedMessageDetector()

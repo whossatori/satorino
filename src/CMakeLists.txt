@@ -1195,6 +1195,8 @@ set(SOURCE_FILES
         util/EmotePopupGroups.hpp
         providers/cyex/CyexBadges.cpp
         providers/cyex/CyexBadges.hpp
+        providers/satorino/SatorinoBadges.cpp
+        providers/satorino/SatorinoBadges.hpp
         # satorino: end additional sources
 
         widgets/splits/ClosedSplits.cpp

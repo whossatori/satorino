@@ -1,0 +1,98 @@
+// SPDX-FileCopyrightText: 2026 whossatori <satoriyoxi@gmail.com>
+//
+// SPDX-License-Identifier: MIT
+
+#include "providers/satorino/SatorinoBadges.hpp"
+
+#include "messages/Image.hpp"
+#include "Test.hpp"
+
+using namespace chatterino;
+
+TEST(SatorinoBadges, ResolvesActiveBadgesByTwitchId)
+{
+    const auto badges = satorino::parseBadgeFeed(R"json({
+        "version": 1,
+        "badges": {
+            "owner": {
+                "name": "Owner / Dev",
+                "image1x": "https://satorino.satos.cc/badges/owner-1x.png?v=2",
+                "image2x": "https://satorino.satos.cc/badges/owner-2x.png?v=2",
+                "image3x": "https://satorino.satos.cc/badges/owner-3x.png?v=2"
+            },
+            "tier5": {
+                "name": "Supporter <5>",
+                "image1x": "https://satorino.satos.cc/badges/tier5-1x.png"
+            }
+        },
+        "users": {
+            "812407555": "owner",
+            "9007199254740993": "tier5",
+            "9007199254740994": "tier5",
+            "9007199254740995": "none",
+            "9007199254740996": "unknown",
+            "satxris": "owner",
+            "0": "owner"
+        }
+    })json");
+
+    ASSERT_TRUE(badges);
+    ASSERT_EQ(badges->size(), 3U);
+    ASSERT_TRUE(badges->contains("812407555"));
+    ASSERT_TRUE(badges->contains("9007199254740993"));
+    ASSERT_TRUE(badges->contains("9007199254740994"));
+    const auto &owner = badges->at("812407555");
+    EXPECT_EQ(owner->name.string, "satorino:owner");
+    EXPECT_EQ(owner->tooltip.string, "Owner / Dev");
+    EXPECT_EQ(owner->images.getImage1()->scale(), 1.0);
+    EXPECT_EQ(owner->images.getImage2()->scale(), 0.5);
+    EXPECT_EQ(owner->images.getImage3()->scale(), 0.25);
+    EXPECT_EQ(owner->images.getImage3()->url().string,
+              "https://satorino.satos.cc/badges/owner-3x.png?v=2");
+    const auto &supporter = badges->at("9007199254740993");
+    EXPECT_EQ(supporter, badges->at("9007199254740994"));
+    EXPECT_EQ(supporter->tooltip.string, "Supporter &lt;5&gt;");
+    EXPECT_TRUE(supporter->images.getImage2()->isEmpty());
+}
+
+TEST(SatorinoBadges, RejectsInvalidFeedsAndAcceptsEmptyAssignments)
+{
+    EXPECT_FALSE(satorino::parseBadgeFeed("invalid JSON"));
+    EXPECT_FALSE(
+        satorino::parseBadgeFeed(R"({"version":2,"badges":{},"users":{}})"));
+    EXPECT_FALSE(
+        satorino::parseBadgeFeed(R"({"version":1,"badges":{},"users":[]})"));
+    const auto empty =
+        satorino::parseBadgeFeed(R"({"version":1,"badges":{},"users":{}})");
+    ASSERT_TRUE(empty);
+    EXPECT_TRUE(empty->empty());
+}
+
+TEST(SatorinoBadges, RejectsImagesOutsideThePublicHttpsOrigin)
+{
+    const auto badges = satorino::parseBadgeFeed(R"json({
+        "version": 1,
+        "badges": {
+            "otherHost": {
+                "name": "Other host",
+                "image1x": "https://other.example/badge.png"
+            },
+            "local": {
+                "name": "Local file",
+                "image1x": "file:///tmp/badge.png"
+            },
+            "insecure": {
+                "name": "HTTP",
+                "image1x": "http://satorino.satos.cc/badge.png"
+            },
+            "valid": {
+                "name": "Valid",
+                "image1x": "https://satorino.satos.cc/badges/founder-1x.png"
+            }
+        },
+        "users": {"1":"otherHost","2":"local","3":"insecure","4":"valid"}
+    })json");
+    ASSERT_TRUE(badges);
+    ASSERT_EQ(badges->size(), 1U);
+    EXPECT_TRUE(badges->contains("4"));
+}

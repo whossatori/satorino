@@ -1150,3 +1150,14 @@ honor Retry-After on 429. Founders show their number in the tooltip and
 custom badges use the user's own versioned 1x/2x/4x images. New messages
 use the latest successful snapshot. The Windows app build and in-app badge
 checks are **NOT RUN**.
+
+## Stage G batch 24
+
+Satorino's public badge feed supplies one active badge per Twitch ID.
+The satorino toggle under Visible badges starts enabled. The app loads
+the feed at startup and refreshes every minute with If-None-Match. A 304
+keeps the current snapshot. Failed requests retry after five minutes.
+New Twitch messages use the latest successful assignments. Badge names
+appear in tooltips and chat filters can match satorino:<id>. Publish
+new artwork with versioned image URLs to refresh the client image cache.
+The Windows app build and in-app badge checks are **NOT RUN**.
