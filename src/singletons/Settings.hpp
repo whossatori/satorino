@@ -850,6 +850,7 @@ public:
     BoolSetting watchingTabLiveSound = {"/misc/watchingTabLiveSound", false};
     BoolSetting useBotLimitsMessage = {"/misc/botLimitsMessage", false};
     BoolSetting useBotLimitsJoin = {"/misc/botLimitsJoin", false};
+    BoolSetting satorinoAutoUpdate = {"/satorino/updates/automatic", true};
     BoolSetting betaUpdates = {"/misc/beta", false};
     BoolSetting abnormalNonceDetection = {"/misc/abnormalNonceDetection",
                                           false};

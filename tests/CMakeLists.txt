@@ -98,6 +98,7 @@ set(test_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/src/EmotePopupGroups.cpp # satorino: stable popup subsection grouping
     ${CMAKE_CURRENT_LIST_DIR}/src/CyexBadges.cpp # satorino: Cyex badge catalog, assignments and backoff
     ${CMAKE_CURRENT_LIST_DIR}/src/SatorinoBadges.cpp # satorino: public supporter badge feed
+    ${CMAKE_CURRENT_LIST_DIR}/src/SatorinoStartupUpdate.cpp # satorino: release selection
     # Add your new file above this line!
 
     ${CMAKE_CURRENT_LIST_DIR}/src/lib/Snapshot.cpp

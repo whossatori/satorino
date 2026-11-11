@@ -14,7 +14,7 @@ class Settings;
 class Updates;
 class Modes;
 
-bool activateExistingGuiInstance(const Paths &paths);
+bool activateExistingGuiInstance(const Paths &paths, bool activate = true);
 
 void runGui(QApplication &a, const Modes &modes, const Paths &paths,
             Settings &settings, const Args &args, Updates &updates);

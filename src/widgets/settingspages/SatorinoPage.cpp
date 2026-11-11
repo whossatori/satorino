@@ -53,6 +53,13 @@ bool SatorinoPage::filterElements(const QString &query)
 
 void SatorinoPage::initLayout(GeneralPageView &layout)
 {
+    layout.addTitle("Updates");
+    SettingWidget::checkbox("Automatically update on launch",
+                            getSettings()->satorinoAutoUpdate)
+        ->setTooltip(
+            "Check for Satorino releases when starting an installed build "
+            "or an AppImage.")
+        ->addTo(layout);
     layout.addTitle("Tabs");
     SettingWidget::checkbox("Tab scroll", getSettings()->satorinoTabScroll)
         ->setTooltip("Shows all tabs in one row that you scroll with the mouse "

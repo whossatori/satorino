@@ -233,6 +233,7 @@ jobs:
           ) -WindowStyle Hidden -Wait -PassThru
           if ($setup.ExitCode -ne 0) { throw "Satorino setup failed: $($setup.ExitCode)" }
           if (Test-Path "$installed/modes") { throw 'Setup installed the portable-mode marker.' }
+          if (!(Test-Path "$installed/satorino-installed" -PathType Leaf)) { throw 'Setup is missing the update marker.' }
           if ((Get-FileHash "$installed/satorino.exe").Hash -ne (Get-FileHash "$payload/satorino.exe").Hash) {
             throw 'Setup installed a different executable from the packaged build.'
           }

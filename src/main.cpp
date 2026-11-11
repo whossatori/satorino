@@ -15,6 +15,7 @@
 #include "singletons/CrashHandler.hpp"
 #include "singletons/FileLogger.hpp"
 #include "singletons/Paths.hpp"
+#include "singletons/SatorinoStartupUpdate.hpp"
 #include "singletons/Settings.hpp"
 #include "singletons/Updates.hpp"
 #include "util/AttachToConsole.hpp"
@@ -270,6 +271,11 @@ int main(int argc, char **argv)
             return 0;
         }
 #endif
+
+        if (satorino::tryStartupUpdate(args, modes, *paths, settings))
+        {
+            return 0;
+        }
 
         Updates updates(modes, *paths, settings);
 

@@ -10,6 +10,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QStringList>
 
 using namespace chatterino;
 
@@ -47,7 +48,7 @@ TEST(SatorinoBadges, ResolvesActiveBadgesByTwitchId)
     ASSERT_TRUE(badges->contains("9007199254740994"));
     const auto &owner = badges->at("812407555").front();
     EXPECT_EQ(owner->name.string, "satorino:owner");
-    EXPECT_EQ(owner->tooltip.string, "Owner / Dev");
+    EXPECT_EQ(owner->tooltip.string, "sato owner");
     EXPECT_EQ(owner->images.getImage1()->scale(), 1.0);
     EXPECT_EQ(owner->images.getImage2()->scale(), 0.5);
     EXPECT_EQ(owner->images.getImage3()->scale(), 0.25);
@@ -55,7 +56,7 @@ TEST(SatorinoBadges, ResolvesActiveBadgesByTwitchId)
               "https://satorino.satos.cc/badges/owner-3x.png?v=2");
     const auto &supporter = badges->at("9007199254740993").front();
     EXPECT_EQ(supporter, badges->at("9007199254740994").front());
-    EXPECT_EQ(supporter->tooltip.string, "Supporter &lt;5&gt;");
+    EXPECT_EQ(supporter->tooltip.string, "sato supporter");
     EXPECT_TRUE(supporter->images.getImage2()->isEmpty());
 }
 
@@ -90,7 +91,7 @@ TEST(SatorinoBadges, RejectsImagesOutsideThePublicHttpsOrigin)
                 "image1x": "http://satorino.satos.cc/badge.png"
             },
             "valid": {
-                "name": "Valid",
+                "name": "Valid <&>",
                 "image1x": "https://satorino.satos.cc/badges/founder-1x.png"
             }
         },
@@ -98,7 +99,9 @@ TEST(SatorinoBadges, RejectsImagesOutsideThePublicHttpsOrigin)
     })json");
     ASSERT_TRUE(badges);
     ASSERT_EQ(badges->size(), 1U);
-    EXPECT_TRUE(badges->contains("4"));
+    ASSERT_TRUE(badges->contains("4"));
+    EXPECT_EQ(badges->at("4").front()->tooltip.string,
+              "sato Valid &lt;&amp;&gt;");
 }
 
 TEST(SatorinoBadges, VersionTwoPreservesSelectionOrderAndSkipsInvalidIds)
@@ -157,9 +160,14 @@ TEST(SatorinoBadges, ExpandedRosterShowsAllSevenSelectedBadgeTypes)
     ASSERT_TRUE(badges->contains("42"));
     const auto &owner = badges->at("42");
     ASSERT_EQ(owner.size(), 7U);
+    const QStringList titles{"sato owner",         "sato dev",
+                             "sato tester",        "sato founder",
+                             "sato supporter",     "sato supporter +",
+                             "sato mega supporter"};
     for (qsizetype i = 0; i < selected.size(); ++i)
     {
         EXPECT_EQ(owner[static_cast<size_t>(i)]->id.string,
                   selected[i].toString());
+        EXPECT_EQ(owner[static_cast<size_t>(i)]->tooltip.string, titles[i]);
     }
 }

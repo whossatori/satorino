@@ -29,6 +29,7 @@
 #include <QPalette>
 #include <QSessionManager>
 #include <QStyleFactory>
+#include <QTimer>
 #include <Qt>
 #include <QtConcurrent>
 
@@ -111,9 +112,27 @@ std::unique_ptr<QLocalServer> createGuiActivationServer(const Paths &paths)
                      [server = server.get()] {
                          while (auto *socket = server->nextPendingConnection())
                          {
-                             socket->deleteLater();
+                             const auto onRead = [socket] {
+                                 if (socket->canReadLine() &&
+                                     socket->readLine(32) == "activate\n")
+                                 {
+                                     restoreGuiInstance();
+                                 }
+                             };
+                             QObject::connect(socket, &QLocalSocket::readyRead,
+                                              socket, onRead);
+                             QObject::connect(socket,
+                                              &QLocalSocket::disconnected,
+                                              socket, &QObject::deleteLater);
+                             QTimer::singleShot(1000, socket,
+                                                &QObject::deleteLater);
+                             onRead();
+                             if (socket->state() ==
+                                 QLocalSocket::UnconnectedState)
+                             {
+                                 socket->deleteLater();
+                             }
                          }
-                         restoreGuiInstance();
                      });
     QObject::connect(qApp, &QApplication::aboutToQuit, server.get(),
                      &QLocalServer::close);
@@ -310,7 +329,7 @@ void clearCrashes(QDir dir)
 }
 }  // namespace
 
-bool activateExistingGuiInstance(const Paths &paths)
+bool activateExistingGuiInstance(const Paths &paths, bool activate)
 {
     QLocalSocket socket;
     socket.connectToServer(guiActivationServerName(paths));
@@ -319,9 +338,12 @@ bool activateExistingGuiInstance(const Paths &paths)
         return false;
     }
 
-    socket.write("activate\n");
-    socket.flush();
-    socket.waitForBytesWritten(150);
+    if (activate)
+    {
+        socket.write("activate\n");
+        socket.flush();
+        socket.waitForBytesWritten(150);
+    }
     socket.disconnectFromServer();
     return true;
 }

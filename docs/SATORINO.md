@@ -1210,3 +1210,22 @@ on uninstall. Portable settings stay beside the executable.
 The Linux package check launches the AppImage's bundled X11 platform
 under Xvfb. The macOS package check passes the input file before
 `lipo -verify_arch` so both CPU architectures are verified.
+
+## Stage G batch 30
+
+Installed Windows builds, Linux x86-64 AppImages and writable macOS app
+bundles check for a stable Satorino GitHub release on startup. Disable
+**Automatically update on launch** under the satorino settings tab.
+The initial request has a 1.5 second deadline. Updates require a strictly
+newer stable release and a matching asset name, size and GitHub SHA-256
+digest. Windows portables and externally managed builds skip the check.
+macOS installs require Gatekeeper approval of the replacement bundle.
+
+Publish the individual CI files `satorino-windows-x64-setup.exe`,
+`satorino-linux-x86_64.AppImage` and `satorino-macos-universal.dmg`.
+Tag the release `vMAJOR.MINOR.PATCH`, matching `src/common/Version.hpp`
+and `CMakeLists.txt`. Increment both versions before the next release.
+Ad hoc CI DMGs can be tested manually. To distribute automatic Mac updates,
+publish a Developer ID signed and notarized bundle in the DMG.
+
+Badge tooltips use the `sato` provider prefix across artwork variants.

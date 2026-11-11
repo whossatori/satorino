@@ -183,6 +183,10 @@ Args::Args(const QApplication &app)
         "Starts Chatterino with legacy scaling (96 DPI) for this run only. "
         "To persist it, enable \"Use legacy scaling\" in Settings → General.");
 
+    QCommandLineOption skipSatorinoStartupUpdate(
+        "satorino-skip-update",
+        "Skip the Satorino update check for this launch.");
+
     QCommandLineOption portableEnable("portable", "Enable portable mode.");
 
     QCommandLineOption portableDirectory(
@@ -209,6 +213,7 @@ Args::Args(const QApplication &app)
         channelLayout,
         activateOption,
         useOldScalingOption,
+        skipSatorinoStartupUpdate,
         portableEnable,
         portableDirectory,
 #ifndef NDEBUG
@@ -287,6 +292,8 @@ Args::Args(const QApplication &app)
     {
         this->useOldScaling = true;
     }
+
+    this->skipSatorinoStartupUpdate = parser.isSet(skipSatorinoStartupUpdate);
 
     if (parser.isSet(portableEnable))
     {

@@ -47,6 +47,7 @@ public:
     std::optional<QString> initialLogin;
     bool verbose{};
     bool safeMode{};
+    bool skipSatorinoStartupUpdate{};
 
     bool portableEnable{};
     std::optional<QString> portableDirectory;

@@ -58,6 +58,16 @@ EmotePtr makeBadge(const QString &id, const QJsonObject &definition)
         return {};
     }
 
+    static const std::unordered_map<QString, QString> titles{
+        {u"owner"_s, u"owner"_s},           {u"dev"_s, u"dev"_s},
+        {u"tester"_s, u"tester"_s},         {u"founder"_s, u"founder"_s},
+        {u"tier5"_s, u"supporter"_s},       {u"tier10"_s, u"supporter +"_s},
+        {u"tier20"_s, u"mega supporter"_s},
+    };
+    const auto title = titles.find(id.section(u'-', 0, 0));
+    const auto tooltip =
+        u"sato "_s + (title == titles.end() ? name : title->second);
+
     const auto image1 = badgeImage(definition, u"image1x"_s, 1);
     if (image1->isEmpty())
     {
@@ -68,7 +78,7 @@ EmotePtr makeBadge(const QString &id, const QJsonObject &definition)
         .name = EmoteName{u"satorino:"_s + id},
         .images = ImageSet{image1, badgeImage(definition, u"image2x"_s, 2),
                            badgeImage(definition, u"image3x"_s, 4)},
-        .tooltip = Tooltip{name.toHtmlEscaped()},
+        .tooltip = Tooltip{tooltip.toHtmlEscaped()},
         .homePage = Url{},
         .id = EmoteId{id},
     });
