@@ -28,6 +28,17 @@ void RatelimitBucket::send(QString channel)
     }
 }
 
+// satorino: dropping queued work does not refund sends already made.
+void RatelimitBucket::cancelPending(const QString &channel)
+{
+    this->queue_.removeAll(channel);
+}
+
+void RatelimitBucket::clearPending()
+{
+    this->queue_.clear();
+}
+
 void RatelimitBucket::handleOne()
 {
     if (this->queue_.isEmpty())

@@ -99,6 +99,7 @@ set(test_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/src/CyexBadges.cpp # satorino: Cyex badge catalog, assignments and backoff
     ${CMAKE_CURRENT_LIST_DIR}/src/SatorinoBadges.cpp # satorino: public supporter badge feed
     ${CMAKE_CURRENT_LIST_DIR}/src/SatorinoStartupUpdate.cpp # satorino: release selection
+    ${CMAKE_CURRENT_LIST_DIR}/src/TwitchJoinQueue.cpp # satorino: bounded IRC join retries
     # Add your new file above this line!
 
     ${CMAKE_CURRENT_LIST_DIR}/src/lib/Snapshot.cpp

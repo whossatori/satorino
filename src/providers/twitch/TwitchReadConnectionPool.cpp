@@ -8,10 +8,10 @@
 #include "providers/irc/IrcConnection2.hpp"
 #include "providers/twitch/TwitchChannel.hpp"
 #include "providers/twitch/TwitchIrcServer.hpp"
+#include "providers/twitch/TwitchJoinQueue.hpp"
 #include "singletons/Settings.hpp"
 #include "singletons/WindowManager.hpp"
 #include "util/QStringHash.hpp"  // IWYU pragma: keep
-#include "util/RatelimitBucket.hpp"
 
 #include <boost/unordered/unordered_flat_map.hpp>
 
@@ -21,12 +21,50 @@ namespace {
 
 using namespace chatterino;
 
-// Ratelimits for joinBucket_
+// Twitch IRC JOIN rate limits.
 constexpr int JOIN_RATELIMIT_BUDGET = 18;
 constexpr int BOT_JOIN_RATELIMIT_BUDGET = 2000;
 constexpr int JOIN_RATELIMIT_COOLDOWN = 12500;
+constexpr int JOIN_CONFIRMATION_TIMEOUT = 15000;
 
 constexpr size_t CHANNELS_PER_CONNECTION = 18;
+
+// satorino: retry a JOIN once if Twitch never confirms it.
+void sendJoin(IrcConnection &connection, const QString &channel, bool retry)
+{
+    if (!connection.isConnected())
+    {
+        return;
+    }
+
+    if (retry)
+    {
+        qCDebug(chatterinoIrc) << "[read] retrying unconfirmed join" << channel;
+    }
+    else
+    {
+        qCDebug(chatterinoIrc) << "[read] joining" << channel;
+    }
+
+    connection.sendRaw("JOIN #" + channel);
+}
+
+void confirmJoin(TwitchJoinQueue &queue, const IrcConnection &connection,
+                 Communi::IrcMessage *msg)
+{
+    const QString &command = msg->command();
+    if (command != "ROOMSTATE" &&
+        !(command == "JOIN" && msg->nick() == connection.nickName()))
+    {
+        return;
+    }
+
+    const QString target = msg->parameter(0);
+    if (target.startsWith(u'#') && target.size() > 1)
+    {
+        queue.confirm(target.mid(1));
+    }
+}
 
 void appendConnectedMessage(std::span<const ChannelPtr> channels)
 {
@@ -86,9 +124,7 @@ private:
 
     QObjectPtr<IrcConnection> connection = nullptr;
 
-    // Our rate limiting bucket for the Twitch join rate limits
-    // https://dev.twitch.tv/docs/irc/guide#rate-limits
-    QObjectPtr<RatelimitBucket> joinBucket;
+    TwitchJoinQueue joinQueue;
 
     pajlada::Signals::SignalHolder signalHolder;
     boost::unordered_flat_map<QString, std::weak_ptr<TwitchChannel>> channels;
@@ -100,24 +136,15 @@ TwitchReadConnectionPoolSingle::TwitchReadConnectionPoolSingle(
     TwitchIrcServer *parent)
     : TwitchReadConnectionPool(parent)
     , connection(new IrcConnection)
+    , joinQueue(getSettings()->useBotLimitsJoin ? BOT_JOIN_RATELIMIT_BUDGET
+                                                : JOIN_RATELIMIT_BUDGET,
+                JOIN_RATELIMIT_COOLDOWN, JOIN_CONFIRMATION_TIMEOUT,
+                [this](const QString &channel, bool retry) {
+                    sendJoin(*this->connection, channel, retry);
+                })
     , server(parent)
 {
     assert(this->server);
-
-    // Apply a leaky bucket rate limiting to JOIN messages
-    auto actuallyJoin = [&](const QString &name) {
-        if (!this->channels.contains(name))
-        {
-            return;
-        }
-        qCDebug(chatterinoIrc) << "Joining" << name;
-        this->connection->sendRaw("JOIN #" + name);
-    };
-    const int joinBudget = getSettings()->useBotLimitsJoin
-                               ? BOT_JOIN_RATELIMIT_BUDGET
-                               : JOIN_RATELIMIT_BUDGET;
-    this->joinBucket.reset(new RatelimitBucket(
-        joinBudget, JOIN_RATELIMIT_COOLDOWN, actuallyJoin, this));
 
     // Listen to read connection message signals
     this->connection->moveToThread(QCoreApplication::instance()->thread());
@@ -157,11 +184,12 @@ void TwitchReadConnectionPoolSingle::onChannelCreated(TwitchChannel &channel)
     this->channels.emplace(channel.getName(), channel.weakFromThis());
     if (this->connection->isConnected())
     {
-        this->joinBucket->send(channel.getName());
+        this->joinQueue.request(channel.getName());
     }
     this->signalHolder.managedConnect(
         channel.destroyed, [this, name = channel.getName()] {
             this->channels.erase(name);
+            this->joinQueue.cancel(name);
             qCDebug(chatterinoIrc) << "[read] parting" << name;
             this->connection->sendRaw("PART #" + name);
         });
@@ -169,13 +197,14 @@ void TwitchReadConnectionPoolSingle::onChannelCreated(TwitchChannel &channel)
 
 void TwitchReadConnectionPoolSingle::reconnect()
 {
-    this->connection->close();
+    this->close();
     TwitchIrcServer::initializeConnection(
         this->connection.get(), TwitchIrcServer::ConnectionType::Read);
 }
 
 void TwitchReadConnectionPoolSingle::close()
 {
+    this->joinQueue.reset();
     this->connection->close();
 }
 
@@ -198,6 +227,7 @@ void TwitchReadConnectionPoolSingle::onMessageReceived(Communi::IrcMessage *msg)
         return;
     }
 
+    confirmJoin(this->joinQueue, *this->connection, msg);
     this->messageReceived.invoke(msg);
 }
 
@@ -223,7 +253,7 @@ void TwitchReadConnectionPoolSingle::onConnected()
     // join channels
     for (const auto &channel : activeChannels)
     {
-        this->joinBucket->send(channel->getName());
+        this->joinQueue.request(channel->getName());
     }
 
     appendConnectedMessage(activeChannels);
@@ -231,6 +261,7 @@ void TwitchReadConnectionPoolSingle::onConnected()
 
 void TwitchReadConnectionPoolSingle::onDisconnected()
 {
+    this->joinQueue.reset();
     MessageBuilder b(systemMessage, "disconnected");
     b->flags.set(MessageFlag::DisconnectedMessage);
     auto disconnectedMsg = b.release();
@@ -292,6 +323,7 @@ private:
 
         size_t id = 0;
         IrcConnection connection;
+        TwitchJoinQueue joinQueue;
         /// Channel name -> Channel
         boost::unordered_flat_map<QString, std::weak_ptr<TwitchChannel>>
             channels;
@@ -330,8 +362,7 @@ void TwitchReadConnectionPoolMulti::onChannelCreated(TwitchChannel &channel)
     conn->channels.emplace(channel.getName(), channel.weakFromThis());
     if (conn->connection.isConnected())
     {
-        qCDebug(chatterinoIrc) << "[read] joining" << channel.getName();
-        conn->connection.sendRaw("JOIN #" + channel.getName());
+        conn->joinQueue.request(channel.getName());
     }
     this->signalHolder.managedConnect(
         channel.destroyed, [this, id = conn->id, name = channel.getName()] {
@@ -342,6 +373,7 @@ void TwitchReadConnectionPoolMulti::onChannelCreated(TwitchChannel &channel)
                 return;
             }
             qCDebug(chatterinoIrc) << "[read] parting" << name;
+            it->second->joinQueue.cancel(name);
             it->second->connection.sendRaw("PART #" + name);
             it->second->channels.erase(name);
             if (it->second->channels.empty())
@@ -398,6 +430,11 @@ std::pair<TwitchReadConnectionPoolMulti::Connection *, bool>
 TwitchReadConnectionPoolMulti::Connection::Connection(
     size_t id, TwitchReadConnectionPoolMulti *parent)
     : id(id)
+    , joinQueue(JOIN_RATELIMIT_BUDGET, JOIN_RATELIMIT_COOLDOWN,
+                JOIN_CONFIRMATION_TIMEOUT,
+                [this](const QString &channel, bool retry) {
+                    sendJoin(this->connection, channel, retry);
+                })
     , parent(parent)
 {
     this->connectionLostConnection =
@@ -472,18 +509,20 @@ void TwitchReadConnectionPoolMulti::Connection::onMessageReceived(
         return;
     }
 
+    confirmJoin(this->joinQueue, this->connection, msg);
     this->parent->messageReceived.invoke(msg);
 }
 
 void TwitchReadConnectionPoolMulti::Connection::reconnect()
 {
-    this->connection.close();
+    this->close();
     TwitchIrcServer::initializeConnection(
         &this->connection, TwitchIrcServer::ConnectionType::Read);
 }
 
 void TwitchReadConnectionPoolMulti::Connection::close()
 {
+    this->joinQueue.reset();
     this->connection.close();
 }
 
@@ -502,8 +541,7 @@ void TwitchReadConnectionPoolMulti::Connection::onConnected()
     // join channels
     for (const auto &channel : activeChannels)
     {
-        qCDebug(chatterinoIrc) << "[read] joining" << channel->getName();
-        this->connection.sendRaw("JOIN #" + channel->getName());
+        this->joinQueue.request(channel->getName());
     }
 
     appendConnectedMessage(activeChannels);
@@ -511,6 +549,7 @@ void TwitchReadConnectionPoolMulti::Connection::onConnected()
 
 void TwitchReadConnectionPoolMulti::Connection::onDisconnected()
 {
+    this->joinQueue.reset();
     MessageBuilder b(systemMessage, "disconnected");
     b->flags.set(MessageFlag::DisconnectedMessage);
     auto disconnectedMsg = b.release();

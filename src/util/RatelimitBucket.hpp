@@ -20,6 +20,10 @@ public:
 
     void send(QString channel);
 
+    // satorino: discard queued items while preserving the rate limit budget.
+    void cancelPending(const QString &channel);
+    void clearPending();
+
 private:
     int budget_;
 

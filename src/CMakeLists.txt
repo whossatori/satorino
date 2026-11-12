@@ -1199,6 +1199,8 @@ set(SOURCE_FILES
         singletons/SatorinoStartupUpdate.hpp
         providers/satorino/SatorinoBadges.cpp
         providers/satorino/SatorinoBadges.hpp
+        providers/twitch/TwitchJoinQueue.cpp
+        providers/twitch/TwitchJoinQueue.hpp
         # satorino: end additional sources
 
         widgets/splits/ClosedSplits.cpp

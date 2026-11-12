@@ -1244,3 +1244,11 @@ macOS keep their existing Satorino paths.
 Cyex badges marked animated use the WebP URLs supplied by the badge API.
 At each scale, a missing or rejected animation URL falls back to the
 static image. Custom badges still use the images from the user feed.
+
+## Stage G batch 33
+
+Twitch read connections retry an unconfirmed channel join once after 15
+seconds, subject to the join rate limit. A successful join or room-state
+message cancels the retry. Closing a channel or disconnecting discards
+its queued joins. Focused queue tests ran in WSL with Qt 6.4.2. Full app
+builds and verification on affected machines are **NOT RUN**.
