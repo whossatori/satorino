@@ -100,6 +100,8 @@ public:
 
     std::optional<QPixmap> pixmapOrLoad() const;
     void load() const;
+    // satorino: retry an existing image after a manual badge refresh.
+    void retryIfFailed();
     qreal scale() const;
     bool isEmpty() const;
     int width() const;
@@ -117,7 +119,7 @@ private:
     Image(qreal scale);
 
     void setPixmap(const QPixmap &pixmap);
-    void actuallyLoad();
+    void actuallyLoad(bool useCache = true);
     void expireFrames();
 
     const Url url_{};

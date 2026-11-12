@@ -590,6 +590,18 @@ void Image::load() const
     }
 }
 
+void Image::retryIfFailed()
+{
+    assertInGuiThread();
+    if (this->url_.string.isEmpty() || !this->empty_.exchange(false))
+    {
+        return;
+    }
+
+    this->shouldLoad_ = false;
+    this->actuallyLoad(false);
+}
+
 qreal Image::scale() const
 {
     return this->scale_;
@@ -664,7 +676,7 @@ QSizeF Image::size() const
     return this->expectedSize_.toSizeF() * this->scale_;
 }
 
-void Image::actuallyLoad()
+void Image::actuallyLoad(bool useCache)
 {
     auto weak = weakOf(this);
     auto onSuccess = [weak](const auto &result) {
@@ -778,9 +790,12 @@ void Image::actuallyLoad()
     }
     else
     {
-        NetworkRequest(this->url().string)
-            .concurrent()
-            .cache()
+        auto request = NetworkRequest(this->url().string).concurrent();
+        if (useCache)
+        {
+            request = std::move(request).cache();
+        }
+        std::move(request)
             .onSuccess(std::move(onSuccess))
             .onError(std::move(onError))
             .execute();

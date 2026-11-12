@@ -7,9 +7,15 @@
 #include "controllers/emotes/EmoteController.hpp"
 #include "mocks/BaseApplication.hpp"
 #include "singletons/helper/GifTimer.hpp"
+#include "singletons/WindowManager.hpp"
 #include "Test.hpp"
 
 #include <QColor>
+#include <QCoreApplication>
+#include <QElapsedTimer>
+#include <QTemporaryDir>
+#include <QThread>
+#include <QUrl>
 
 using namespace chatterino;
 
@@ -25,6 +31,31 @@ public:
 
     EmoteController emotes;
 };
+
+class ImageRetryApplication : public ImageApplication
+{
+public:
+    WindowManager *getWindows() override
+    {
+        return &this->windows_;
+    }
+
+private:
+    WindowManager windows_{this->args, this->paths_, this->settings,
+                           this->theme, this->fonts};
+};
+
+bool waitForImageState(auto predicate)
+{
+    QElapsedTimer timer;
+    timer.start();
+    while (!predicate() && timer.elapsed() < 3000)
+    {
+        QCoreApplication::processEvents();
+        QThread::msleep(5);
+    }
+    return predicate();
+}
 
 QPixmap makePixmap(QSize size, Qt::GlobalColor color)
 {
@@ -99,4 +130,32 @@ TEST(Image, CachedFramesClearDisconnectsTimer)
         timer->signal.invoke();
     }
     timer->signal.invoke();
+}
+
+TEST(Image, ManualRetryRecoversFailedDownload)
+{
+    ImageRetryApplication app;
+    QTemporaryDir directory;
+    ASSERT_TRUE(directory.isValid());
+    const auto file = directory.filePath(QStringLiteral("badge.png"));
+    const auto image =
+        Image::fromUrl(Url{QUrl::fromLocalFile(file).toString()});
+
+    image->load();
+    ASSERT_TRUE(waitForImageState([&] {
+        return image->isEmpty();
+    }));
+
+    ASSERT_TRUE(makePixmap({1, 1}, Qt::green).save(file, "PNG"));
+    image->retryIfFailed();
+    const bool loaded = waitForImageState([&] {
+        return image->loaded();
+    });
+    QCoreApplication::processEvents();
+
+    ASSERT_TRUE(loaded);
+    EXPECT_FALSE(image->isEmpty());
+    const auto pixmap = image->pixmapOrLoad();
+    ASSERT_TRUE(pixmap);
+    EXPECT_EQ(pixmap->toImage().pixelColor(0, 0), Qt::green);
 }

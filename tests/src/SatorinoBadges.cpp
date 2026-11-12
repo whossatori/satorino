@@ -48,7 +48,7 @@ TEST(SatorinoBadges, ResolvesActiveBadgesByTwitchId)
     ASSERT_TRUE(badges->contains("9007199254740994"));
     const auto &owner = badges->at("812407555").front();
     EXPECT_EQ(owner->name.string, "satorino:owner");
-    EXPECT_EQ(owner->tooltip.string, "sato owner");
+    EXPECT_EQ(owner->tooltip.string, "Satorino Owner");
     EXPECT_EQ(owner->images.getImage1()->scale(), 1.0);
     EXPECT_EQ(owner->images.getImage2()->scale(), 0.5);
     EXPECT_EQ(owner->images.getImage3()->scale(), 0.25);
@@ -56,7 +56,7 @@ TEST(SatorinoBadges, ResolvesActiveBadgesByTwitchId)
               "https://satorino.satos.cc/badges/owner-3x.png?v=2");
     const auto &supporter = badges->at("9007199254740993").front();
     EXPECT_EQ(supporter, badges->at("9007199254740994").front());
-    EXPECT_EQ(supporter->tooltip.string, "sato supporter");
+    EXPECT_EQ(supporter->tooltip.string, "Satorino Supporter");
     EXPECT_TRUE(supporter->images.getImage2()->isEmpty());
 }
 
@@ -101,7 +101,7 @@ TEST(SatorinoBadges, RejectsImagesOutsideThePublicHttpsOrigin)
     ASSERT_EQ(badges->size(), 1U);
     ASSERT_TRUE(badges->contains("4"));
     EXPECT_EQ(badges->at("4").front()->tooltip.string,
-              "sato Valid &lt;&amp;&gt;");
+              "Satorino Valid &lt;&amp;&gt;");
 }
 
 TEST(SatorinoBadges, VersionTwoPreservesSelectionOrderAndSkipsInvalidIds)
@@ -160,10 +160,10 @@ TEST(SatorinoBadges, ExpandedRosterShowsAllSevenSelectedBadgeTypes)
     ASSERT_TRUE(badges->contains("42"));
     const auto &owner = badges->at("42");
     ASSERT_EQ(owner.size(), 7U);
-    const QStringList titles{"sato owner",         "sato dev",
-                             "sato tester",        "sato founder",
-                             "sato supporter",     "sato supporter +",
-                             "sato mega supporter"};
+    const QStringList titles{"Satorino Owner",         "Satorino Developer",
+                             "Satorino Tester",        "Satorino Founder",
+                             "Satorino Supporter",     "Satorino Supporter +",
+                             "Satorino Mega Supporter"};
     for (qsizetype i = 0; i < selected.size(); ++i)
     {
         EXPECT_EQ(owner[static_cast<size_t>(i)]->id.string,

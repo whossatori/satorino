@@ -1260,3 +1260,11 @@ messages are next shown, so their text uses the current palette. User card
 7TV paint names render on one line, and the label fits the rendered shadow.
 The paint renderer passed focused WSL testing with Qt 6.4.2. Full app
 builds and the message layout regression are **NOT RUN**.
+
+## Stage G batch 35
+
+Satorino badge tooltips use capitalised provider and role names across
+artwork variants. F5 retries failed Satorino badge images from the network,
+including when the badge feed itself returns HTTP 304. Seven live badge
+images decoded with the Linux package’s Qt 6.12 WebP plugin. Full app
+builds and the image retry regression are **NOT RUN**.

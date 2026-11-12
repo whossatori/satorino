@@ -59,17 +59,18 @@ EmotePtr makeBadge(const QString &id, const QJsonObject &definition)
     }
 
     static const std::unordered_map<QString, QString> titles{
-        {u"owner"_s, u"owner"_s},           {u"dev"_s, u"dev"_s},
-        {u"tester"_s, u"tester"_s},         {u"founder"_s, u"founder"_s},
-        {u"tier5"_s, u"supporter"_s},       {u"tier10"_s, u"supporter +"_s},
-        {u"tier20"_s, u"mega supporter"_s},
+        {u"owner"_s, u"Owner"_s},           {u"dev"_s, u"Developer"_s},
+        {u"tester"_s, u"Tester"_s},         {u"founder"_s, u"Founder"_s},
+        {u"tier5"_s, u"Supporter"_s},       {u"tier10"_s, u"Supporter +"_s},
+        {u"tier20"_s, u"Mega Supporter"_s},
     };
     const auto title = titles.find(id.section(u'-', 0, 0));
     const auto tooltip =
-        u"sato "_s + (title == titles.end() ? name : title->second);
+        u"Satorino "_s + (title == titles.end() ? name : title->second);
 
     const auto image1 = badgeImage(definition, u"image1x"_s, 1);
-    if (image1->isEmpty())
+    // An image may be temporarily empty after a failed request.
+    if (image1 == Image::getEmpty())
     {
         return {};
     }
@@ -207,6 +208,19 @@ void SatorinoBadges::refresh()
         return;
     }
 
+    // Retrying artwork also works when the feed is unchanged (HTTP 304).
+    {
+        std::shared_lock lock(this->mutex_);
+        for (const auto &[id, badges] : this->users_)
+        {
+            for (const auto &badge : badges)
+            {
+                badge->images.getImage1()->retryIfFailed();
+                badge->images.getImage2()->retryIfFailed();
+                badge->images.getImage3()->retryIfFailed();
+            }
+        }
+    }
     this->requestInFlight_ = true;
     this->requestFeed(false);
 }

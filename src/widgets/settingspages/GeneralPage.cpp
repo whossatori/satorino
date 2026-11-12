@@ -1203,7 +1203,7 @@ void GeneralPage::initLayout(GeneralPageView &layout)
     SettingWidget::checkbox("Cyex", s.showBadgesCyex)
         ->setTooltip("Badges from Cyex Deck on Twitch")
         ->addTo(layout);
-    SettingWidget::checkbox("satorino", s.showBadgesSatorino)
+    SettingWidget::checkbox("Satorino", s.showBadgesSatorino)
         ->setTooltip(
             "Owner, founder, and supporter badges from satorino.satos.cc")
         ->addTo(layout);
