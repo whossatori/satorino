@@ -97,3 +97,32 @@ TEST(TextElement, BasicCase)
     EXPECT_EQ(wordStart, 0);
     EXPECT_EQ(wordEnd, 3);
 }
+
+TEST(TextElement, ExistingLayoutRefreshesOnThemeChange)
+{
+    MockApplication app;
+    app.theme.themeName = QStringLiteral("Dark");
+
+    MessageBuilder builder;
+    builder.emplace<TextElement>(QStringLiteral("Existing message"),
+                                 MessageElementFlag::Text);
+    MessageLayout layout(builder.release());
+    MessageColors colors;
+    colors.applyTheme(&app.theme, false, 255);
+    const MessageLayoutContext context{
+        .messageColors = colors,
+        .flags = MessageElementFlag::Text,
+        .width = WIDTH,
+        .message = *layout.getMessage(),
+    };
+
+    EXPECT_TRUE(layout.layout(context, false));
+    EXPECT_FALSE(layout.layout(context, false));
+
+    const auto darkText = colors.regularText;
+    app.theme.themeName = QStringLiteral("White");
+    colors.applyTheme(&app.theme, false, 255);
+    EXPECT_NE(colors.regularText, darkText);
+    EXPECT_TRUE(layout.layout(context, false));
+    EXPECT_FALSE(layout.layout(context, false));
+}

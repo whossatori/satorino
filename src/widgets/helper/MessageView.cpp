@@ -883,7 +883,7 @@ void MessageView::themeChangedEvent()
     this->messageColors_.regularBg = getTheme()->splits.input.background;
     if (this->messageLayout_)
     {
-        this->messageLayout_->invalidateBuffer();
+        this->layoutMessage();
     }
 }
 

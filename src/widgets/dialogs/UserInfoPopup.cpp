@@ -74,12 +74,14 @@
 #include <QDesktopServices>
 #include <QFile>
 #include <QFontMetrics>
+#include <QFontMetricsF>
 #include <QFrame>
 #include <QGridLayout>
 #include <QGuiApplication>
 #include <QHash>
 #include <QHBoxLayout>
 #include <QKeyEvent>
+#include <QtMath>
 #include <QLabel>
 #include <QLineEdit>
 #include <QList>
@@ -397,10 +399,10 @@ void createUsercardPaintRow(LayoutCreator<QVBoxLayout> &vbox, QWidget **rowOut,
 
     auto *prefixLabel = new Label(TEXT_SEVENTV_PAINT.toString());
     prefixLabel->setPadding({});
-    layout->addWidget(prefixLabel, 0, Qt::AlignVCenter);
+    layout->addWidget(prefixLabel, 0, Qt::AlignTop);
 
     auto *paintNameButton = new ClickablePaintName;
-    layout->addWidget(paintNameButton, 0, Qt::AlignVCenter);
+    layout->addWidget(paintNameButton, 0, Qt::AlignTop);
     layout->addStretch(1);
 
     row->setVisible(false);
@@ -5356,12 +5358,9 @@ void UserInfoPopup::updateSeventvPaintPixmap()
     const QString paintName = paint->name.isEmpty() ? paint->id : paint->name;
 
     const QFontMetricsF metrics(font);
-    const int lineHeight = std::max(1, qRound(metrics.height()));
-    const int paintWidth =
-        std::max(1, qRound(metrics.horizontalAdvance(paintName)));
-    const QSizeF size(paintWidth, lineHeight);
-
-    this->ui_.seventvPaintPixmapLabel->setFixedSize(paintWidth, lineHeight);
+    const auto bounds = metrics.size(Qt::TextSingleLine, paintName);
+    const QSizeF size(std::max(1, qCeil(bounds.width())),
+                      std::max(1, qCeil(bounds.height())));
 
     QColor userColor = Qt::white;
     if (this->ui_.userColorRow)
@@ -5377,6 +5376,10 @@ void UserInfoPopup::updateSeventvPaintPixmap()
     const auto pixmap = paint->getPixmap(paintName, font, userColor, size,
                                          this->scale(), dpr, true);
 
+    // Match the rendered pixmap, including space for the paint shadow.
+    const auto pixmapSize = pixmap.deviceIndependentSize();
+    this->ui_.seventvPaintPixmapLabel->setFixedSize(qCeil(pixmapSize.width()),
+                                                    qCeil(pixmapSize.height()));
     this->ui_.seventvPaintPixmapLabel->setPixmap(pixmap);
     this->ui_.seventvPaintPixmapLabel->setToolTip(paintName);
 }

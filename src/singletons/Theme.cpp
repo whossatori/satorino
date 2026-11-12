@@ -370,6 +370,11 @@ bool Theme::isSystemTheme() const
     return this->themeName == u"System"_s;
 }
 
+std::uint32_t Theme::generation() const
+{
+    return this->generation_;
+}
+
 Theme::Theme(const Paths &paths)
 {
     this->themeName.connect(
@@ -481,6 +486,8 @@ void Theme::update()
 
     auto parseTs = double(timer.nsecsElapsed()) * nsToMs;
 
+    // satorino: text colours are resolved when message elements are laid out.
+    ++this->generation_;
     this->updated.invoke();
     auto updateTs = double(timer.nsecsElapsed()) * nsToMs;
     qCDebug(chatterinoTheme).nospace().noquote()

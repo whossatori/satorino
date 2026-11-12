@@ -110,6 +110,7 @@ private:
     qreal height_ = 0;
     int currentLayoutWidth_ = -1;
     int layoutState_ = -1;
+    std::uint32_t themeGeneration_ = 0;
     float scale_ = -1;
     float imageScale_ = -1.F;
     float emoteScale_ = -1.F;

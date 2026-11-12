@@ -17,6 +17,7 @@
 #include <QTimer>
 #include <QVariant>
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -169,6 +170,7 @@ public:
     QPalette palette;
 
     void normalizeColor(QColor &color) const;
+    std::uint32_t generation() const;
     void update();
 
     bool isAutoReloading() const;
@@ -195,6 +197,7 @@ public:
 
 private:
     bool isLight_ = false;
+    std::uint32_t generation_ = 0;
 
     std::vector<ThemeDescriptor> availableThemes_;
 

@@ -83,8 +83,10 @@ QPixmap Paint::getPixmap(const QString &text, const QFont &font,
 
     if (centerVertically)
     {
-        pixmapPainter.drawText(nametagBoundingRect, nametagText,
-                               QTextOption(Qt::AlignLeft | Qt::AlignVCenter));
+        // satorino: the user card allocates one line for the paint name.
+        const int flags =
+            int(Qt::AlignLeft | Qt::AlignVCenter) | Qt::TextSingleLine;
+        pixmapPainter.drawText(nametagBoundingRect, flags, nametagText);
     }
     else
     {

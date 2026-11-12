@@ -17,6 +17,7 @@
 #include "singletons/Resources.hpp"
 #include "singletons/Settings.hpp"
 #include "singletons/StreamerMode.hpp"
+#include "singletons/Theme.hpp"
 #include "singletons/WindowManager.hpp"
 #include "util/DebugCount.hpp"
 
@@ -144,11 +145,14 @@ bool MessageLayout::layout(const MessageLayoutContext &ctx,
     this->currentLayoutWidth_ = ctx.width;
 
     const auto layoutGeneration = getApp()->getWindows()->getGeneration();
-    if (this->layoutState_ != layoutGeneration)
+    const auto themeGeneration = getTheme()->generation();
+    if (this->layoutState_ != layoutGeneration ||
+        this->themeGeneration_ != themeGeneration)
     {
         layoutRequired = true;
         this->flags.set(MessageLayoutFlag::RequiresBufferUpdate);
         this->layoutState_ = layoutGeneration;
+        this->themeGeneration_ = themeGeneration;
     }
 
     layoutRequired |= this->currentWordFlags_ != ctx.flags;

@@ -1252,3 +1252,11 @@ seconds, subject to the join rate limit. A successful join or room-state
 message cancels the retry. Closing a channel or disconnecting discards
 its queued joins. Focused queue tests ran in WSL with Qt 6.4.2. Full app
 builds and verification on affected machines are **NOT RUN**.
+
+## Stage G batch 34
+
+Theme changes rebuild cached layouts when existing chat and preview
+messages are next shown, so their text uses the current palette. User card
+7TV paint names render on one line, and the label fits the rendered shadow.
+The paint renderer passed focused WSL testing with Qt 6.4.2. Full app
+builds and the message layout regression are **NOT RUN**.
