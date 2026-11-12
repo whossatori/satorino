@@ -60,7 +60,13 @@ public:
 
     const QString &getDisplayName() const override
     {
-        return this->displayName_;
+        return this->displayName_.isEmpty() ? this->getName()
+                                            : this->displayName_;
+    }
+
+    const QString &getLocalizedName() const override
+    {
+        return this->getDisplayName();
     }
 
     const QString &slug() const

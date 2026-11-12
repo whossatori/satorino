@@ -632,7 +632,7 @@ public:
     };
     QStringSetting spellCheckingDefaultDictionary = {
         "/behaviour/spellChecking/defaultDictionary",
-        "",
+        ":/dictionaries/en_US",  // satorino: packaged English dictionary
     };
     IntSetting nSpellCheckingSuggestions = {
         "/behaviour/spellChecking/suggestions/count",

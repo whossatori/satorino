@@ -1276,3 +1276,17 @@ sends a numeric window ID or omits it. Attaching chat to a browser window
 still uses the string window ID. The Windows handler regression passed in
 WSL with the attachment layer stubbed. Full builds and live browser
 integration testing are **NOT RUN**.
+
+## Stage G batch 37
+
+Spellcheck uses Chatterino's Hunspell integration in the Windows, Linux
+and macOS test packages. Enable it in Settings → External tools or in a
+split's input menu. English (US) is bundled from LibreOffice dictionaries
+at revision `4fa94195b8136364dd40bf2b0366a0fe32058899`, with the complete
+SCOWL notice in About. Existing dictionary selections are preserved.
+
+Kick chat, replies and channel headings show Kick's supplied
+capitalisation. Login keys and custom nickname matching are unchanged.
+
+Focused spellcheck and Kick name tests passed in WSL. Full package
+builds and live Kick testing are **NOT RUN**.

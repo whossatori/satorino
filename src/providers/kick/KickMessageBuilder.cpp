@@ -194,26 +194,15 @@ void parseContent(KickMessageBuilder &builder, QString &messageText,
 
 QString displayedUsername(const Message &message)
 {
-    QString usernameText;
-    switch (getSettings()->usernameDisplayMode.getValue())
-    {
-        case UsernameDisplayMode::Username:
-            usernameText = message.loginName;
-            break;
-
-        case UsernameDisplayMode::LocalizedName:
-        case UsernameDisplayMode::UsernameAndLocalizedName:
-        default:
-            usernameText = message.displayName;
-            break;
-    }
-
-    if (auto nicknameText = getSettings()->matchNickname(usernameText))
-    {
-        usernameText = *nicknameText;
-    }
-
-    return usernameText;
+    // satorino: display Kick's original casing and preserve nickname matching.
+    const auto &displayName =
+        message.displayName.isEmpty() ? message.loginName : message.displayName;
+    const auto &nicknameSource =
+        getSettings()->usernameDisplayMode.getValue() ==
+                UsernameDisplayMode::Username
+            ? message.loginName
+            : displayName;
+    return getSettings()->matchNickname(nicknameSource).value_or(displayName);
 }
 
 void checkThreadSubscription(const QString &senderLogin,

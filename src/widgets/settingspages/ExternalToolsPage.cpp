@@ -239,11 +239,9 @@ void ExternalToolsPage::initLayout(GeneralPageView &layout)
         layout.addTitle("Spell checker (experimental)");
 
         layout.addDescription(
-            u"Check the spelling of words in the input box of splits."
-            " Chatterino does not include dictionaries - they have to "
-            "be downloaded or created manually. Chatterino expects "
-            "Hunspell "
-            "dictionaries in " %
+            u"Check spelling in the chat input. Satorino includes an English "
+            "(US) dictionary. To add another language, put its Hunspell "
+            "dictionary in " %
             formatRichNamedLink(getApp()->getPaths().dictionariesDirectory,
                                 getApp()->getPaths().dictionariesDirectory) %
             u". Dictionaries are pairs of .aff (affixes) and .dic (dictionary) "

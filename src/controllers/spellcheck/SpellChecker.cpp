@@ -14,6 +14,15 @@
 
 #ifdef CHATTERINO_WITH_SPELLCHECK
 #    include <hunspell/hunspell.hxx>
+#    include <QDir>
+#    include <QFile>
+#    include <QFileInfo>
+#    include <QStringBuilder>
+#    include <QTemporaryDir>
+
+#    include <algorithm>
+#    include <tuple>
+#    include <utility>
 #endif
 
 namespace chatterino {
@@ -21,6 +30,9 @@ namespace chatterino {
 #ifdef CHATTERINO_WITH_SPELLCHECK
 
 namespace {
+
+// satorino: the packaged dictionary uses the same path setting as other dictionaries.
+constexpr auto BUILT_IN_DICTIONARY = ":/dictionaries/en_US";
 
 std::vector<DictionaryInfo> loadDictionariesFromDirectory(
     const QDir &searchDirectory, bool isSystem)
@@ -74,6 +86,26 @@ QString resolveDictionaryPath(const QString &path)
     return combinePath(getApp()->getPaths().dictionariesDirectory, path);
 }
 
+// satorino: Hunspell's MSVC build uses UTF-8 for prefixed Windows paths.
+std::string hunspellPath(const std::filesystem::path &path)
+{
+#    if defined(Q_OS_WIN) && defined(_MSC_VER)
+    auto native = QDir::toNativeSeparators(stdPathToQString(path));
+    if (native.startsWith(u"\\\\?\\"))
+    {
+        return native.toStdString();
+    }
+    if (native.startsWith(u"\\\\"))
+    {
+        return (QStringLiteral("\\\\?\\UNC\\") + native.sliced(2))
+            .toStdString();
+    }
+    return (QStringLiteral("\\\\?\\") + native).toStdString();
+#    else
+    return path.string();
+#    endif
+}
+
 }  // namespace
 
 class SpellCheckerPrivate
@@ -82,10 +114,15 @@ public:
     static std::unique_ptr<SpellCheckerPrivate> tryLoad(
         const QString &path = {});
 
-    Hunspell hunspell;
-
 private:
-    SpellCheckerPrivate(const char *affpath, const char *dpath);
+    SpellCheckerPrivate(std::unique_ptr<QTemporaryDir> dictionaryDirectory,
+                        const char *affpath, const char *dpath);
+
+    // Keep the extracted files alive until after Hunspell is destroyed.
+    std::unique_ptr<QTemporaryDir> dictionaryDirectory_;
+
+public:
+    Hunspell hunspell;
 };
 
 std::unique_ptr<SpellCheckerPrivate> SpellCheckerPrivate::tryLoad(
@@ -98,6 +135,23 @@ std::unique_ptr<SpellCheckerPrivate> SpellCheckerPrivate::tryLoad(
     }
 
     auto resolvedPath = resolveDictionaryPath(path);
+    std::unique_ptr<QTemporaryDir> dictionaryDirectory;
+    if (path == QLatin1String(BUILT_IN_DICTIONARY))
+    {
+        // Hunspell opens native files, so extract the embedded dictionary first.
+        dictionaryDirectory = std::make_unique<QTemporaryDir>();
+        if (!dictionaryDirectory->isValid() ||
+            !QFile::copy(path % ".aff",
+                         dictionaryDirectory->filePath("en_US.aff")) ||
+            !QFile::copy(path % ".dic",
+                         dictionaryDirectory->filePath("en_US.dic")))
+        {
+            qCWarning(chatterinoSpellcheck)
+                << "Failed to extract the built-in English dictionary";
+            return nullptr;
+        }
+        resolvedPath = dictionaryDirectory->filePath("en_US");
+    }
     auto aff = qStringToStdPath(resolvedPath % ".aff");
     auto dic = qStringToStdPath(resolvedPath % ".dic");
 
@@ -126,11 +180,15 @@ std::unique_ptr<SpellCheckerPrivate> SpellCheckerPrivate::tryLoad(
     }
 
     return std::unique_ptr<SpellCheckerPrivate>{new SpellCheckerPrivate(
-        affCanonical.string().c_str(), dicCanonical.string().c_str())};
+        std::move(dictionaryDirectory), hunspellPath(affCanonical).c_str(),
+        hunspellPath(dicCanonical).c_str())};
 }
 
-SpellCheckerPrivate::SpellCheckerPrivate(const char *affpath, const char *dpath)
-    : hunspell(affpath, dpath)
+SpellCheckerPrivate::SpellCheckerPrivate(
+    std::unique_ptr<QTemporaryDir> dictionaryDirectory, const char *affpath,
+    const char *dpath)
+    : dictionaryDirectory_(std::move(dictionaryDirectory))
+    , hunspell(affpath, dpath)
 {
 }
 
@@ -245,6 +303,13 @@ std::vector<DictionaryInfo> SpellChecker::getAvailableDictionaries() const
                                  std::tie(rhs.isSystem, rhs.name, rhs.path);
                       });
 
+    dictionaries.insert(dictionaries.begin(),
+                        DictionaryInfo{
+                            .name = "English (US) (built-in)",
+                            .path = QLatin1String(BUILT_IN_DICTIONARY),
+                            .isSymbolicLink = false,
+                            .isSystem = false,
+                        });
     return dictionaries;
 #else
     return {};

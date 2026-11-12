@@ -183,6 +183,9 @@ AboutPage::AboutPage()
 #ifdef CHATTERINO_WITH_SPELLCHECK
             addLicense(form.getElement(), "Hunspell",
                        "https://hunspell.github.io", ":/licenses/hunspell.txt");
+            addLicense(form.getElement(), "SCOWL English dictionary",
+                       "https://wordlist.aspell.net/",
+                       ":/licenses/scowl-en-us.txt");
 #endif
         }
 

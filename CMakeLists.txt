@@ -85,11 +85,6 @@ project(satorino
     HOMEPAGE_URL "https://github.com/whossatori/satorino"
 )
 
-if(APPLE AND CHATTERINO_SPELLCHECK)
-    message(STATUS "Spellcheck is disabled on macOS builds to avoid bundling Hunspell dylibs.")
-    set(CHATTERINO_SPELLCHECK OFF CACHE BOOL "Enable spellchecking in Chatterino (requires Hunspell)" FORCE)
-endif()
-
 if(CHATTERINO_GENERATE_COVERAGE)
     if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         add_compile_options(-fprofile-instr-generate -fcoverage-mapping)

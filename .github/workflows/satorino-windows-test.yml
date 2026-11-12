@@ -320,7 +320,7 @@ jobs:
             g++-14 ninja-build libboost-json-dev libboost-filesystem-dev libgl-dev libnotify-dev \
             libsecret-1-dev libssl-dev libfuse2t64 libxcb-cursor0 libxcb-xinerama0 libxkbcommon-x11-0 \
             libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-xkb1 \
-            libx11-xcb1 patchelf xvfb xauth
+            libx11-xcb1 libhunspell-dev pkg-config patchelf xvfb xauth
 
       - name: Install Qt6
         uses: jurplel/install-qt-action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4.4.1
@@ -346,6 +346,7 @@ jobs:
             -DCHATTERINO_NO_AVIF_PLUGIN=ON \
             -DCHATTERINO_UPDATER=OFF \
             -DCHATTERINO_NIGHTLY_BUILD=OFF \
+            -DCHATTERINO_SPELLCHECK=ON \
             -DFORCE_JSON_GENERATION=OFF
           cmake --build build --parallel 3
 
@@ -357,6 +358,7 @@ jobs:
           test -x squashfs-root/usr/bin/satorino
           test -n "$(find squashfs-root -name libqwebp.so -print -quit)"
           test -n "$(find squashfs-root -name libqxcb.so -print -quit)"
+          test -n "$(find squashfs-root -name 'libhunspell*.so*' -print -quit)"
           # Test the X11 platform shipped in the AppImage with a virtual display.
           env -u QT_PLUGIN_PATH -u LD_LIBRARY_PATH \
             QT_QPA_PLATFORM=xcb XDG_DATA_HOME="$RUNNER_TEMP/satorino-smoke-data" \
@@ -419,6 +421,7 @@ jobs:
             -DCHATTERINO_NO_AVIF_PLUGIN=ON \
             -DCHATTERINO_UPDATER=OFF \
             -DCHATTERINO_NIGHTLY_BUILD=OFF \
+            -DCHATTERINO_SPELLCHECK=ON \
             -DFORCE_JSON_GENERATION=OFF
           cmake --build build --parallel 2
 
