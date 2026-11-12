@@ -422,12 +422,6 @@ void NativeMessagingServer::ReceiverThread::handleSelect(
 
     qCDebug(chatterinoNativeMessage)
         << args.x << args.pixelRatio << args.width << args.height << args.winId;
-
-    if (args.winId.isNull())
-    {
-        qCDebug(chatterinoNativeMessage) << "winId in select is missing";
-        return;
-    }
 #endif
 
     if (type != u"twitch"_s)
@@ -449,6 +443,13 @@ void NativeMessagingServer::ReceiverThread::handleSelect(
         if (attach || attachFullscreen)
         {
 #ifdef USEWINSDK
+            // satorino: Watching works independently of browser attachment.
+            if (args.winId.isNull())
+            {
+                qCDebug(chatterinoNativeMessage)
+                    << "Browser attachment requires a window ID";
+                return;
+            }
             auto *window = AttachedWindow::getForeground(args);
             if (!name.isEmpty())
             {

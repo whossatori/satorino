@@ -1268,3 +1268,11 @@ artwork variants. F5 retries failed Satorino badge images from the network,
 including when the badge feed itself returns HTTP 304. Seven live badge
 images decoded with the Linux package’s Qt 6.12 WebP plugin. Full app
 builds and the image retry regression are **NOT RUN**.
+
+## Stage G batch 36
+
+On Windows, browser selections update the Watching split when the extension
+sends a numeric window ID or omits it. Attaching chat to a browser window
+still uses the string window ID. The Windows handler regression passed in
+WSL with the attachment layer stubbed. Full builds and live browser
+integration testing are **NOT RUN**.
