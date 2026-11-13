@@ -1,4 +1,4 @@
-# satorino: Windows portable testing and optional release packages.
+# satorino: Windows portable testing and multiplatform release packages.
 # Package jobs upload build artifacts for manual release assembly.
 #
 # Setup is copied from the Windows job in build.yml (MSVC environment via
@@ -200,7 +200,7 @@ jobs:
           if-no-files-found: error
 
       - name: Build and verify Windows installer
-        if: inputs.release_packages
+        if: github.event_name == 'push' || inputs.release_packages
         shell: pwsh
         timeout-minutes: 15
         run: |
@@ -247,62 +247,54 @@ jobs:
           }
 
       - name: Upload Windows installer
-        if: inputs.release_packages
+        if: github.event_name == 'push' || inputs.release_packages
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: satorino-windows-x64-setup
           path: build/release/satorino-windows-x64-setup.exe
           if-no-files-found: error
 
-      - name: Smoke test (launch, must stay alive 10 s)
-        # Runs AFTER the upload, so a failing test can never cost the zip.
-        #
-        # Deliberately NOT "--version": on Windows that path calls
-        # attachToConsole() (src/util/AttachToConsole.cpp), which passes a
-        # null FILE** to freopen_s. The CRT's invalid-parameter handler then
-        # kills the process with 0xC0000409 whenever a parent console exists
-        # (as on this runner). That is upstream behaviour, not a packaging
-        # fault, so it can never pass here.
-        #
-        # Instead start the real GUI path and require the process to still
-        # be alive after 10 s. A missing DLL (exit 0xC0000135), a Qt platform
-        # plugin failure or any startup crash ends the process well before.
-        # QT_FORCE_STDERR_LOGGING makes the GUI-subsystem exe write Qt
-        # messages to the redirected stderr so a failure explains itself.
-        #
-        # continue-on-error: this step is new and has never run on a runner.
-        # Set it to false once it has passed once.
-        continue-on-error: true
+      - name: Verify portable ZIP uses existing Chatterino2 settings
         shell: pwsh
         working-directory: build
         timeout-minutes: 3
         run: |
-          $env:QT_FORCE_STDERR_LOGGING = '1'
+          $portable = Join-Path $env:RUNNER_TEMP 'satorino-portable-smoke'
+          7z x 'satorino-windows-x64-portable.zip' "-o$portable"
+          if ($LASTEXITCODE -ne 0) { throw 'Could not extract the portable ZIP.' }
+          $appDir = Join-Path $portable 'satorino'
+
           $env:APPDATA = Join-Path $env:RUNNER_TEMP 'satorino-portable-smoke-appdata'
-          $exe = (Resolve-Path 'satorino/satorino.exe').Path
-          $p = Start-Process -FilePath $exe -PassThru `
-              -RedirectStandardOutput smoke-stdout.txt `
-              -RedirectStandardError smoke-stderr.txt
-          Start-Sleep -Seconds 10
-          if ($p.HasExited) {
-            Write-Host '--- stderr ---'
-            Get-Content smoke-stderr.txt -ErrorAction SilentlyContinue
-            Write-Host '--- stdout ---'
-            Get-Content smoke-stdout.txt -ErrorAction SilentlyContinue
-            Write-Error ('satorino.exe exited early, code 0x{0:X8}' -f $p.ExitCode)
-            exit 1
+          $settings = New-Item -ItemType Directory -Path "$env:APPDATA/Chatterino2/Settings" -Force
+          # An unknown theme makes the app log the saved value before using its fallback.
+          '{"appearance":{"theme":{"name":"SatorinoPortableSmokeTest"}}}' |
+            Set-Content -LiteralPath (Join-Path $settings.FullName 'settings.json') -Encoding utf8NoBOM
+          $env:QT_FORCE_STDERR_LOGGING = '1'
+          $env:CHATTERINO_LOG_TO_FILE = Join-Path $portable 'portable-startup.log'
+
+          $app = Start-Process -FilePath "$appDir/satorino.exe" -WorkingDirectory $appDir `
+            -WindowStyle Hidden -PassThru `
+            -RedirectStandardOutput "$portable/smoke-stdout.txt" `
+            -RedirectStandardError "$portable/smoke-stderr.txt"
+          try {
+            Start-Sleep -Seconds 10
+            if ($app.HasExited) {
+              throw ('Portable app exited during startup, code 0x{0:X8}' -f $app.ExitCode)
+            }
+            $readProfile = Select-String -LiteralPath $env:CHATTERINO_LOG_TO_FILE `
+              -Pattern 'SatorinoPortableSmokeTest.*not found, falling back' -Quiet
+            if (!$readProfile -or (Test-Path "$env:APPDATA/satorino") -or (Test-Path "$appDir/Settings")) {
+              throw 'Portable app did not load settings from the existing Chatterino2 profile.'
+            }
+          } finally {
+            if (!$app.HasExited) { Stop-Process -Id $app.Id -Force }
+            foreach ($log in @($env:CHATTERINO_LOG_TO_FILE, "$portable/smoke-stderr.txt", "$portable/smoke-stdout.txt")) {
+              Get-Content -LiteralPath $log -Tail 40 -ErrorAction SilentlyContinue
+            }
           }
-          Write-Host 'satorino.exe still running after 10 s - OK'
-          Stop-Process -Id $p.Id -Force
-          if (!(Test-Path "$env:APPDATA/Chatterino2/Settings" -PathType Container) -or
-              (Test-Path "$env:APPDATA/satorino") -or (Test-Path 'satorino/Settings')) {
-            throw 'Portable app did not use the Chatterino2 profile.'
-          }
-          Write-Host '--- stderr (first 40 lines) ---'
-          Get-Content smoke-stderr.txt -TotalCount 40 -ErrorAction SilentlyContinue
 
   package-linux-x64:
-    if: inputs.release_packages
+    if: github.event_name == 'push' || inputs.release_packages
     name: Linux x86-64 AppImage
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -373,7 +365,7 @@ jobs:
           if-no-files-found: error
 
   package-macos:
-    if: inputs.release_packages
+    if: github.event_name == 'push' || inputs.release_packages
     name: macOS universal DMG
     runs-on: macos-15
     timeout-minutes: 90

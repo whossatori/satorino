@@ -356,19 +356,15 @@ free badge bit was `1LL << 49` as of writing).
 
 ## Windows test builds (GitHub Actions)
 
-`.github/workflows/satorino-windows-test.yml` (added 2026-11-01) builds a
-**portable** Windows x64 zip on every push to `satorino` and on demand via
-workflow_dispatch. The zip contains `satorino.exe`, the windeployqt output,
-the VCRT runtime DLLs (`.CI/deploy-crt.ps1`) and a `modes` file containing
-`portable` next to the exe — per `src/common/Modes.cpp` the app then keeps
-ALL settings, caches and logs next to the binary, so a test build never
-reads or writes `%APPDATA%\Chatterino2`. Extract anywhere and run
-`satorino\satorino.exe`; delete the folder to clean up completely.
+`.github/workflows/satorino-windows-test.yml` builds the Windows portable
+ZIP, Windows installer, Linux AppImage and macOS DMG on every push to
+`satorino`. Manual runs can build only the Windows portable ZIP or include
+all packages by enabling **Build Windows installer, Linux AppImage, and
+macOS DMG**.
 
-Heads-up: the main `build.yml` also triggers on pushes to `satorino` (the
-rebrand made it the default branch) and then runs the full platform matrix
-including the nightly-release job on your fork. Disable "Build" in the
-repo's Actions tab if that is unwanted.
+Extract the entire portable ZIP and run `satorino.exe`. It loads settings,
+tabs and accounts from `%APPDATA%\Chatterino2`. The `modes` file next to the
+executable marks the build as portable for installed-only integrations.
 
 ## Build (Linux quick reference)
 
@@ -1290,3 +1286,12 @@ capitalisation. Login keys and custom nickname matching are unchanged.
 
 Focused spellcheck and Kick name tests passed in WSL. Full package
 builds and live Kick testing are **NOT RUN**.
+
+## Stage G batch 38
+
+Pushes to `satorino` build release packages for Windows, Linux and macOS.
+Manual runs still use the release-packages checkbox. The Windows CI smoke
+test extracts the portable ZIP and checks that the app reads a saved
+theme value from a disposable `%APPDATA%\Chatterino2` profile. The
+application's existing shared profile path applies to both Windows builds.
+The updated workflow and portable launch are **NOT RUN** locally.
