@@ -80,7 +80,7 @@ endif()
 # satorino: renamed from upstream "chatterino". CMake target names are kept
 # stable (chatterino-lib / chatterino) in src/CMakeLists.txt for merge safety.
 project(satorino
-    VERSION 2.5.6
+    VERSION 2.5.7
     DESCRIPTION "Chat client for Twitch"
     HOMEPAGE_URL "https://github.com/whossatori/satorino"
 )
