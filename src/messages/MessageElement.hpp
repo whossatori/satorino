@@ -652,7 +652,7 @@ public:
 
     EmotePtr getEmote() const;
     const ImagePtr &getTooltipImage()
-        const;  // satorino: Cyex high-res previews
+        const;  // satorino: keep badge previews at their usual resolution
 
     void setTwitchBadge(QString slug, QString version);
     std::optional<QString> twitchBadgeSlug() const;

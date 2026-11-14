@@ -15,14 +15,16 @@
 #include <QShowEvent>
 #include <QHideEvent>
 #include <QLabel>
-#include <QListWidget>
 #include <QPushButton>
-#include <QSignalBlocker>
 #include <QColor>
 #include <QPalette>
 #include <QSizePolicy>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
+
+#include <array>
+#include <cstddef>
+#include <utility>
 
 namespace chatterino {
 
@@ -155,71 +157,88 @@ void SatorinoPage::addEmotePriority(GeneralPageView &layout)
 
     auto &setting = getSettings()->satorinoEmotePriority;
     auto *group = new QWidget;
-    auto *row = new QHBoxLayout(group);
-    row->setContentsMargins(0, 0, 0, 0);
-    auto *list = new QListWidget(group);
-    list->setAccessibleName("Emote provider priority");
-    list->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    list->setUniformItemSizes(true);
-    row->addWidget(list, 1);
+    auto *rowsLayout = new QVBoxLayout(group);
+    rowsLayout->setContentsMargins(0, 0, 0, 0);
+    rowsLayout->setSpacing(0);
 
-    auto *buttons = new QVBoxLayout;
-    row->addLayout(buttons);
-    auto *up = new QPushButton("Move up", group);
-    auto *down = new QPushButton("Move down", group);
-    auto *reset = new QPushButton("Reset", group);
-    buttons->addWidget(up);
-    buttons->addWidget(down);
-    buttons->addWidget(reset);
-    buttons->addStretch();
-
-    const auto updateButtons = [list, up, down](int index) {
-        up->setEnabled(index > 0);
-        down->setEnabled(index >= 0 && index + 1 < list->count());
+    struct ProviderRow {
+        QLabel *name;
+        QPushButton *up;
+        QPushButton *down;
     };
-    QObject::connect(list, &QListWidget::currentRowChanged, group,
-                     updateButtons);
-    setting.connect(
-        [list, updateButtons](const QStringList &saved) {
-            const QSignalBlocker blocker(list);
-            const auto selected = list->currentRow();
-            list->clear();
-            for (const auto provider : parseEmotePriority(saved))
+    std::array<ProviderRow, DEFAULT_EMOTE_PRIORITY.size()> rows{};
+    for (std::size_t i = 0; i < rows.size(); ++i)
+    {
+        auto *row = new QWidget(group);
+        auto *line = new QHBoxLayout(row);
+        line->setContentsMargins(2, 4, 2, 4);
+        line->setSpacing(4);
+        auto &controls = rows[i];
+        controls.name = new QLabel(row);
+        controls.up = new QPushButton(QStringLiteral("↑"), row);
+        controls.down = new QPushButton(QStringLiteral("↓"), row);
+        line->addWidget(controls.name, 1);
+        line->addWidget(controls.up);
+        line->addWidget(controls.down);
+        controls.up->setFixedWidth(26);
+        controls.down->setFixedWidth(26);
+        controls.up->setEnabled(i > 0);
+        controls.down->setEnabled(i + 1 < rows.size());
+        rowsLayout->addWidget(row);
+
+        const auto move = [&setting, i](std::size_t target) {
+            auto order = parseEmotePriority(setting.getValue());
+            if (target >= order.size())
             {
-                list->addItem(emoteProviderName(provider).toString());
+                return;
             }
-            list->setFixedHeight(list->sizeHintForRow(0) * list->count() +
-                                 2 * list->frameWidth());
-            list->setCurrentRow(selected < 0 ? 0 : selected);
-            updateButtons(list->currentRow());
-        },
-        this->managedConnections_);
+            std::swap(order[i], order[target]);
+            QStringList saved;
+            for (const auto provider : order)
+            {
+                saved.append(emoteProviderName(provider).toString());
+            }
+            setting.setValue(saved);
+        };
+        if (i > 0)
+        {
+            QObject::connect(controls.up, &QPushButton::clicked, row,
+                             [move, i] {
+                                 move(i - 1);
+                             });
+        }
+        if (i + 1 < rows.size())
+        {
+            QObject::connect(controls.down, &QPushButton::clicked, row,
+                             [move, i] {
+                                 move(i + 1);
+                             });
+        }
+    }
 
-    const auto move = [list, &setting](int offset) {
-        const auto index = list->currentRow();
-        const auto target = index + offset;
-        if (index < 0 || target < 0 || target >= list->count())
-        {
-            return;
-        }
-        QStringList order;
-        for (int i = 0; i < list->count(); ++i)
-        {
-            order.push_back(list->item(i)->text());
-        }
-        order.swapItemsAt(index, target);
-        setting.setValue(order);
-        list->setCurrentRow(target);
-    };
-    QObject::connect(up, &QPushButton::clicked, group, [move] {
-        move(-1);
-    });
-    QObject::connect(down, &QPushButton::clicked, group, [move] {
-        move(1);
-    });
+    auto *reset = new QPushButton("Reset order", group);
+    rowsLayout->addWidget(reset, 0, Qt::AlignRight);
     QObject::connect(reset, &QPushButton::clicked, group, [&setting] {
         setting.setValue(QStringList{});
     });
+
+    setting.connect(
+        [rows, reset](const QStringList &saved) {
+            const auto order = parseEmotePriority(saved);
+            for (std::size_t i = 0; i < rows.size(); ++i)
+            {
+                const auto name = emoteProviderName(order[i]).toString();
+                const auto &controls = rows[i];
+                controls.name->setText(name);
+                controls.up->setToolTip(QStringLiteral("Move %1 up").arg(name));
+                controls.down->setToolTip(
+                    QStringLiteral("Move %1 down").arg(name));
+                controls.up->setAccessibleName(controls.up->toolTip());
+                controls.down->setAccessibleName(controls.down->toolTip());
+            }
+            reset->setEnabled(order != DEFAULT_EMOTE_PRIORITY);
+        },
+        this->managedConnections_);
 
     layout.addWidget(group, {"Emote priority", "Twitch", "7TV", "FFZ", "BTTV"});
 }

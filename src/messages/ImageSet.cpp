@@ -9,6 +9,8 @@
 
 #include <QJsonObject>
 
+#include <algorithm>
+
 namespace chatterino {
 
 ImageSet::ImageSet()
@@ -80,9 +82,10 @@ const ImagePtr &ImageSet::getImage4() const
     return this->imageX4_;
 }
 
-const std::shared_ptr<Image> &getImagePriv(const ImageSet &set, float scale)
+const std::shared_ptr<Image> &getImagePriv(const ImageSet &set, float scale,
+                                           float minimumScale = 0.F)
 {
-    scale *= getSettings()->emoteScale;
+    scale = std::max(scale * getSettings()->emoteScale, minimumScale);
 
     int quality = 1;
 
@@ -113,9 +116,10 @@ const std::shared_ptr<Image> &getImagePriv(const ImageSet &set, float scale)
     return set.getImage1();
 }
 
-const ImagePtr &ImageSet::getImageOrLoaded(float scale) const
+const ImagePtr &ImageSet::getImageOrLoaded(float scale,
+                                           float minimumScale) const
 {
-    auto &&result = getImagePriv(*this, scale);
+    auto &&result = getImagePriv(*this, scale, minimumScale);
 
     result->load();
 

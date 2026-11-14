@@ -971,11 +971,14 @@ void BadgeElement::addToContainer(MessageLayoutContainer &container,
         return;
     }
 
-    const auto image =
-        isHomiesBadge
-            ? this->emote_->images.getImageOrLoadedNoLoad(
-                  container.getImageScale())
-            : this->emote_->images.getImageOrLoaded(container.getImageScale());
+    // satorino: use Cyex's high-resolution artwork even at normal chat zoom.
+    const float minimumScale =
+        elementFlags.has(MessageElementFlag::BadgeCyex) ? 5.F : 0.F;
+    const auto image = isHomiesBadge
+                           ? this->emote_->images.getImageOrLoadedNoLoad(
+                                 container.getImageScale())
+                           : this->emote_->images.getImageOrLoaded(
+                                 container.getImageScale(), minimumScale);
     if (image->isEmpty())
     {
         return;
@@ -993,12 +996,23 @@ EmotePtr BadgeElement::getEmote() const
 const ImagePtr &BadgeElement::getTooltipImage() const
 {
     const auto &images = this->emote_->images;
+    const auto &preferred = images.getImage(3.0F);
+    // Tooltip sizing uses the source dimensions. Keep Cyex previews in the
+    // regular range even when zoom selects the fourth image slot.
     if (this->getFlags().has(MessageElementFlag::BadgeCyex) &&
-        !images.getImage4()->isEmpty())
+        preferred == images.getImage4())
     {
-        return images.getImage4();
+        if (!images.getImage3()->isEmpty())
+        {
+            return images.getImage3();
+        }
+        if (!images.getImage2()->isEmpty())
+        {
+            return images.getImage2();
+        }
+        return images.getImage1();
     }
-    return images.getImage(3.0F);
+    return preferred;
 }
 
 void BadgeElement::setTwitchBadge(QString slug, QString version)

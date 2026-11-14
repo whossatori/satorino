@@ -36,7 +36,8 @@ public:
     const ImagePtr &getImage3() const;
     const ImagePtr &getImage4() const;
 
-    const ImagePtr &getImageOrLoaded(float scale) const;
+    const ImagePtr &getImageOrLoaded(float scale,
+                                     float minimumScale = 0.F) const;
 
     const ImagePtr &getImageOrLoadedNoLoad(float scale) const;
     const ImagePtr &getImage(float scale) const;

@@ -1314,3 +1314,16 @@ Focused provider-order, widget and Cyex parser checks passed in WSL.
 Qt 6.12 decoded all four live high-resolution animations selected by
 the new policy. Full builds and the Twitch IRC integration regression
 are **NOT RUN**.
+
+## Stage G batch 40
+
+Cyex badges select the sharper 128 px or 256 px artwork at normal chat
+zoom when available. Chat downsamples the artwork with smoothing and
+keeps the 18 px badge size. Hover previews use the regular-sized artwork.
+
+Emote priority uses four rows with up and down arrows like the Live status
+game order. Saved provider order carries over.
+
+Focused Qt checks in WSL verified image selection, fallback, preview
+resolution and provider reorder controls. Full app builds and visual
+checks in a packaged build are **NOT RUN**.
