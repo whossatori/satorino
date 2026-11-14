@@ -1295,3 +1295,22 @@ test extracts the portable ZIP and checks that the app reads a saved
 theme value from a disposable `%APPDATA%\Chatterino2` profile. The
 application's existing shared profile path applies to both Windows builds.
 The updated workflow and portable launch are **NOT RUN** locally.
+
+## Stage G batch 39
+
+Settings → satorino → Emote priority controls duplicate emote names in
+new chat messages. The order starts at Twitch, FFZ, BTTV and 7TV and
+can be reordered or reset. Within a provider, personal emotes (7TV)
+and channel emotes take precedence over globals. The Twitch option
+uses Twitch-tagged occurrences. On Kick, the order applies to third-party
+emotes, and explicitly tagged Kick emotes keep their IDs.
+
+Cyex badges read the pixel-size fields and legacy scale keys. The
+128 px or 256 px variant is available for high zoom and badge hover
+previews. Standard chat uses the smaller variants. The current
+512 px animation exceeds the image decoder's memory limit.
+
+Focused provider-order, widget and Cyex parser checks passed in WSL.
+Qt 6.12 decoded all four live high-resolution animations selected by
+the new policy. Full builds and the Twitch IRC integration regression
+are **NOT RUN**.

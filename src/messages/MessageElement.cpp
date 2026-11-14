@@ -990,6 +990,17 @@ EmotePtr BadgeElement::getEmote() const
     return this->emote_;
 }
 
+const ImagePtr &BadgeElement::getTooltipImage() const
+{
+    const auto &images = this->emote_->images;
+    if (this->getFlags().has(MessageElementFlag::BadgeCyex) &&
+        !images.getImage4()->isEmpty())
+    {
+        return images.getImage4();
+    }
+    return images.getImage(3.0F);
+}
+
 void BadgeElement::setTwitchBadge(QString slug, QString version)
 {
     this->twitchBadgeSlug_ = std::move(slug);

@@ -2,6 +2,7 @@
 
 #include "common/Aliases.hpp"
 #include "common/Outcome.hpp"
+#include "controllers/emotes/EmotePriority.hpp"
 #include "messages/ast/Parser.hpp"
 #include "messages/MessageColor.hpp"
 #include "messages/MessageElement.hpp"
@@ -281,6 +282,7 @@ private:
     struct TextState {
         TwitchChannel *twitchChannel = nullptr;
         QString userID;  // 7TV: used for personal emotes
+        EmotePriority emotePriority = DEFAULT_EMOTE_PRIORITY;
         bool hasBits = false;
         bool bitsStacked = false;
         int bitsLeft = 0;
@@ -292,8 +294,7 @@ private:
     void addTwitchGif(const QString &id, QStringView originalText);
 
     Outcome tryAppendCheermote(TextState &state, const QString &string);
-    Outcome tryAppendEmote(TwitchChannel *twitchChannel, const QString &userID,
-                           EmoteNameView name);
+    Outcome tryAppendEmote(const TextState &state, EmoteNameView name);
     bool appendModifier(const EmotePtr &modifier);
     void flushPendingModifiers();
     MessageElement *appendParsedEmote(const EmotePtr &emote,

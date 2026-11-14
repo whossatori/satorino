@@ -53,7 +53,7 @@ bool validTwitchId(const QString &id)
            });
 }
 
-ImagePtr badgeImage(const QJsonObject &images, const QString &key, int scale)
+ImagePtr badgeImage(const QJsonObject &images, const QString &key, int pixels)
 {
     const auto text = images.value(key).toString();
     const QUrl url(text, QUrl::StrictMode);
@@ -64,7 +64,8 @@ ImagePtr badgeImage(const QJsonObject &images, const QString &key, int scale)
         return Image::getEmpty();
     }
     // Keep the supplied version or content hash as part of the cache key.
-    return Image::fromUrl(Url{text}, 1.0 / scale, BASE_SIZE * scale);
+    return Image::fromUrl(Url{text}, qreal(BASE_SIZE.width()) / pixels,
+                          QSize(pixels, pixels));
 }
 
 QString badgeTooltip(const cyex::BadgeKind &kind, qint64 number)
@@ -85,28 +86,49 @@ EmotePtr makeBadge(const QString &id, const cyex::BadgeKind &kind,
                    const QJsonObject &definition)
 {
     const auto images = definition.value(u"images"_s).toObject();
-    const auto animated = definition.value(u"animated"_s).toBool()
+    const auto sizes = definition.value(u"sizes"_s).toObject();
+    const bool hasAnimation = definition.value(u"animated"_s).toBool();
+    const auto animated = hasAnimation
                               ? definition.value(u"animatedUrls"_s).toObject()
                               : QJsonObject{};
-    const auto selectImage = [&](const QString &key, int scale) {
-        auto image = badgeImage(animated, key, scale);
+    const auto animatedSizes =
+        hasAnimation ? definition.value(u"animatedSizes"_s).toObject()
+                     : QJsonObject{};
+    const auto selectImage = [&](int pixels, const QString &legacyKey = {}) {
+        const auto pixelKey = QString::number(pixels);
+        auto image = badgeImage(animatedSizes, pixelKey, pixels);
+        if (image->isEmpty() && !legacyKey.isEmpty())
+        {
+            image = badgeImage(animated, legacyKey, pixels);
+        }
         if (image->isEmpty())
         {
-            image = badgeImage(images, key, scale);
+            image = badgeImage(sizes, pixelKey, pixels);
+        }
+        if (image->isEmpty() && !legacyKey.isEmpty())
+        {
+            image = badgeImage(images, legacyKey, pixels);
         }
         return image;
     };
-    const auto image1 = selectImage(u"1x"_s, 1);
+    const auto image1 = selectImage(18, u"1x"_s);
     if (image1->isEmpty())
     {
         return {};
     }
 
+    // Prefer 128 px when offered; it uses about a quarter of the decoded
+    // memory of the 256 px variant. Keep both at the native 18 px chat size.
+    auto highResolution = selectImage(128);
+    if (highResolution->isEmpty())
+    {
+        highResolution = selectImage(256, u"large"_s);
+    }
+
     return std::make_shared<const Emote>(Emote{
         .name = EmoteName{u"cyex:"_s + id},
-        // ImageSet's third slot is the 4x variant (72 px for an 18 px badge).
-        .images =
-            ImageSet{image1, selectImage(u"2x"_s, 2), selectImage(u"4x"_s, 4)},
+        .images = ImageSet{image1, selectImage(36, u"2x"_s),
+                           selectImage(72, u"4x"_s), highResolution},
         .tooltip = Tooltip{badgeTooltip(kind, 0)},
         .homePage = Url{},
         .id = EmoteId{id},

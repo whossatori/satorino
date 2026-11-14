@@ -1349,6 +1349,10 @@ public:
     void enableAutoTranslateChannel(const QString &channelName);
     void disableAutoTranslateChannel(const QString &channelName);
 
+    // satorino: preferred provider order for duplicate chat emotes.
+    ChatterinoSetting<QStringList> satorinoEmotePriority = {
+        "/satorino/emotes/priority", {}};
+
     // satorino: single-row scrolling for user-managed horizontal tabs.
     BoolSetting satorinoTabScroll = {"/satorino/tabs/scrollEnabled", false};
     // satorino: per-user redeem presentation options; no automatic actions.

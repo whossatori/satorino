@@ -103,6 +103,41 @@ TEST(CyexBadges, PrefersAnimatedVariantsAndFallsBackPerScale)
               "https://api.cyex.app/badges/v1/img/supporter/1x.png");
 }
 
+TEST(CyexBadges, UsesPixelSizesAndScalesHigherResolutionToBadgeSize)
+{
+    const auto catalog = cyex::parseCatalog(R"json({
+        "badges": [{
+            "id": "tester", "title": "Tester", "animated": true,
+            "animatedSizes": {
+                "18": "https://api.cyex.app/badges/v1/img/tester/1x.webp?v=2",
+                "128": "https://api.cyex.app/badges/v1/img/tester/128.webp?v=2",
+                "512": "https://api.cyex.app/badges/v1/img/tester/512.webp?v=2"
+            },
+            "animatedUrls": {
+                "1x": "https://api.cyex.app/badges/v1/img/tester/1x.webp?v=1"
+            },
+            "sizes": {"72": "https://api.cyex.app/badges/v1/img/tester/4x.png"}
+        }, {
+            "id": "supporter", "title": "Supporter",
+            "images": {
+                "1x": "https://api.cyex.app/badges/v1/img/supporter/1x.png",
+                "large": "https://api.cyex.app/badges/v1/img/supporter/large.png"
+            }
+        }]
+    })json");
+    ASSERT_TRUE(catalog);
+    const auto &tester = catalog->at("tester").badge->images;
+    EXPECT_EQ(tester.getImage1()->url().string,
+              "https://api.cyex.app/badges/v1/img/tester/1x.webp?v=2");
+    EXPECT_EQ(tester.getImage3()->url().string,
+              "https://api.cyex.app/badges/v1/img/tester/4x.png");
+    EXPECT_EQ(tester.getImage4()->url().string,
+              "https://api.cyex.app/badges/v1/img/tester/128.webp?v=2");
+    EXPECT_EQ(tester.getImage4()->size(), QSizeF(18, 18));
+    EXPECT_EQ(catalog->at("supporter").badge->images.getImage4()->url().string,
+              "https://api.cyex.app/badges/v1/img/supporter/large.png");
+}
+
 TEST(CyexBadges, CustomUsesItsOwnContentAddressedImages)
 {
     const auto catalog = cyex::parseCatalog(CATALOG);

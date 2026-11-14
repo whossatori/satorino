@@ -4,6 +4,7 @@
 
 #include "widgets/settingspages/SatorinoPage.hpp"
 
+#include "controllers/emotes/EmotePriority.hpp"
 #include "singletons/Settings.hpp"
 #include "Application.hpp"  // satorino: GUI status snapshot
 #include "singletons/WindowManager.hpp"
@@ -14,6 +15,9 @@
 #include <QShowEvent>
 #include <QHideEvent>
 #include <QLabel>
+#include <QListWidget>
+#include <QPushButton>
+#include <QSignalBlocker>
 #include <QColor>
 #include <QPalette>
 #include <QSizePolicy>
@@ -71,6 +75,7 @@ void SatorinoPage::initLayout(GeneralPageView &layout)
         ->setTooltip("Fill the main window title with the animated satorino "
                      "paint. Turning this off stops its animation timer.")
         ->addTo(layout);
+    this->addEmotePriority(layout);
     layout.addTitle("Channel point redeems");
     const QStringList keywords{"channel points", "rewards", "redeems",
                                "Twitch"};
@@ -139,6 +144,84 @@ void SatorinoPage::initLayout(GeneralPageView &layout)
     this->addLocalFlags(layout);
     this->addLiveStatus(layout);
     layout.addStretch();
+}
+
+void SatorinoPage::addEmotePriority(GeneralPageView &layout)
+{
+    layout.addTitle("Emote priority");
+    layout.addDescription(
+        "When providers share an emote name, the highest provider with that "
+        "emote wins in new chat messages.");
+
+    auto &setting = getSettings()->satorinoEmotePriority;
+    auto *group = new QWidget;
+    auto *row = new QHBoxLayout(group);
+    row->setContentsMargins(0, 0, 0, 0);
+    auto *list = new QListWidget(group);
+    list->setAccessibleName("Emote provider priority");
+    list->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    list->setUniformItemSizes(true);
+    row->addWidget(list, 1);
+
+    auto *buttons = new QVBoxLayout;
+    row->addLayout(buttons);
+    auto *up = new QPushButton("Move up", group);
+    auto *down = new QPushButton("Move down", group);
+    auto *reset = new QPushButton("Reset", group);
+    buttons->addWidget(up);
+    buttons->addWidget(down);
+    buttons->addWidget(reset);
+    buttons->addStretch();
+
+    const auto updateButtons = [list, up, down](int index) {
+        up->setEnabled(index > 0);
+        down->setEnabled(index >= 0 && index + 1 < list->count());
+    };
+    QObject::connect(list, &QListWidget::currentRowChanged, group,
+                     updateButtons);
+    setting.connect(
+        [list, updateButtons](const QStringList &saved) {
+            const QSignalBlocker blocker(list);
+            const auto selected = list->currentRow();
+            list->clear();
+            for (const auto provider : parseEmotePriority(saved))
+            {
+                list->addItem(emoteProviderName(provider).toString());
+            }
+            list->setFixedHeight(list->sizeHintForRow(0) * list->count() +
+                                 2 * list->frameWidth());
+            list->setCurrentRow(selected < 0 ? 0 : selected);
+            updateButtons(list->currentRow());
+        },
+        this->managedConnections_);
+
+    const auto move = [list, &setting](int offset) {
+        const auto index = list->currentRow();
+        const auto target = index + offset;
+        if (index < 0 || target < 0 || target >= list->count())
+        {
+            return;
+        }
+        QStringList order;
+        for (int i = 0; i < list->count(); ++i)
+        {
+            order.push_back(list->item(i)->text());
+        }
+        order.swapItemsAt(index, target);
+        setting.setValue(order);
+        list->setCurrentRow(target);
+    };
+    QObject::connect(up, &QPushButton::clicked, group, [move] {
+        move(-1);
+    });
+    QObject::connect(down, &QPushButton::clicked, group, [move] {
+        move(1);
+    });
+    QObject::connect(reset, &QPushButton::clicked, group, [&setting] {
+        setting.setValue(QStringList{});
+    });
+
+    layout.addWidget(group, {"Emote priority", "Twitch", "7TV", "FFZ", "BTTV"});
 }
 
 // satorino: snapshots are cheap and update only while this page is visible.

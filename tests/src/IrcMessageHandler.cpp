@@ -13,6 +13,7 @@
 #include "lib/Snapshot.hpp"
 #include "messages/Emote.hpp"
 #include "messages/Message.hpp"
+#include "messages/MessageElement.hpp"
 #include "mocks/BaseApplication.hpp"
 #include "mocks/ChatterinoBadges.hpp"
 #include "mocks/DisabledStreamerMode.hpp"
@@ -34,6 +35,7 @@
 #include "providers/twitch/TwitchBadge.hpp"
 #include "providers/twitch/TwitchBadges.hpp"
 #include "providers/twitch/TwitchChannel.hpp"
+#include "singletons/Settings.hpp"
 #include "Test.hpp"
 #include "util/IrcHelpers.hpp"
 #include "util/VectorMessageSink.hpp"
@@ -734,6 +736,56 @@ TEST(IrcMessageHandler, RecentMessagesDoNotUpdateCurrentUserState)
     delete liveMessage;
     ASSERT_EQ(liveSink.messages().size(), 1);
     EXPECT_TRUE(channel->isVip());
+}
+
+TEST(IrcMessageHandler, EmotePriorityCanOverrideAndRestoreTaggedTwitchEmote)
+{
+    MockApplication app(QString::fromUtf8(SETTINGS_DEFAULT));
+    initializeHelix(&app.helix);
+    auto channel = std::make_shared<TwitchChannel>("pajlada");
+    const auto emotes = MockEmotes::channel();
+    channel->setBttvEmotes(emotes.bttv);
+    const auto bttvKappa = emotes.bttv->at(EmoteName{u"Kappa"_s});
+
+    const QByteArray raw =
+        "@emotes=25:0-4;display-name=nerixyz;id=test;user-id=129546453;"
+        "room-id=11148817;tmi-sent-ts=1726662938032 "
+        ":nerixyz!nerixyz@nerixyz.tmi.twitch.tv PRIVMSG #pajlada :Kappa";
+
+    for (const bool markdown : {false, true})
+    {
+        getSettings()->markdownParsing = markdown;
+        for (const bool preferBttv : {false, true})
+        {
+            getSettings()->satorinoEmotePriority.setValue(
+                preferBttv ? QStringList{"BTTV"} : QStringList{});
+            auto irc = std::unique_ptr<Communi::IrcMessage>(
+                Communi::IrcMessage::fromData(raw, nullptr));
+            ASSERT_NE(irc, nullptr);
+
+            VectorMessageSink sink;
+            IrcMessageHandler::parseMessageInto(irc.get(), sink, channel.get());
+            ASSERT_EQ(sink.messages().size(), 1);
+            EmotePtr shown;
+            for (const auto &element : sink.messages().front()->elements)
+            {
+                if (auto *emote = dynamic_cast<EmoteElement *>(element.get()))
+                {
+                    shown = emote->getEmote();
+                }
+            }
+            ASSERT_NE(shown, nullptr);
+            EXPECT_EQ(shown->name.string, "Kappa");
+            if (preferBttv)
+            {
+                EXPECT_EQ(shown, bttvKappa);
+            }
+            else
+            {
+                EXPECT_EQ(shown->tooltip.string, "Kappa<br>Twitch Emote");
+            }
+        }
+    }
 }
 
 TEST_P(TestIrcMessageHandlerP, CloneElements)

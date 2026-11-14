@@ -4,6 +4,7 @@
 #include "common/Channel.hpp"
 #include "controllers/accounts/AccountController.hpp"
 #include "controllers/emotes/EmoteController.hpp"
+#include "controllers/emotes/EmotePriority.hpp"
 #include "controllers/highlights/HighlightController.hpp"
 #include "controllers/highlights/HighlightResult.hpp"
 #include "messages/MessageBuilder.hpp"
@@ -33,54 +34,43 @@ namespace {
 using namespace chatterino;
 using namespace Qt::Literals::StringLiterals;
 
-EmotePtr lookupEmote(const KickChannel &channel, uint64_t senderID,
-                     QStringView word)
+// satorino: reuse the selected order for third-party providers on Kick.
+EmotePtr lookupEmote(const EmotePriority &priority, const KickChannel &channel,
+                     uint64_t senderID, EmoteNameView name)
 {
-    EmoteName wordStr{word.toString()};
-    const auto *globalFfzEmotes = getApp()->getFfzEmotes();
-    const auto *globalBttvEmotes = getApp()->getBttvEmotes();
-    const auto *globalSeventvEmotes = getApp()->getSeventvEmotes();
-
-    EmotePtr emote;
-
-    emote = getApp()->getSeventvPersonalEmotes()->getEmoteForKickUser(senderID,
-                                                                      wordStr);
-    if (emote)
-    {
-        return emote;
-    }
-
-    emote = channel.seventvEmote(wordStr);
-    if (emote)
-    {
-        return emote;
-    }
-
-    emote = globalFfzEmotes->emote(wordStr).value_or(std::move(emote));
-    if (emote)
-    {
-        return emote;
-    }
-
-    emote = globalBttvEmotes->emote(wordStr).value_or(std::move(emote));
-    if (emote)
-    {
-        return emote;
-    }
-
-    emote =
-        globalSeventvEmotes->globalEmote(wordStr).value_or(std::move(emote));
-    if (emote)
-    {
-        return emote;
-    }
-
-    return emote;
+    auto *app = getApp();
+    return firstEmote(priority, [&](EmoteProvider provider) -> EmotePtr {
+        switch (provider)
+        {
+            case EmoteProvider::Ffz:
+                return app->getFfzEmotes()->emote(name).value_or(nullptr);
+            case EmoteProvider::Bttv:
+                return app->getBttvEmotes()->emote(name).value_or(nullptr);
+            case EmoteProvider::SevenTV:
+                if (auto emote =
+                        app->getSeventvPersonalEmotes()->getEmoteForKickUser(
+                            senderID, name))
+                {
+                    return emote;
+                }
+                if (auto emote = channel.seventvEmote(name))
+                {
+                    return emote;
+                }
+                return app->getSeventvEmotes()->globalEmote(name).value_or(
+                    nullptr);
+            case EmoteProvider::Twitch:
+                break;
+        }
+        return {};
+    });
 }
 
-void appendWord(KickMessageBuilder &builder, QStringView word)
+void appendWord(KickMessageBuilder &builder, QStringView word,
+                const EmotePriority &priority)
 {
-    auto emote = lookupEmote(*builder.channel(), builder.senderID, word);
+    auto emote = lookupEmote(priority, *builder.channel(), builder.senderID,
+                             EmoteNameView{word});
     if (emote)
     {
         builder.appendEmote(emote);
@@ -102,7 +92,8 @@ bool isEmoteID(QStringView v)
     return !v.empty();
 }
 
-void appendNonKickEmoteText(KickMessageBuilder &builder, QStringView text)
+void appendNonKickEmoteText(KickMessageBuilder &builder, QStringView text,
+                            const EmotePriority &priority)
 {
     for (const auto &variant : getApp()->getEmotes()->getEmojis()->parse(text))
     {
@@ -112,7 +103,7 @@ void appendNonKickEmoteText(KickMessageBuilder &builder, QStringView text)
                                emote, MessageElementFlag::EmojiAll);
                        },
                        [&](QStringView text) {
-                           appendWord(builder, text);
+                           appendWord(builder, text, priority);
                        },
                    },
                    variant);
@@ -120,7 +111,7 @@ void appendNonKickEmoteText(KickMessageBuilder &builder, QStringView text)
 }
 
 bool tryAppendKickEmoteText(KickMessageBuilder &builder, QString &messageText,
-                            QStringView &text)
+                            QStringView &text, const EmotePriority &priority)
 {
     static constexpr QStringView emotePrefix = u"[emote:";
 
@@ -152,7 +143,7 @@ bool tryAppendKickEmoteText(KickMessageBuilder &builder, QString &messageText,
         auto prefix = text.sliced(0, nextEmote);
         messageText.append(prefix);
         messageText.append(' ');
-        appendNonKickEmoteText(builder, prefix);
+        appendNonKickEmoteText(builder, prefix, priority);
     }
 
     auto emoteName = text.sliced(secondColon + 1, endBrace - secondColon - 1);
@@ -173,6 +164,8 @@ bool tryAppendKickEmoteText(KickMessageBuilder &builder, QString &messageText,
 void parseContent(KickMessageBuilder &builder, QString &messageText,
                   QStringView content)
 {
+    const auto priority =
+        parseEmotePriority(getSettings()->satorinoEmotePriority.getValue());
     for (auto word : content.tokenize(u' ', Qt::SkipEmptyParts))
     {
         if (!messageText.isEmpty())
@@ -182,10 +175,10 @@ void parseContent(KickMessageBuilder &builder, QString &messageText,
 
         while (!word.empty())
         {
-            if (!tryAppendKickEmoteText(builder, messageText, word))
+            if (!tryAppendKickEmoteText(builder, messageText, word, priority))
             {
                 messageText.append(word);
-                appendNonKickEmoteText(builder, word);
+                appendNonKickEmoteText(builder, word, priority);
                 break;
             }
         }

@@ -379,9 +379,7 @@ void MessageView::updateHoverTooltip(QMouseEvent *event)
             {
                 const auto scale = getSettings()->emoteTooltipScale.getEnum();
                 this->tooltipWidget_->setOne(TooltipEntry::scaled(
-                    showThumbnail
-                        ? badgeElement->getEmote()->images.getImage(3.0)
-                        : nullptr,
+                    showThumbnail ? badgeElement->getTooltipImage() : nullptr,
                     element->getTooltip(), getTooltipScale(scale)));
             }
         }

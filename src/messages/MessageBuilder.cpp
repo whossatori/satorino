@@ -676,74 +676,53 @@ EmotePtr makeSharedChatBadge(const QString &sourceName,
     });
 }
 
-EmotePtr parseEmote(TwitchChannel *twitchChannel, const QString &userID,
-                    EmoteNameView name)
+// satorino: provider order takes precedence over channel/global scope.
+EmotePtr parseEmote(const EmotePriority &priority, TwitchChannel *channel,
+                    const QString &userID, EmoteNameView name,
+                    const EmotePtr &twitchEmote = {})
 {
-    // Emote order:
-    //  - 7TV Personal Emotes
-    //  - FrankerFaceZ Channel
-    //  - BetterTTV Channel
-    //  - 7TV Channel
-    //  - FrankerFaceZ Global
-    //  - BetterTTV Global
-    //  - 7TV Global
-
-    const auto *globalFfzEmotes = getApp()->getFfzEmotes();
-    const auto *globalBttvEmotes = getApp()->getBttvEmotes();
-    const auto *globalSeventvEmotes = getApp()->getSeventvEmotes();
-
-    std::optional<EmotePtr> emote{};
-
-    if (twitchChannel != nullptr)
-    {
-        // Check for channel emotes
-        emote = getApp()->getSeventvPersonalEmotes()->getEmoteForTwitchUser(
-            userID, name);
-        if (*emote)
+    auto *app = getApp();
+    return firstEmote(priority, [&](EmoteProvider provider) -> EmotePtr {
+        switch (provider)
         {
-            return *emote;
+            case EmoteProvider::Twitch:
+                return twitchEmote;
+            case EmoteProvider::Ffz:
+                if (channel)
+                {
+                    if (auto emote = channel->ffzEmote(name))
+                    {
+                        return *emote;
+                    }
+                }
+                return app->getFfzEmotes()->emote(name).value_or(nullptr);
+            case EmoteProvider::Bttv:
+                if (channel)
+                {
+                    if (auto emote = channel->bttvEmote(name))
+                    {
+                        return *emote;
+                    }
+                }
+                return app->getBttvEmotes()->emote(name).value_or(nullptr);
+            case EmoteProvider::SevenTV:
+                if (channel)
+                {
+                    if (auto emote = app->getSeventvPersonalEmotes()
+                                         ->getEmoteForTwitchUser(userID, name))
+                    {
+                        return emote;
+                    }
+                    if (auto emote = channel->seventvEmote(name))
+                    {
+                        return *emote;
+                    }
+                }
+                return app->getSeventvEmotes()->globalEmote(name).value_or(
+                    nullptr);
         }
-
-        emote = twitchChannel->ffzEmote(name);
-        if (emote)
-        {
-            return *emote;
-        }
-
-        emote = twitchChannel->bttvEmote(name);
-        if (emote)
-        {
-            return *emote;
-        }
-
-        emote = twitchChannel->seventvEmote(name);
-        if (emote)
-        {
-            return *emote;
-        }
-    }
-
-    // Check for global emotes
-
-    emote = globalFfzEmotes->emote(name);
-    if (emote)
-    {
-        return *emote;
-    }
-
-    emote = globalBttvEmotes->emote(name);
-    if (emote)
-    {
-        return *emote;
-    }
-
-    emote = globalSeventvEmotes->globalEmote(name);
-    if (emote)
-    {
-        return *emote;
-    }
-
-    return {};
+        return {};
+    });
 }
 
 std::pair<QString, bool> parseMessageType(Communi::TagsRef tags)
@@ -2200,7 +2179,12 @@ std::pair<MessagePtrMut, HighlightAlert> MessageBuilder::makeIrcMessage(
 
         builder.appendUsername(tags, args);
 
-        TextState textState{.twitchChannel = twitchChannel, .userID = userID};
+        TextState textState{
+            .twitchChannel = twitchChannel,
+            .userID = userID,
+            .emotePriority = parseEmotePriority(
+                getSettings()->satorinoEmotePriority.getValue()),
+        };
 
         if (auto optBits = tags.get("bits"))
         {
@@ -2224,6 +2208,21 @@ std::pair<MessagePtrMut, HighlightAlert> MessageBuilder::makeIrcMessage(
                 return first.start == second.start;
             });
         twitchSpecials.erase(uniqueEmotes.begin(), uniqueEmotes.end());
+
+        // Resolve native occurrences after ignore rules for both text parsers.
+        if (textState.emotePriority.front() != EmoteProvider::Twitch)
+        {
+            for (auto &item : twitchSpecials)
+            {
+                if (auto *emote =
+                        std::get_if<TwitchEmoteOccurrence>(&item.data))
+                {
+                    emote->ptr =
+                        parseEmote(textState.emotePriority, twitchChannel,
+                                   userID, emote->name, emote->ptr);
+                }
+            }
+        }
 
         const bool hasGif =
             std::ranges::any_of(twitchSpecials, [](const auto &item) {
@@ -2361,8 +2360,9 @@ void MessageBuilder::addTextOrEmote(TextState &state, QString string,
         while (remainder.size() > 2 && remainder.at(1) == u'!' &&
                directModifiers.size() < MAX_MODIFIERS)
         {
-            const auto modifier = parseEmote(state.twitchChannel, state.userID,
-                                             EmoteNameView{remainder.first(2)});
+            const auto modifier =
+                parseEmote(state.emotePriority, state.twitchChannel,
+                           state.userID, EmoteNameView{remainder.first(2)});
             if (modifier == nullptr ||
                 modifier->modifierPlacement != EmoteModifierPlacement::Prefix)
             {
@@ -2374,8 +2374,9 @@ void MessageBuilder::addTextOrEmote(TextState &state, QString string,
 
         if (!directModifiers.empty())
         {
-            const auto base = parseEmote(state.twitchChannel, state.userID,
-                                         EmoteNameView{remainder});
+            const auto base =
+                parseEmote(state.emotePriority, state.twitchChannel,
+                           state.userID, EmoteNameView{remainder});
             if (base != nullptr &&
                 base->modifierPlacement == EmoteModifierPlacement::None)
             {
@@ -2391,8 +2392,7 @@ void MessageBuilder::addTextOrEmote(TextState &state, QString string,
 
     if (!this->pendingPrefixModifiers_.empty())
     {
-        if (this->tryAppendEmote(state.twitchChannel, state.userID,
-                                 EmoteNameView{string}))
+        if (this->tryAppendEmote(state, EmoteNameView{string}))
         {
             return;
         }
@@ -2410,8 +2410,7 @@ void MessageBuilder::addTextOrEmote(TextState &state, QString string,
     // Emote name: "forsenPuke" - if string in ignoredEmotes
     // Will match emote regardless of source (i.e. bttv, ffz)
     // Emote source + name: "bttv:nyanPls"
-    if (this->tryAppendEmote(state.twitchChannel, state.userID,
-                             EmoteNameView{string}))
+    if (this->tryAppendEmote(state, EmoteNameView{string}))
     {
         // Successfully appended an emote
         return;
@@ -3218,11 +3217,11 @@ void MessageBuilder::appendUsername(Communi::TagsRef tags,
     }
 }
 
-Outcome MessageBuilder::tryAppendEmote(TwitchChannel *twitchChannel,
-                                       const QString &userID,
+Outcome MessageBuilder::tryAppendEmote(const TextState &state,
                                        EmoteNameView name)
 {
-    auto emote = parseEmote(twitchChannel, userID, name);
+    auto emote = parseEmote(state.emotePriority, state.twitchChannel,
+                            state.userID, name);
 
     if (!emote)
     {
