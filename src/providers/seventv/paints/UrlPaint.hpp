@@ -15,9 +15,6 @@ public:
     const std::vector<PaintDropShadow> &getDropShadows() const override;
     bool animated() const override;
 
-protected:
-    std::optional<qint64> frameCacheKey() const override;
-
 private:
     const ImagePtr image_;
 

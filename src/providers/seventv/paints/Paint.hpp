@@ -5,7 +5,6 @@
 #include <QBrush>
 #include <QFont>
 
-#include <optional>
 #include <vector>
 
 namespace chatterino {
@@ -37,19 +36,9 @@ public:
     QString name;
 
 protected:
-    virtual std::optional<qint64> frameCacheKey() const
-    {
-        return std::nullopt;
-    }
-
     static QColor overlayColors(QColor background, QColor foreground);
     static qreal offsetRepeatingStopPosition(qreal position,
                                              const QGradientStops &stops);
-
-private:
-    QPixmap renderPixmap(const QString &text, const QFont &font,
-                         QColor userColor, QColor colonColor, QSizeF size,
-                         float scale, float dpr, bool centerVertically) const;
 };
 
 }  // namespace chatterino

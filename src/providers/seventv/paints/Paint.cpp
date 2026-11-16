@@ -5,12 +5,9 @@
 #include "singletons/Theme.hpp"
 
 #include <private/qpixmapfilter_p.h>
-#include <QCache>
-#include <QCoreApplication>
 #include <QFontMetricsF>
-#include <QHashFunctions>
+#include <QLabel>
 #include <QPainter>
-#include <QPixmap>
 
 #include <algorithm>
 
@@ -19,50 +16,6 @@ namespace chatterino {
 using namespace Qt::Literals::StringLiterals;
 
 namespace {
-
-// satorino: share rendered username pixmaps across messages and loop cycles.
-struct PaintFrameKey {
-    QString paintId;
-    qint64 frame;
-    QString text;
-    QFont font;
-    QColor userColor;
-    QColor colonColor;
-    QSizeF size;
-    float scale;
-    float dpr;
-    bool shadows;
-    bool largeShadows;
-
-    bool operator==(const PaintFrameKey &) const = default;
-};
-
-size_t qHash(const PaintFrameKey &key, size_t seed = 0) noexcept
-{
-    return qHashMulti(seed, key.paintId, key.frame, key.text, key.font,
-                      key.userColor.rgba(), key.colonColor.rgba(),
-                      key.size.width(), key.size.height(), key.scale, key.dpr,
-                      key.shadows, key.largeShadows);
-}
-
-QCache<PaintFrameKey, QPixmap> *paintFrames = nullptr;
-
-void clearPaintFrames()
-{
-    delete paintFrames;
-    paintFrames = nullptr;
-}
-
-QCache<PaintFrameKey, QPixmap> &paintFrameCache()
-{
-    constexpr int CACHE_KIB = 8 * 1024;
-    if (paintFrames == nullptr)
-    {
-        paintFrames = new QCache<PaintFrameKey, QPixmap>(CACHE_KIB);
-        qAddPostRoutine(clearPaintFrames);
-    }
-    return *paintFrames;
-}
 
 qreal textBaseline(const QFont &font, const QRectF &rect)
 {
@@ -76,53 +29,6 @@ qreal textBaseline(const QFont &font, const QRectF &rect)
 QPixmap Paint::getPixmap(const QString &text, const QFont &font,
                          QColor userColor, QSizeF size, float scale, float dpr,
                          bool centerVertically) const
-{
-    const QColor colonColor =
-        text.endsWith(u':') ? getApp()->getThemes()->messages.textColors.regular
-                            : QColor{};
-    const auto frame = centerVertically ? std::nullopt : this->frameCacheKey();
-    if (!frame)
-    {
-        return this->renderPixmap(text, font, userColor, colonColor, size,
-                                  scale, dpr, centerVertically);
-    }
-
-    const auto *settings = getSettings();
-    const bool shadows = settings->displaySevenTVPaintShadows;
-    const PaintFrameKey key{
-        .paintId = this->id,
-        .frame = *frame,
-        .text = text,
-        .font = font,
-        .userColor = userColor,
-        .colonColor = colonColor,
-        .size = size,
-        .scale = scale,
-        .dpr = dpr,
-        .shadows = shadows,
-        .largeShadows = shadows && settings->largeSevenTVPaintShadows,
-    };
-    auto &cache = paintFrameCache();
-    if (const auto *pixmap = cache.object(key))
-    {
-        return *pixmap;
-    }
-
-    const auto pixmap = this->renderPixmap(text, font, userColor, colonColor,
-                                           size, scale, dpr, centerVertically);
-    constexpr qint64 BITS_PER_KIB = 8 * 1024;
-    const auto bits = qint64(pixmap.width()) * pixmap.height() * pixmap.depth();
-    const auto cost = (bits + BITS_PER_KIB - 1) / BITS_PER_KIB;
-    if (cost > 0 && cost <= cache.maxCost())
-    {
-        cache.insert(key, new QPixmap(pixmap), static_cast<qsizetype>(cost));
-    }
-    return pixmap;
-}
-
-QPixmap Paint::renderPixmap(const QString &text, const QFont &font,
-                            QColor userColor, QColor colonColor, QSizeF size,
-                            float scale, float dpr, bool centerVertically) const
 {
     QSizeF drawSize = size;
     if (centerVertically && getSettings()->displaySevenTVPaintShadows)
@@ -218,6 +124,7 @@ QPixmap Paint::renderPixmap(const QString &text, const QFont &font,
 
     if (drawColon)
     {
+        auto colonColor = getApp()->getThemes()->messages.textColors.regular;
         const auto baseline = textBaseline(font, nametagBoundingRect);
 
         pixmapPainter.begin(&pixmap);

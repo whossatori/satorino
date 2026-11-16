@@ -1327,12 +1327,3 @@ game order. Saved provider order carries over.
 Focused Qt checks in WSL verified image selection, fallback, preview
 resolution and provider reorder controls. Full app builds and visual
 checks in a packaged build are **NOT RUN**.
-
-## Stage G batch 41
-
-Animated 7TV usernames reuse rendered frames across chat messages and
-animation loops in a bounded pixmap cache. The cache accounts for font,
-scale, colours and shadow settings. The chat animation pass skips font
-lookups for text without an animated paint. The focused paint renderer
-regression passed in WSL. The full Windows build and the reported
-mouse-entry and exit flicker are **NOT RUN**.
