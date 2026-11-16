@@ -1294,8 +1294,6 @@ QRegion TextLayoutElement::paintAnimated(QPainter &painter, const qreal yOffset)
         return {};
     }
 
-    const auto font = getApp()->getFonts()->getFont(this->style_, this->scale_);
-
     const bool isNametag =
         this->getLink().type == chatterino::Link::UserInfo ||
         this->getLink().type == chatterino::Link::UserWhisper;
@@ -1312,6 +1310,7 @@ QRegion TextLayoutElement::paintAnimated(QPainter &painter, const qreal yOffset)
         return {};
     }
 
+    const auto font = getApp()->getFonts()->getFont(this->style_, this->scale_);
     const auto paintPixmap =
         paint->getPixmap(this->getText(), font, this->color_,
                          this->getRect().size(), this->scale_, this->dpr_);

@@ -19,6 +19,18 @@ bool UrlPaint::animated() const
     return image_->animated();
 }
 
+std::optional<qint64> UrlPaint::frameCacheKey() const
+{
+    if (this->animated())
+    {
+        if (const auto pixmap = this->image_->pixmapOrLoad())
+        {
+            return pixmap->cacheKey();
+        }
+    }
+    return std::nullopt;
+}
+
 QBrush UrlPaint::asBrush(const QColor userColor, const QRectF drawingRect) const
 {
     if (auto paintPixmap = this->image_->pixmapOrLoad())
