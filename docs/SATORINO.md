@@ -1327,3 +1327,15 @@ game order. Saved provider order carries over.
 Focused Qt checks in WSL verified image selection, fallback, preview
 resolution and provider reorder controls. Full app builds and visual
 checks in a packaged build are **NOT RUN**.
+
+## Stage G batch 42
+
+Animated images advance to the shared timer position when their current
+frame is requested. Unread images skip elapsed cycles when they return to
+view. The timer cadence, focus settings and username paint drawing are
+unchanged. Adapted from Moltorino commit
+[d25c36915](https://github.com/EEVA-inc/Moltorino/commit/d25c369155084ca8e2d069a2fd74843c30454539).
+
+A focused Qt 6.4.2 harness in WSL exercised the production timer and
+frame code with a stub application. Full builds, the repository's image
+test suite and the reported Windows flicker are **NOT RUN**.

@@ -37,7 +37,6 @@ void GIFTimer::initialize()
         }
 
         this->position_ += GIF_FRAME_LENGTH;
-        this->signal.invoke();
         getApp()->getWindows()->repaintGifEmotes();
     });
 }

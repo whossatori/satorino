@@ -10,6 +10,7 @@
 #include "singletons/WindowManager.hpp"
 #include "Test.hpp"
 
+#include <pajlada/signals/scoped-connection.hpp>
 #include <QColor>
 #include <QCoreApplication>
 #include <QElapsedTimer>
@@ -32,7 +33,7 @@ public:
     EmoteController emotes;
 };
 
-class ImageRetryApplication : public ImageApplication
+class ImageWindowApplication : public ImageApplication
 {
 public:
     WindowManager *getWindows() override
@@ -91,13 +92,12 @@ TEST(Image, StaticCachedFrame)
     EXPECT_FALSE(frames.empty());
     EXPECT_FALSE(frames.animated());
 
-    app.emotes.getGIFTimer()->signal.invoke();
     EXPECT_TRUE(hasColor(frames, Qt::red));
 }
 
-TEST(Image, CachedFramesUseSharedTimer)
+TEST(Image, CachedFramesCatchUpToSharedTimer)
 {
-    ImageApplication app;
+    ImageWindowApplication app;
     detail::Frames frames(QList<detail::Frame>{
         {.image = makePixmap({1, 1}, Qt::red), .duration = 20},
         {.image = makePixmap({2, 2}, Qt::blue), .duration = 60},
@@ -106,35 +106,43 @@ TEST(Image, CachedFramesUseSharedTimer)
     ASSERT_EQ(frames.frameSize(), QSize(1, 1));
 
     auto *timer = app.emotes.getGIFTimer();
-    timer->signal.invoke();
-    EXPECT_TRUE(hasColor(frames, Qt::red));
-    timer->signal.invoke();
-    EXPECT_TRUE(hasColor(frames, Qt::blue));
+    pajlada::Signals::ScopedConnection repaintConnection;
+    repaintConnection = app.getWindows()->gifRepaintRequested.connect([&] {
+        const auto tick = timer->position() / GIF_FRAME_LENGTH;
+        if (tick == 1 || tick == 9)
+        {
+            EXPECT_TRUE(hasColor(frames, Qt::red));
+        }
+        else if (tick == 2 || tick == 8)
+        {
+            EXPECT_TRUE(hasColor(frames, Qt::blue));
+        }
+    });
+    // Skip six ticks between frame reads, including a full animation cycle.
+    timer->initialize();
+    ASSERT_TRUE(waitForImageState([&] {
+        return timer->position() >= 9 * GIF_FRAME_LENGTH;
+    }));
     EXPECT_EQ(frames.frameSize(), QSize(1, 1));
 }
 
-TEST(Image, CachedFramesClearDisconnectsTimer)
+TEST(Image, ClearAnimatedCachedFrames)
 {
     ImageApplication app;
-    auto *timer = app.emotes.getGIFTimer();
-    {
-        detail::Frames frames(QList<detail::Frame>{
-            {.image = makePixmap({1, 1}, Qt::red), .duration = 20},
-            {.image = makePixmap({1, 1}, Qt::blue), .duration = 60},
-        });
-        frames.clear();
-        EXPECT_TRUE(frames.empty());
-        EXPECT_FALSE(frames.animated());
-        EXPECT_FALSE(frames.current());
-        EXPECT_FALSE(frames.frameSize());
-        timer->signal.invoke();
-    }
-    timer->signal.invoke();
+    detail::Frames frames(QList<detail::Frame>{
+        {.image = makePixmap({1, 1}, Qt::red), .duration = 20},
+        {.image = makePixmap({1, 1}, Qt::blue), .duration = 60},
+    });
+    frames.clear();
+    EXPECT_TRUE(frames.empty());
+    EXPECT_FALSE(frames.animated());
+    EXPECT_FALSE(frames.current());
+    EXPECT_FALSE(frames.frameSize());
 }
 
 TEST(Image, ManualRetryRecoversFailedDownload)
 {
-    ImageRetryApplication app;
+    ImageWindowApplication app;
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     const auto file = directory.filePath(QStringLiteral("badge.png"));

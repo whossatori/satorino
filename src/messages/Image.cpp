@@ -19,7 +19,6 @@
 #include "util/PostToThread.hpp"
 
 #include <boost/functional/hash.hpp>
-#include <pajlada/signals/scoped-connection.hpp>
 #include <QBuffer>
 #include <QFile>
 #include <QImageReader>
@@ -32,6 +31,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cstdint>
 #include <numeric>
 #include <utility>
 
@@ -80,10 +80,8 @@ struct Frames::Storage {
     virtual bool empty() const = 0;
     virtual bool animated() const = 0;
     virtual void start(GIFTimer *timer) = 0;
-    virtual std::optional<QPixmap> current() const = 0;
+    virtual std::optional<QPixmap> current() = 0;
     virtual std::optional<QSize> frameSize() const = 0;
-
-    pajlada::Signals::ScopedConnection gifTimerConnection;
 };
 
 /// Stores all decoded frames in memory.
@@ -129,30 +127,37 @@ struct Frames::CachedFrames : Storage {
             return;
         }
 
-        this->gifTimerConnection = timer->signal.connect([this] {
-            this->advance();
-        });
-
-        const auto totalLength =
-            std::accumulate(this->items.begin(), this->items.end(), 0UL,
-                            [](auto init, auto &&frame) {
-                                return init + frame.duration;
-                            });
-        if (totalLength == 0)
+        // satorino: synchronize on use, based on Moltorino d25c36915.
+        this->totalDuration = std::accumulate(
+            this->items.begin(), this->items.end(), uint64_t{0},
+            [](uint64_t total, const Frame &frame) {
+                return total + static_cast<uint64_t>(frame.duration);
+            });
+        this->lastTimerPosition = timer->position();
+        if (this->totalDuration != 0)
         {
-            this->durationOffset = 0;
-        }
-        else
-        {
-            this->durationOffset =
-                std::min<int>(int(timer->position() % totalLength), 60000);
+            this->durationOffset = std::min<uint64_t>(
+                this->lastTimerPosition % this->totalDuration, 60000);
         }
         this->processOffset();
     }
 
-    void advance()
+    void synchronizeAnimation(long unsigned position)
     {
-        this->durationOffset += GIF_FRAME_LENGTH;
+        const auto elapsed =
+            position - std::exchange(this->lastTimerPosition, position);
+        if (elapsed == 0 || this->totalDuration == 0)
+        {
+            return;
+        }
+
+        this->durationOffset += elapsed;
+        if (this->durationOffset > this->totalDuration)
+        {
+            // Skip whole loops, keeping an exact boundary on the prior frame.
+            this->durationOffset =
+                (this->durationOffset - 1) % this->totalDuration + 1;
+        }
         this->processOffset();
     }
 
@@ -166,9 +171,11 @@ struct Frames::CachedFrames : Storage {
         while (true)
         {
             this->index %= this->items.size();
-            if (this->durationOffset > this->items.at(this->index).duration)
+            const auto duration =
+                static_cast<uint64_t>(this->items.at(this->index).duration);
+            if (this->durationOffset > duration)
             {
-                this->durationOffset -= this->items.at(this->index).duration;
+                this->durationOffset -= duration;
                 this->index = (this->index + 1) % this->items.size();
             }
             else
@@ -178,13 +185,21 @@ struct Frames::CachedFrames : Storage {
         }
     }
 
-    std::optional<QPixmap> current() const override
+    std::optional<QPixmap> current() override
     {
         if (this->empty())
         {
             return std::nullopt;
         }
-        return this->items[this->index].image;
+        if (this->animated())
+        {
+            if (auto *app = tryGetApp())
+            {
+                this->synchronizeAnimation(
+                    app->getEmotes()->getGIFTimer()->position());
+            }
+        }
+        return this->items.at(this->index).image;
     }
 
     std::optional<QSize> frameSize() const override
@@ -198,7 +213,9 @@ struct Frames::CachedFrames : Storage {
 
     QList<Frame> items;
     QList<Frame>::size_type index{0};
-    int durationOffset{0};
+    uint64_t durationOffset{0};
+    uint64_t totalDuration{0};
+    long unsigned lastTimerPosition{0};
 };
 
 Frames::Frames()
@@ -561,7 +578,7 @@ bool Image::loaded() const
 {
     assertInGuiThread();
 
-    return this->frames_->current().has_value();
+    return !this->frames_->empty();
 }
 
 std::optional<QPixmap> Image::pixmapOrLoad() const

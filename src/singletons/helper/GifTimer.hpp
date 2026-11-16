@@ -4,8 +4,10 @@
 
 #pragma once
 
-#include <pajlada/signals/signal.hpp>
 #include <QTimer>
+
+#include <cassert>
+#include <cstddef>
 
 namespace chatterino {
 
@@ -16,7 +18,6 @@ class GIFTimer
 public:
     void initialize();
 
-    pajlada::Signals::NoArgSignal signal;
     long unsigned position()
     {
         return this->position_;
@@ -36,7 +37,7 @@ public:
 private:
     QTimer timer;
     long unsigned position_{};
-    size_t openOverlayWindows_ = 0;
+    std::size_t openOverlayWindows_ = 0;
 };
 
 }  // namespace chatterino
