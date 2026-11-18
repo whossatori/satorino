@@ -22,8 +22,12 @@ bool gameMatches(const QString &list, const QString &name,
 LiveIndicator liveIndicator(bool live, bool game);
 QString normalizedLogin(const QString &login);
 bool discordWebhookValid(const QString &url);
+bool discordUserIdValid(const QString &userId);
+QJsonObject discordWebhookMessage(QString content, const QString &userId,
+                                  const QString &suffix = {});
 QJsonObject liveWebhookMessage(const QString &login, const QString &displayName,
-                               const QString &title, const QString &game);
+                               const QString &title, const QString &game,
+                               const QString &userId = {});
 std::optional<int> webhookRetryDelay(int status, int retries,
                                      const QByteArray &retryAfter,
                                      const QDateTime &now);

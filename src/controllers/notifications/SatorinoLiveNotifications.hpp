@@ -32,6 +32,7 @@ public:
 private:
     struct Pending {
         QString endpoint;
+        QString userId;
         QJsonObject body;
         int retries = 0;
         bool test = false;

@@ -1400,6 +1400,8 @@ public:
                                               false};
     QStringSetting satorinoLiveDiscordUrl = {"/satorino/live/discordWebhook",
                                              ""};
+    QStringSetting satorinoLiveDiscordUserId = {"/satorino/live/discordUserId",
+                                                ""};
     // satorino: versioned JSON pins/cache by Twitch room ID; auto key reserved only.
     QStringSetting satorinoRedeemsState = {"/satorino/redeems/state", "{}"};
     // satorino: independent of 7TV/account settings; applied live by the label.

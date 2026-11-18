@@ -14,7 +14,6 @@
 #include "singletons/StreamerMode.hpp"
 #include "singletons/Toasts.hpp"
 
-#include <QJsonArray>
 #include <QJsonDocument>
 #include <QUrl>
 
@@ -70,9 +69,12 @@ void LiveNotifications::observe(const QString &login,
     }
     if (getSettings()->satorinoLiveDiscordEnabled.getValue())
     {
+        const auto userId =
+            getSettings()->satorinoLiveDiscordUserId.getValue().trimmed();
         Pending item{getSettings()->satorinoLiveDiscordUrl.getValue().trimmed(),
+                     userId,
                      liveWebhookMessage(name, stream->userName, stream->title,
-                                        stream->gameName),
+                                        stream->gameName, userId),
                      0,
                      false,
                      {},
@@ -84,14 +86,18 @@ void LiveNotifications::observe(const QString &login,
 void LiveNotifications::test(std::function<void(QString)> result)
 {
     // Explicit user action; may test without enabling automatic go-live delivery.
-    this->enqueue({getSettings()->satorinoLiveDiscordUrl.getValue().trimmed(),
-                   {{"content", "satorino webhook test. Notifications work "
-                                "only while satorino is running."},
-                    {"allowed_mentions", QJsonObject{{"parse", QJsonArray{}}}}},
-                   0,
-                   true,
-                   std::move(result),
-                   {}});
+    const auto userId =
+        getSettings()->satorinoLiveDiscordUserId.getValue().trimmed();
+    this->enqueue(
+        {getSettings()->satorinoLiveDiscordUrl.getValue().trimmed(),
+         userId,
+         discordWebhookMessage("satorino webhook test. Notifications work "
+                               "only while satorino is running.",
+                               userId),
+         0,
+         true,
+         std::move(result),
+         {}});
 }
 
 void LiveNotifications::enqueue(Pending item)
@@ -129,7 +135,9 @@ void LiveNotifications::pump()
     if ((!item.test && (!getSettings()->satorinoLiveDiscordEnabled.getValue() ||
                         !this->watched_.contains(item.login))) ||
         item.endpoint !=
-            getSettings()->satorinoLiveDiscordUrl.getValue().trimmed())
+            getSettings()->satorinoLiveDiscordUrl.getValue().trimmed() ||
+        item.userId !=
+            getSettings()->satorinoLiveDiscordUserId.getValue().trimmed())
     {
         this->finish("Discord notification cancelled after settings changed.");
         return;

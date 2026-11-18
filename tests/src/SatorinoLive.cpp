@@ -180,12 +180,46 @@ TEST(SatorinoLive, FormattingPreservesLinkAndDisablesAllMentions)
     EXPECT_TRUE(liveWebhookMessage("bad/login", "", "", "").isEmpty());
 }
 
+TEST(SatorinoLive, OnlyConfiguredDiscordUserCanBeMentioned)
+{
+    const QString id = "123456789012345678";
+    const auto live = liveWebhookMessage(
+        "test_streamer", "Display", "@everyone <@123> <@&456>", "Game", id);
+    const auto test = discordWebhookMessage("Webhook test", id);
+    for (const auto &result : {live, test})
+    {
+        EXPECT_TRUE(
+            result.value("content").toString().startsWith("<@" + id + "> "));
+        const auto mentions = result.value("allowed_mentions").toObject();
+        EXPECT_EQ(mentions.value("parse").toArray(), QJsonArray{});
+        EXPECT_EQ(mentions.value("users").toArray(), QJsonArray{id});
+        EXPECT_FALSE(mentions.contains("roles"));
+    }
+}
+
+TEST(SatorinoLive, InvalidDiscordUserIdsDoNotCreateMentions)
+{
+    EXPECT_TRUE(discordUserIdValid("18446744073709551615"));
+    for (const QString id : {"", "0", "0123", "<@123>", "-123", "123 456",
+                             "18446744073709551616", "@everyone"})
+    {
+        EXPECT_FALSE(discordUserIdValid(id));
+        const auto result = discordWebhookMessage("Webhook test", id);
+        EXPECT_EQ(result.value("content").toString(), "Webhook test");
+        const auto mentions = result.value("allowed_mentions").toObject();
+        EXPECT_EQ(mentions.value("parse").toArray(), QJsonArray{});
+        EXPECT_FALSE(mentions.contains("users"));
+    }
+}
+
 TEST(SatorinoLive, LongTitlesFitDiscordLimitWithoutCuttingSurrogates)
 {
-    const auto result = liveWebhookMessage("test_streamer", QString(3000, 'x'),
-                                           QString(4000, 'y'), "game");
+    const auto result =
+        liveWebhookMessage("test_streamer", QString(3000, 'x'),
+                           QString(4000, 'y'), "game", "123456789012345678");
     const auto content = result.value("content").toString();
     EXPECT_LE(content.size(), 2000);
+    EXPECT_TRUE(content.startsWith("<@123456789012345678> "));
     EXPECT_TRUE(content.endsWith("https://twitch.tv/test_streamer"));
     QString unicode;
     const auto emoji = QString::fromUtf8("\xF0\x9F\x98\x80");

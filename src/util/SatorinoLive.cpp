@@ -82,30 +82,58 @@ bool discordWebhookValid(const QString &value)
            !path.contains('\\');
 }
 
+bool discordUserIdValid(const QString &userId)
+{
+    if (userId.isEmpty() || userId.size() > 20 || userId.startsWith('0') ||
+        !std::all_of(userId.cbegin(), userId.cend(), [](QChar digit) {
+            return digit >= '0' && digit <= '9';
+        }))
+    {
+        return false;
+    }
+
+    bool valid = false;
+    userId.toULongLong(&valid);
+    return valid;
+}
+
+QJsonObject discordWebhookMessage(QString content, const QString &userId,
+                                  const QString &suffix)
+{
+    QJsonObject mentions{{"parse", QJsonArray{}}};
+    if (discordUserIdValid(userId))
+    {
+        content.prepend("<@" + userId + "> ");
+        mentions.insert("users", QJsonArray{userId});
+    }
+
+    const auto limit = 2000 - suffix.size();
+    if (content.size() > limit)
+    {
+        content = content.left(limit - 1);
+        if (!content.isEmpty() &&
+            content.at(content.size() - 1).isHighSurrogate())
+        {
+            content.chop(1);
+        }
+        content += QChar(0x2026);
+    }
+    return {{"content", content + suffix}, {"allowed_mentions", mentions}};
+}
+
 QJsonObject liveWebhookMessage(const QString &login, const QString &displayName,
-                               const QString &title, const QString &game)
+                               const QString &title, const QString &game,
+                               const QString &userId)
 {
     const auto name = normalizedLogin(login);
     if (name.isEmpty())
     {
         return {};
     }
-    const QString link = " https://twitch.tv/" + name;
-    QString body = (displayName.isEmpty() ? name : displayName.simplified()) +
-                   " is live: " + title.simplified() + " — " +
-                   game.simplified();
-    const auto limit = 2000 - link.size();
-    if (body.size() > limit)
-    {
-        body = body.left(limit - 1);
-        if (!body.isEmpty() && body.at(body.size() - 1).isHighSurrogate())
-        {
-            body.chop(1);
-        }
-        body += QChar(0x2026);
-    }
-    return {{"content", body + link},
-            {"allowed_mentions", QJsonObject{{"parse", QJsonArray{}}}}};
+    const auto body =
+        (displayName.isEmpty() ? name : displayName.simplified()) +
+        " is live: " + title.simplified() + " — " + game.simplified();
+    return discordWebhookMessage(body, userId, " https://twitch.tv/" + name);
 }
 
 std::optional<int> webhookRetryDelay(int status, int retries,

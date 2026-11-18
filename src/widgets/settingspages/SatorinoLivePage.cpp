@@ -16,6 +16,7 @@
 #include "widgets/settingspages/SatorinoGamePicker.hpp"
 
 #include <QCheckBox>
+#include <QGridLayout>
 #include <QHeaderView>
 #include <QLabel>  // satorino: direct widget dependencies, independent of PCH
 #include <QLineEdit>
@@ -85,7 +86,6 @@ void SatorinoPage::addLiveStatus(GeneralPageView &layout)
     auto *group = new QWidget;
     auto *box = new QVBoxLayout(group);
     box->setContentsMargins(0, 0, 0, 0);
-    box->addWidget(new QLabel("Discord webhook URL"));
     auto *endpoint = new QLineEdit;
     endpoint->setEchoMode(QLineEdit::Password);
     endpoint->setToolTip(
@@ -98,7 +98,6 @@ void SatorinoPage::addLiveStatus(GeneralPageView &layout)
                 endpoint->setText(value);
         },
         this->managedConnections_);
-    box->addWidget(endpoint);
     auto *show = new QCheckBox("Show URL");
     QObject::connect(show, &QCheckBox::toggled, endpoint,
                      [endpoint](bool visible) {
@@ -106,9 +105,35 @@ void SatorinoPage::addLiveStatus(GeneralPageView &layout)
                                                        : QLineEdit::Password);
                      });
     box->addWidget(show);
+
+    auto *userId = new QLineEdit;
+    userId->setPlaceholderText("Optional");
+    userId->setInputMethodHints(Qt::ImhDigitsOnly);
+    userId->setToolTip("Paste your numeric Discord user ID. Live alerts and "
+                       "the test message will ping this user.");
+    getSettings()->satorinoLiveDiscordUserId.connect(
+        [userId](const QString &value) {
+            if (userId->text() != value)
+                userId->setText(value);
+        },
+        this->managedConnections_);
+
+    auto *fields = new QGridLayout;
+    auto *endpointLabel = new QLabel("Discord webhook URL");
+    auto *userIdLabel = new QLabel("Discord User ID");
+    endpointLabel->setBuddy(endpoint);
+    userIdLabel->setBuddy(userId);
+    fields->addWidget(endpointLabel, 0, 0);
+    fields->addWidget(userIdLabel, 0, 1);
+    fields->addWidget(endpoint, 1, 0);
+    fields->addWidget(userId, 1, 1);
+    fields->setColumnStretch(0, 1);
+    fields->setColumnStretch(1, 1);
+    box->addLayout(fields);
+
     auto *status = new QLabel;
     status->setWordWrap(true);
-    auto save = [endpoint, status] {
+    auto save = [endpoint, userId, status] {
         const auto value = endpoint->text().trimmed();
         if (!value.isEmpty() && !satorino::discordWebhookValid(value))
         {
@@ -116,15 +141,26 @@ void SatorinoPage::addLiveStatus(GeneralPageView &layout)
                             "webhook endpoint.");
             return false;
         }
+        const auto id = userId->text().trimmed();
+        if (!id.isEmpty() && !satorino::discordUserIdValid(id))
+        {
+            status->setText(
+                "Enter a numeric Discord user ID or leave it blank.");
+            return false;
+        }
         getSettings()->satorinoLiveDiscordUrl.setValue(value);
+        getSettings()->satorinoLiveDiscordUserId.setValue(id);
         status->clear();
         return true;
     };
     QObject::connect(endpoint, &QLineEdit::editingFinished, this, [save] {
         save();
     });
+    QObject::connect(userId, &QLineEdit::editingFinished, this, [save] {
+        save();
+    });
     auto *test = new QPushButton("Send test message");
-    box->addWidget(test);
+    box->addWidget(test, 0, Qt::AlignHCenter);
     box->addWidget(status);
     QObject::connect(test, &QPushButton::clicked, this, [save, test, status] {
         if (!save())
@@ -140,8 +176,9 @@ void SatorinoPage::addLiveStatus(GeneralPageView &layout)
                     test->setEnabled(true);
             });
     });
-    layout.addWidget(group, {"live status", "Discord", "webhook", "URL",
-                             "test message", "notification"});
+    layout.addWidget(
+        group, {"live status", "Discord", "webhook", "URL", "Discord user ID",
+                "ping", "test message", "notification"});
 }
 
 }  // namespace chatterino

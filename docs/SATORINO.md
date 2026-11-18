@@ -1372,3 +1372,12 @@ is live or resumes from a pause.
 A focused WSL check used the production getter and message queue to
 verify repeated reads, paused updates and clearing. The full build,
 ChannelView regression and the reported Windows lag are **NOT RUN**.
+
+## Stage G batch 46
+
+Live notifications show the masked Discord webhook URL beside an
+optional Discord user ID. Live alerts and the test message allow only
+that user mention. Leaving the ID blank disables all mentions.
+
+Seventeen focused live notification tests and a Qt settings form check
+passed in WSL. Live webhook delivery and full builds are **NOT RUN**.
