@@ -1362,3 +1362,13 @@ settings stay in their original folders for manual recovery.
 A focused WSL check compiled the profile resolver and verified existing
 profiles, fresh profiles, XDG overrides and explicit portable mode.
 Full builds and a macOS launch are **NOT RUN**.
+
+## Stage G batch 45
+
+Chat reuses the current message snapshot during mouse hit testing and
+animation repaints. History changes trigger a fresh snapshot when chat
+is live or resumes from a pause.
+
+A focused WSL check used the production getter and message queue to
+verify repeated reads, paused updates and clearing. The full build,
+ChannelView regression and the reported Windows lag are **NOT RUN**.

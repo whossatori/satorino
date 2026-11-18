@@ -4,6 +4,9 @@
 
 #include "widgets/helper/ChannelView.hpp"
 
+#include "common/Channel.hpp"
+#include "messages/layouts/MessageLayout.hpp"
+#include "messages/MessageBuilder.hpp"
 #include "mocks/BaseApplication.hpp"
 #include "singletons/WindowManager.hpp"
 #include "Test.hpp"
@@ -13,6 +16,7 @@
 #include <QLabel>
 
 #include <algorithm>
+#include <memory>
 
 using namespace chatterino;
 
@@ -72,4 +76,37 @@ TEST(ChannelViewTest, GoToBottomGeometryUpdatesWhenScaleChanges)
     EXPECT_EQ(button->height(), int(view.scale() * 26));
     EXPECT_EQ(button->geometry().bottom(), view.rect().bottom());
     EXPECT_EQ(scrollbar->width(), int(view.scale() * 16));
+}
+
+TEST(ChannelViewTest, ReusesSnapshotAndRefreshesAfterPause)
+{
+    MockApplication mockApplication;
+    ChannelView view(nullptr);
+    view.setChannel(std::make_shared<Channel>("test", Channel::Type::None));
+    view.setPausable(true);
+
+    const auto channel = view.channel();
+    const auto first = makeSystemMessage("first");
+    channel->addMessage(first, MessageContext::Repost);
+    const auto &snapshot = view.getMessagesSnapshot();
+    ASSERT_EQ(snapshot.size(), 1);
+    EXPECT_EQ(snapshot.front()->getMessagePtr(), first);
+    const auto *storage = snapshot.data();
+    EXPECT_EQ(view.getMessagesSnapshot().data(), storage);
+
+    view.pause(PauseReason::Mouse);
+    const auto second = makeSystemMessage("second");
+    channel->addMessage(second, MessageContext::Repost);
+    const auto replacement = makeSystemMessage("replacement");
+    channel->replaceMessage(size_t{0}, replacement);
+    ASSERT_EQ(view.getMessagesSnapshot().size(), 1);
+    EXPECT_EQ(snapshot.front()->getMessagePtr(), first);
+
+    view.unpause(PauseReason::Mouse);
+    ASSERT_EQ(view.getMessagesSnapshot().size(), 2);
+    EXPECT_EQ(snapshot.front()->getMessagePtr(), replacement);
+    EXPECT_EQ(snapshot.back()->getMessagePtr(), second);
+
+    view.clearMessages();
+    EXPECT_TRUE(view.getMessagesSnapshot().empty());
 }

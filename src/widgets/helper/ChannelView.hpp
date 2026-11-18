@@ -234,7 +234,7 @@ public:
     /// #underlyingChannel().
     ChannelPtr effectiveSourceChannel() const;
 
-    std::vector<MessageLayoutPtr> &getMessagesSnapshot();
+    const std::vector<MessageLayoutPtr> &getMessagesSnapshot();
 
     void queueLayout(bool disableAnimation = false);
     void invalidateBuffers();
@@ -422,6 +422,7 @@ private:
 
     ThreadGuard snapshotGuard_;
     std::vector<MessageLayoutPtr> snapshot_;
+    bool snapshotDirty_ = true;
 
     /// @brief The backing (internal) channel
     ///

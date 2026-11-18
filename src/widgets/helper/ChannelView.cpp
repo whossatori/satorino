@@ -1657,6 +1657,7 @@ void ChannelView::clearMessages()
 {
     // Clear all stored messages in this chat widget
     this->messages_.clear();
+    this->snapshotDirty_ = true;
     this->nukePreviewMessageIds_.clear();
     this->scrollBar_->clearHighlights();
     this->scrollBar_->resetBounds();
@@ -1678,7 +1679,7 @@ QString ChannelView::getSelectedText()
 {
     QString result = "";
 
-    std::vector<MessageLayoutPtr> &messagesSnapshot =
+    const std::vector<MessageLayoutPtr> &messagesSnapshot =
         this->getMessagesSnapshot();
 
     Selection selection = this->selection_;
@@ -1773,12 +1774,14 @@ const std::optional<MessageElementFlags> &ChannelView::getOverrideFlags() const
     return this->overrideFlags_;
 }
 
-std::vector<MessageLayoutPtr> &ChannelView::getMessagesSnapshot()
+const std::vector<MessageLayoutPtr> &ChannelView::getMessagesSnapshot()
 {
     this->snapshotGuard_.guard();
-    if (!this->paused() /*|| this->scrollBar_->isVisible()*/)
+    // satorino: mouse hit-testing and paint share the last message snapshot.
+    if (this->snapshotDirty_ && !this->paused())
     {
         this->snapshot_ = this->messages_.getSnapshot();
+        this->snapshotDirty_ = false;
     }
 
     return this->snapshot_;
@@ -2052,6 +2055,7 @@ void ChannelView::setChannel(const ChannelPtr &underlyingChannel)
         }
 
         this->messages_.pushBack(messageLayout);
+        this->snapshotDirty_ = true;
 
         this->channel_->addMessage(msg, MessageContext::Repost);
 
@@ -2256,7 +2260,9 @@ void ChannelView::messageAppended(MessagePtr &message,
         this->scrollBar_->offsetMaximum(1);
     }
 
-    if (this->messages_.pushBack(messageRef))
+    const bool removedOldest = this->messages_.pushBack(messageRef);
+    this->snapshotDirty_ = true;
+    if (removedOldest)
     {
         if (this->paused())
         {
@@ -2329,6 +2335,7 @@ void ChannelView::messageAddedAtStart(std::vector<MessagePtr> &messages)
     auto addedMessages = this->messages_.pushFront(messageRefs);
     if (!addedMessages.empty())
     {
+        this->snapshotDirty_ = true;
         if (this->scrollBar_->isAtBottom())
         {
             this->scrollBar_->scrollToBottom();
@@ -2380,6 +2387,7 @@ void ChannelView::messageReplaced(size_t hint, const MessagePtr &prev,
                                             this->nukePreviewMessageIds_));
 
     this->messages_.replaceItem(index, newItem);
+    this->snapshotDirty_ = true;
     this->queueLayout();
 }
 
@@ -2388,6 +2396,7 @@ void ChannelView::messagesUpdated()
     auto snapshot = this->channel_->getMessageSnapshot();
 
     this->messages_.clear();
+    this->snapshotDirty_ = true;
     this->scrollBar_->clearHighlights();
     this->scrollBar_->resetBounds();
     this->scrollBar_->setMaximum(qreal(snapshot.size()));
@@ -2412,6 +2421,7 @@ void ChannelView::messagesUpdated()
         }
 
         this->messages_.pushBack(messageLayout);
+        this->snapshotDirty_ = true;
         if (this->showScrollbarHighlights())
         {
             this->scrollBar_->addHighlight(scrollbarHighlightForMessage(
