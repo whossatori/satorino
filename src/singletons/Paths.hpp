@@ -16,9 +16,7 @@ class Paths
 public:
     Paths(const Args &args, const Modes &modes);
 
-#ifdef Q_OS_WIN
-    static QString windowsProfileDirectory();
-#endif
+    static QString defaultProfileDirectory();
 
     QString rootAppDataDirectory;
 

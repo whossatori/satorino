@@ -76,21 +76,31 @@ void Paths::initAppFilePathHash()
             .replace("/", "x");
 }
 
-#ifdef Q_OS_WIN
-QString Paths::windowsProfileDirectory()
+QString Paths::defaultProfileDirectory()
 {
+#ifdef Q_OS_WIN
     const auto appData = qEnvironmentVariable("APPDATA");
     return QDir::isAbsolutePath(appData) ? combinePath(appData, "Chatterino2")
                                          : QString{};
-}
+#else
+    // satorino: keep the Chatterino profile path independent of the app name.
+    const auto base =
+        QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
+#    if defined(Q_OS_LINUX) || defined(Q_OS_MACOS)
+    constexpr auto profileName = "chatterino";
+#    else
+    constexpr auto profileName = "satorino";
+#    endif
+    return base.isEmpty() ? QString{} : combinePath(base, profileName);
 #endif
+}
 
 void Paths::initRootDirectory([[maybe_unused]] const Args &args,
                               [[maybe_unused]] const Modes &modes)
 {
 #ifdef Q_OS_WIN
     // satorino: both Windows distributions open the existing shared profile.
-    this->rootAppDataDirectory = windowsProfileDirectory();
+    this->rootAppDataDirectory = defaultProfileDirectory();
     if (this->rootAppDataDirectory.isEmpty())
     {
         throw std::runtime_error("Cannot locate the Chatterino2 profile "
@@ -109,14 +119,12 @@ void Paths::initRootDirectory([[maybe_unused]] const Args &args,
             return QCoreApplication::applicationDirPath();
         }
 
-        QString path =
-            QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-        if (path.isEmpty())
+        const auto profile = defaultProfileDirectory();
+        if (profile.isEmpty())
         {
-            throw std::runtime_error("Could not create directory \""s +
-                                     path.toStdString() + "\"");
+            throw std::runtime_error("Cannot locate the Chatterino profile.");
         }
-        return path;
+        return profile;
     }();
 #endif
 }

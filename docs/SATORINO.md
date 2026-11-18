@@ -1349,3 +1349,16 @@ follows [Moltorino's animated username renderer](https://github.com/EEVA-inc/Mol
 A focused Qt 6.4.2 check in WSL matched clipped and full repaints
 across 100% to 200% scaling. The full build and the Windows flicker
 test are **NOT RUN**.
+
+## Stage G batch 44
+
+The Linux AppImage and macOS DMG now use the standard Chatterino profile.
+The Linux data path is `~/.local/share/chatterino` by default and
+`$XDG_DATA_HOME/chatterino` when configured. The macOS path is
+`~/Library/Application Support/chatterino`. Startup reads the legacy
+scaling preference from the same default profile. Older Satorino-only
+settings stay in their original folders for manual recovery.
+
+A focused WSL check compiled the profile resolver and verified existing
+profiles, fresh profiles, XDG overrides and explicit portable mode.
+Full builds and a macOS launch are **NOT RUN**.

@@ -89,14 +89,7 @@ QStringList legacyScalingSettingsJsonCandidates([[maybe_unused]] int argc,
                                                 [[maybe_unused]] char **argv)
 {
     QStringList candidates;
-#if defined(Q_OS_WIN)
-    const auto profile = Paths::windowsProfileDirectory();
-    if (!profile.isEmpty())
-    {
-        candidates << combinePath(profile,
-                                  QStringLiteral("Settings/settings.json"));
-    }
-#else
+#ifndef Q_OS_WIN
     const QFileInfo fi(QString::fromLocal8Bit(argc > 0 ? argv[0] : ""));
     const QString appDir = fi.absoluteDir().absolutePath();
     QFile modesFile(combinePath(appDir, QStringLiteral("modes")));
@@ -116,30 +109,13 @@ QStringList legacyScalingSettingsJsonCandidates([[maybe_unused]] int argc,
         return candidates;
     }
 
-#    if defined(Q_OS_MACOS)
-    const QString home = QString::fromLocal8Bit(qgetenv("HOME"));
-    if (!home.isEmpty())
-    {
-        candidates << combinePath(
-            combinePath(home,
-                        QStringLiteral("Library/Application Support/satorino")),
-            QStringLiteral("Settings/settings.json"));
-    }
-#    else
-    const QString home = QString::fromLocal8Bit(qgetenv("HOME"));
-    if (!home.isEmpty())
-    {
-        QString xdgData = QString::fromLocal8Bit(qgetenv("XDG_DATA_HOME"));
-        if (xdgData.isEmpty())
-        {
-            xdgData = combinePath(home, QStringLiteral(".local/share"));
-        }
-        candidates << combinePath(
-            combinePath(xdgData, QStringLiteral("satorino")),
-            QStringLiteral("Settings/settings.json"));
-    }
-#    endif
 #endif
+    const auto profile = Paths::defaultProfileDirectory();
+    if (!profile.isEmpty())
+    {
+        candidates << combinePath(profile,
+                                  QStringLiteral("Settings/settings.json"));
+    }
     return candidates;
 }
 
