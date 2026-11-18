@@ -335,6 +335,14 @@ void followUser(const QString &targetId, const QString &oauthToken,
 void unfollowUser(const QString &targetId, const QString &oauthToken,
                   std::function<void()> successCallback,
                   std::function<void(const QString &)> failureCallback);
+// satorino: Twitch web chat uses a one-time notification ID for resub shares.
+void getPendingResubId(const QString &channelLogin, const QString &oauthToken,
+                       std::function<void(const QString &)> successCallback,
+                       std::function<void(const QString &)> failureCallback);
+void shareResub(const QString &channelLogin, const QString &notificationId,
+                const QString &message, const QString &oauthToken,
+                std::function<void()> successCallback,
+                std::function<void(const QString &)> failureCallback);
 void getLatestModLogMessageBySender(
     const QString &channelId, const QString &senderId,
     const QString &oauthToken,

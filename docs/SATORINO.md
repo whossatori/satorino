@@ -1381,3 +1381,15 @@ that user mention. Leaving the ID blank disables all mentions.
 
 Seventeen focused live notification tests and a Qt settings form check
 passed in WSL. Live webhook delivery and full builds are **NOT RUN**.
+
+## Stage G batch 47
+
+`/resub <message>` shares a pending Twitch resub in the current channel
+through the Twitch web GraphQL notification flow. It uses the saved
+Moltorino authentication for the selected Twitch account and accepts
+1 to 255 characters. The share omits the subscription streak.
+
+A focused WSL harness exercised the command with simulated Twitch
+responses. Twitch accepted the lookup and the mutation schema check
+with execution skipped. Authenticated delivery and full builds are
+**NOT RUN**.

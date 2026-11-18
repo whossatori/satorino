@@ -365,6 +365,7 @@ CommandController::CommandController(const Paths &paths)
 
     /// Supported commands
 
+    this->registerCommand("/resub", &commands::resub);
     this->registerCommand("/namehistory", &commands::nameHistory);
     this->registerCommand("/logs", &commands::logs);
     this->registerCommand("/modlogs", &commands::modLogs);

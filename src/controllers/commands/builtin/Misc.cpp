@@ -1147,6 +1147,66 @@ QString unfollow(const CommandContext &ctx)
     return runFollowCommand(ctx, true);
 }
 
+// satorino: share the pending resub for the selected Twitch account.
+QString resub(const CommandContext &ctx)
+{
+    if (!ctx.channel)
+    {
+        return {};
+    }
+    if (!ctx.twitchChannel)
+    {
+        ctx.channel->addSystemMessage("Use /resub in a Twitch channel.");
+        return {};
+    }
+
+    const auto text = ctx.rawText.trimmed();
+    const auto message = text.mid(ctx.words.front().size()).trimmed();
+    if (message.isEmpty() || message.toUcs4().size() > 255)
+    {
+        ctx.channel->addSystemMessage(
+            "Usage: /resub <message> (1 to 255 characters).");
+        return {};
+    }
+
+    QString authError;
+    const auto auth = MoltorinoAuth::resolveSelectedUserToken(&authError);
+    if (!auth.hasToken())
+    {
+        ctx.channel->addSystemMessage(authError);
+        return {};
+    }
+
+    const auto failure = [channel = ctx.channel](const QString &error) {
+        channel->addSystemMessage("Could not share your resub: " + error);
+    };
+    const auto login = ctx.twitchChannel->getName();
+    TwitchGql::getPendingResubId(
+        login, auth.token,
+        [channel = ctx.channel, auth, login, message,
+         failure](const QString &id) {
+            if (!selectedTwitchUserMatches(auth.userId, auth.login))
+            {
+                failure("the selected Twitch account changed.");
+                return;
+            }
+            if (id.isEmpty())
+            {
+                channel->addSystemMessage(
+                    "You have no resub waiting to share in this channel.");
+                return;
+            }
+            TwitchGql::shareResub(
+                login, id, message, auth.token,
+                [channel] {
+                    channel->addSystemMessage("Resub shared.");
+                },
+                failure);
+        },
+        failure);
+    return {};
+}
+
 QString nameHistory(const CommandContext &ctx)
 {
     if (ctx.channel == nullptr)

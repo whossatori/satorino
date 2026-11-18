@@ -6515,6 +6515,103 @@ void TwitchGql::getRewardQueue(
         .execute();
 }
 
+void TwitchGql::getPendingResubId(
+    const QString &channelLogin, const QString &oauthToken,
+    std::function<void(const QString &)> successCallback,
+    std::function<void(const QString &)> failureCallback)
+{
+    static constexpr auto QUERY = R"(
+query SatorinoPendingResub($login: String!) {
+  user(login: $login) {
+    self { resubNotification { id } }
+  }
+}
+)";
+
+    makeInlineGqlRequest(QUERY, {{"login", channelLogin}}, oauthToken)
+        .sensitive()
+        .onSuccess(
+            [successCallback, failureCallback](const NetworkResult &result) {
+                const auto root = result.parseJsonValue();
+                const auto error = extractFirstGqlErrorMessage(root);
+                if (!error.isEmpty())
+                {
+                    failureCallback(error);
+                    return;
+                }
+
+                const auto self = payloadDataObject(root)
+                                      .value("user")
+                                      .toObject()
+                                      .value("self")
+                                      .toObject();
+                const auto pending = self.value("resubNotification");
+                if (pending.isNull())
+                {
+                    successCallback({});
+                    return;
+                }
+                const auto id = pending.toObject().value("id").toString();
+                if (id.isEmpty())
+                {
+                    failureCallback("Twitch did not return resub information "
+                                    "for the selected account.");
+                    return;
+                }
+                successCallback(id);
+            })
+        .onError([failureCallback](const NetworkResult &result) {
+            failureCallback(result.formatError());
+        })
+        .execute();
+}
+
+void TwitchGql::shareResub(const QString &channelLogin,
+                           const QString &notificationId,
+                           const QString &message, const QString &oauthToken,
+                           std::function<void()> successCallback,
+                           std::function<void(const QString &)> failureCallback)
+{
+    static constexpr auto MUTATION = R"(
+mutation SatorinoShareResub($input: UseChatNotificationTokenInput!) {
+  useChatNotificationToken(input: $input) { isSuccess }
+}
+)";
+
+    const QJsonObject input{
+        {"channelLogin", channelLogin},
+        {"includeStreak", false},
+        {"tokenID", notificationId},
+        {"message", message},
+    };
+    makeInlineGqlRequest(MUTATION, {{"input", input}}, oauthToken)
+        .sensitive()
+        .onSuccess(
+            [successCallback, failureCallback](const NetworkResult &result) {
+                const auto root = result.parseJsonValue();
+                const auto error = extractFirstGqlErrorMessage(root);
+                if (!error.isEmpty())
+                {
+                    failureCallback(error);
+                    return;
+                }
+                const auto payload = payloadDataObject(root)
+                                         .value("useChatNotificationToken")
+                                         .toObject();
+                if (!payload.value("isSuccess").toBool())
+                {
+                    failureCallback("Twitch declined the resub share. Check "
+                                    "the Share banner on Twitch.");
+                    return;
+                }
+                successCallback();
+            })
+        .onError([failureCallback](const NetworkResult &result) {
+            failureCallback(result.formatError());
+        })
+        .execute();
+}
+
 void TwitchGql::getChannelEditorStatus(
     const QString &channelLogin, const QString &expectedChannelId,
     const QString &oauthToken, std::function<void(bool)> successCallback,

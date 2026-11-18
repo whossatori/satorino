@@ -16,6 +16,7 @@ namespace chatterino::commands {
 
 QString follow(const CommandContext &ctx);
 QString unfollow(const CommandContext &ctx);
+QString resub(const CommandContext &ctx);
 QString nameHistory(const CommandContext &ctx);
 QString logs(const CommandContext &ctx);
 QString modLogs(const CommandContext &ctx);
