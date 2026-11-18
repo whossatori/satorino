@@ -1316,10 +1316,12 @@ QRegion TextLayoutElement::paintAnimated(QPainter &painter, const qreal yOffset)
         paint->getPixmap(this->getText(), font, this->color_,
                          this->getRect().size(), this->scale_, this->dpr_);
 
-    auto rect = this->getRect();
-    rect.moveTop(rect.y() + yOffset);
-    painter.drawPixmap(rect, paintPixmap, QRectF());
-    return QRegion(rect.toAlignedRect());
+    // satorino: draw the animated paint at its device-independent size.
+    const auto topLeft = this->getRect().topLeft() + QPointF(0, yOffset);
+    painter.drawPixmap(topLeft, paintPixmap);
+    const auto size =
+        QSizeF(paintPixmap.size()) / paintPixmap.devicePixelRatio();
+    return QRegion(QRectF(topLeft, size).toAlignedRect());
 }
 
 int TextLayoutElement::getMouseOverIndex(QPointF abs) const

@@ -1339,3 +1339,13 @@ unchanged. Adapted from Moltorino commit
 A focused Qt 6.4.2 harness in WSL exercised the production timer and
 frame code with a stub application. Full builds, the repository's image
 test suite and the reported Windows flicker are **NOT RUN**.
+
+## Stage G batch 43
+
+Animated 7TV username paints draw at the pixmap's device-independent
+size and report those bounds for the next repaint. The direct draw
+follows [Moltorino's animated username renderer](https://github.com/EEVA-inc/Moltorino/blob/ac1038925ae3892bcd496d6ee6816efdf66cd90a/src/messages/layouts/MessageLayoutElement.cpp#L2347-L2364).
+
+A focused Qt 6.4.2 check in WSL matched clipped and full repaints
+across 100% to 200% scaling. The full build and the Windows flicker
+test are **NOT RUN**.
