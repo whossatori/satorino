@@ -358,9 +358,9 @@ void Button::showMenu()
     {
         screen = QApplication::primaryScreen();
     }
-    auto bounds = screen->availableGeometry();
-
-    if (point.y() + menuSizeHint.height() > bounds.bottom())
+    // satorino: use the requested menu position while screens are unavailable.
+    if (screen != nullptr && point.y() + menuSizeHint.height() >
+                                 screen->availableGeometry().bottom())
     {
         point.setY(point.y() - menuSizeHint.height() - this->height());
     }

@@ -1393,3 +1393,13 @@ A focused WSL harness exercised the command with simulated Twitch
 responses. Twitch accepted the lookup and the mutation schema check
 with execution skipped. Authenticated delivery and full builds are
 **NOT RUN**.
+
+## Stage G batch 48
+
+Popup and menu placement tolerates an unavailable Qt screen, and
+window reparenting checks for a native handle before using it.
+
+The original popup geometry helper segfaulted in a screenless Qt
+harness in WSL. The patched helper passed with and without a primary
+display. Full builds and the physical Linux monitor wake test are
+**NOT RUN**.

@@ -566,10 +566,10 @@ bool BaseWindow::event(QEvent *event)
     {
         if (event->type() == QEvent::ParentWindowChange)
         {
-            assert(this->windowHandle() != nullptr);
-            if (this->windowHandle()->parent() != nullptr)
+            // satorino: a native window may be recreated during screen changes.
+            if (auto *handle = this->windowHandle(); handle && handle->parent())
             {
-                this->windowHandle()->setParent(nullptr);
+                handle->setParent(nullptr);
             }
         }
     }

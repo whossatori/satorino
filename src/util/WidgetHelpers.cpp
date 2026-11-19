@@ -18,6 +18,11 @@ QPoint applyBounds(QScreen *screen, QPoint point, QSize frameSize, int height)
     {
         screen = QGuiApplication::primaryScreen();
     }
+    if (screen == nullptr)
+    {
+        // satorino: there may be no screen during display reconfiguration.
+        return point;
+    }
 
     const QRect bounds = screen->availableGeometry();
 
