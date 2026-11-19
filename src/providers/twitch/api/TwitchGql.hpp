@@ -335,10 +335,11 @@ void followUser(const QString &targetId, const QString &oauthToken,
 void unfollowUser(const QString &targetId, const QString &oauthToken,
                   std::function<void()> successCallback,
                   std::function<void(const QString &)> failureCallback);
-// satorino: Twitch web chat uses a one-time notification ID for resub shares.
+// satorino: the lookup returns an empty ID when Twitch has no notification.
 void getPendingResubId(const QString &channelLogin, const QString &oauthToken,
                        std::function<void(const QString &)> successCallback,
                        std::function<void(const QString &)> failureCallback);
+// satorino: pass an empty ID to let Twitch resolve the resub.
 void shareResub(const QString &channelLogin, const QString &notificationId,
                 const QString &message, const QString &oauthToken,
                 std::function<void()> successCallback,

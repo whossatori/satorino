@@ -6578,12 +6578,17 @@ mutation SatorinoShareResub($input: UseChatNotificationTokenInput!) {
 }
 )";
 
-    const QJsonObject input{
+    QJsonObject input{
         {"channelLogin", channelLogin},
         {"includeStreak", false},
-        {"tokenID", notificationId},
         {"message", message},
     };
+    // satorino: let Twitch resolve the resub for the account and channel
+    // when the lookup returned no notification ID.
+    if (!notificationId.isEmpty())
+    {
+        input.insert("tokenID", notificationId);
+    }
     makeInlineGqlRequest(MUTATION, {{"input", input}}, oauthToken)
         .sensitive()
         .onSuccess(
@@ -6600,8 +6605,8 @@ mutation SatorinoShareResub($input: UseChatNotificationTokenInput!) {
                                          .toObject();
                 if (!payload.value("isSuccess").toBool())
                 {
-                    failureCallback("Twitch declined the resub share. Check "
-                                    "the Share banner on Twitch.");
+                    failureCallback("Twitch did not accept a resub for this "
+                                    "account in this channel.");
                     return;
                 }
                 successCallback();

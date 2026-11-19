@@ -1147,7 +1147,7 @@ QString unfollow(const CommandContext &ctx)
     return runFollowCommand(ctx, true);
 }
 
-// satorino: share the pending resub for the selected Twitch account.
+// satorino: share a resub for the selected Twitch account.
 QString resub(const CommandContext &ctx)
 {
     if (!ctx.channel)
@@ -1188,12 +1188,6 @@ QString resub(const CommandContext &ctx)
             if (!selectedTwitchUserMatches(auth.userId, auth.login))
             {
                 failure("the selected Twitch account changed.");
-                return;
-            }
-            if (id.isEmpty())
-            {
-                channel->addSystemMessage(
-                    "You have no resub waiting to share in this channel.");
                 return;
             }
             TwitchGql::shareResub(

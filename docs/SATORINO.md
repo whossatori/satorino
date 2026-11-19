@@ -1403,3 +1403,16 @@ The original popup geometry helper segfaulted in a screenless Qt
 harness in WSL. The patched helper passed with and without a primary
 display. Full builds and the physical Linux monitor wake test are
 **NOT RUN**.
+
+## Stage G batch 49
+
+`/resub <message>` sends the share request even when Twitch's lookup
+returns no notification ID. In that case it omits the optional ID,
+following LimeTimePop's LTPlugin. Twitch decides whether to accept the
+share. A notification ID returned by Twitch is still included.
+
+Twitch accepted the request schema at `/gql` with execution skipped.
+The plugin's `/gql/` route returned HTTP 404. A focused WSL harness
+verified the payloads with and without an ID, refusal, lookup errors
+and account switching. Live authenticated delivery, permanent
+subscription eligibility and full builds are **NOT RUN**.
